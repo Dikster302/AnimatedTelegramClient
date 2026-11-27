@@ -19,6 +19,7 @@ class TdLibClient(context:Context) {
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
  private var activeChat:Long?=null
+ private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
@@ -73,6 +74,7 @@ class TdLibClient(context:Context) {
   }
  }
  private fun updateUserProfile(user:TdApi.User) {
+  if(activeProfileUserId!=user.id) return
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
   _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.username,status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
  }
@@ -94,7 +96,7 @@ class TdLibClient(context:Context) {
   is TdApi.UserStatusLastMonth -> "был(а) в этом месяце"
   else -> "давно не был(а) в сети"
  }
- fun closeProfile() { _profile.value=null }
+ fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
   val last=c.lastMessage
   val preview=last?.let { messagePreview(it.content) } ?: ""
