@@ -20,7 +20,7 @@ class TdLibClient(context:Context) {
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()\n private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
- private var activeChat:Long?=null
+ private var activeChat:Long?=null\n private var myUserId:Long?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
@@ -34,7 +34,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
-  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(_account.value?.phone==o.user.phoneNumber || _account.value?.username==o.user.usernames?.activeUsernames?.firstOrNull()) updateAccount(o.user) }
+  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
@@ -77,7 +77,7 @@ class TdLibClient(context:Context) {
    }
   }
  }
- private fun updateAccount(user:TdApi.User) {\n  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")\n  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)\n }\n private fun updateUserProfile(user:TdApi.User) {
+ private fun updateAccount(user:TdApi.User) {\n  myUserId=user.id\n  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")\n  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)\n }\n private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
   _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.usernames?.activeUsernames?.firstOrNull() ?: "",status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
