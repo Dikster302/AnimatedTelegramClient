@@ -9,6 +9,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false)
+data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="")
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
@@ -19,6 +20,7 @@ class TdLibClient(context:Context) {
  private val _auth=MutableStateFlow<Auth>(Auth.Loading); val auth=_auth.asStateFlow()
  private val _chats=MutableStateFlow<List<TgChat>>(emptyList()); val chats=_chats.asStateFlow()
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
+ private val _stories=MutableStateFlow<List<TgStory>>(emptyList()); val stories=_stories.asStateFlow()
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
  private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
@@ -28,6 +30,7 @@ class TdLibClient(context:Context) {
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
  private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Long>()
+ private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Int>>()
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
@@ -38,13 +41,15 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateChatActiveStories -> updateChatStories(o.chatActiveStories)
+  is TdApi.UpdateStory -> updateStory(o.story)
+  is TdApi.UpdateStoryDeleted -> _stories.value=_stories.value.filterNot { it.chatId==o.storyPosterChatId && it.storyId==o.storyId }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
-  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it } } }
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; _messages.value=(_messages.value+toTgMessage(m,readMarker)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=messageDisplayText(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
@@ -149,7 +154,36 @@ class TdLibClient(context:Context) {
  private fun updateChatStories(stories:TdApi.ChatActiveStories) {
   val hasStory=stories.stories.isNotEmpty()
   _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory) else it }
+  if(!hasStory) _stories.value=_stories.value.filterNot { it.chatId==stories.chatId }
+  else stories.stories.forEach { info -> loadStory(stories.chatId,info.storyId,info.storyId<=stories.maxReadStoryId) }
  }
+ private fun loadStory(chatId:Long,storyId:Int,isViewed:Boolean) {
+  send(TdApi.GetStory(chatId,storyId,false)) { result -> if(result is TdApi.Story) updateStory(result,isViewed) }
+ }
+ private fun updateStory(story:TdApi.Story,isViewed:Boolean?=null) {
+  val owner=_chats.value.firstOrNull { it.id==story.posterChatId }?.title ?: "История"
+  var file:TdApi.File?=null
+  var isVideo=false
+  when(val content=story.content) {
+   is TdApi.StoryContentPhoto -> file=content.photo.sizes.maxByOrNull { it.width*it.height }?.photo
+   is TdApi.StoryContentVideo -> { file=content.video.video; isVideo=true }
+  }
+  val path=file?.local?.path ?: ""
+  val viewed=isViewed ?: (story.id<=(_stories.value.firstOrNull { it.chatId==story.posterChatId }?.let { current ->
+   current.isViewed.let { if(it) story.id else 0 }
+  } ?: 0))
+  val item=TgStory(story.posterChatId,story.id,owner,story.date,story.caption?.text ?: "",isVideo,path,viewed)
+  _stories.value=(_stories.value.filterNot { it.chatId==item.chatId && it.storyId==item.storyId }+item).sortedBy { it.date }
+  if(file!=null && !file.local.isDownloadingCompleted) {
+   storyFileToKey[file.id]=item.chatId to item.storyId
+   send(TdApi.DownloadFile(file.id,32,0,0,false))
+  }
+ }
+ fun openStory(chatId:Long,storyId:Int) {
+  send(TdApi.OpenStory(chatId,storyId))
+  _stories.value=_stories.value.map { if(it.chatId==chatId && it.storyId==storyId) it.copy(isViewed=true) else it }
+ }
+ fun closeStory(chatId:Long,storyId:Int) { send(TdApi.CloseStory(chatId,storyId)) }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
