@@ -906,8 +906,8 @@ private fun ConversationScreen(
             Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 44, online = profile?.isOnline == true)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
-                Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(profile?.status ?: "Telegram", color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 12.sp)
+                Text(profile?.name?.takeIf { it.isNotBlank() } ?: chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(profile?.status?.takeIf { it.isNotBlank() } ?: chat.status.ifBlank { " " }, color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Box {
                 IconButton(onClick = { chatMenuOpen = true }) { Text("⋮", color = LocalAppearance.current.text, fontSize = 24.sp) }
@@ -1010,12 +1010,14 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
                         Text("$storyPosition/$storyCount", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
                         TextButton(onClick = onDismiss) { Text("Закрыть", color = Color.White) }
                     }
-                    LinearProgressIndicator(
-                        progress = { if (storyCount > 0) storyPosition.toFloat() / storyCount else 0f },
-                        modifier = Modifier.fillMaxWidth().height(2.dp),
-                        color = Color(0xFF42C7FF),
-                        trackColor = Color.White.copy(alpha = 0.18f)
-                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        repeat(storyCount.coerceAtLeast(1)) { index ->
+                            Box(
+                                Modifier.weight(1f).height(3.dp).clip(CircleShape)
+                                    .background(if (index < storyPosition) Color.White else Color.White.copy(alpha = 0.22f))
+                            )
+                        }
+                    }
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (story.path.isBlank()) CircularProgressIndicator(color = Color.White)
@@ -1028,6 +1030,10 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
                     } else if (bitmap != null) {
                         Image(bitmap = bitmap, contentDescription = "История", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
                     } else Text("Не удалось загрузить историю", color = Color.White)
+                    Row(Modifier.fillMaxSize()) {
+                        Box(Modifier.weight(1f).fillMaxHeight().clickable { onPrevious() })
+                        Box(Modifier.weight(1f).fillMaxHeight().clickable { onNext() })
+                    }
                 }
                 if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
