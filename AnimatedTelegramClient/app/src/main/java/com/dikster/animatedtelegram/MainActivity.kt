@@ -231,11 +231,12 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(chat.title, color = tgText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (chat.isPremium) Text("✦", color = Color(0xFFB58CFF), fontSize = 13.sp)
                 if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0) tgBlue else tgMuted, fontSize = 11.sp)
             }
             Spacer(Modifier.height(5.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chat.preview.ifBlank { "Нет сообщений" }, color = tgMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(chat.preview.ifBlank { chat.status.ifBlank { "Нет сообщений" } }, color = if (chat.isOnline) Color(0xFF35C759) else tgMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (chat.unreadCount > 0) {
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.defaultMinSize(minWidth = 21.dp, minHeight = 21.dp).clip(CircleShape).background(tgBlue).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
