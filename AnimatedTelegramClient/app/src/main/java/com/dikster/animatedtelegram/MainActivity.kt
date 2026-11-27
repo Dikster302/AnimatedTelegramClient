@@ -5,6 +5,7 @@ import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -131,6 +132,11 @@ private fun TelegramApp(td: TdLibClient) {
     var query by remember { mutableStateOf("") }
     var sortNewest by remember { mutableStateOf(true) }
 
+    BackHandler(enabled = selectedChat != null) {
+        td.closeProfile()
+        selectedChat = null
+    }
+
     Surface(Modifier.fillMaxSize(), color = LocalAppearance.current.background) {
         AnimatedContent(targetState = auth, label = "main-screen") { state ->
             when (state) {
@@ -192,6 +198,7 @@ private fun TelegramApp(td: TdLibClient) {
 private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
+    BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
     var folder by remember { mutableStateOf("Все") }
     val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
