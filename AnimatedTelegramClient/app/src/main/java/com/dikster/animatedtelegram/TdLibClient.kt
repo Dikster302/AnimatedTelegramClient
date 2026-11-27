@@ -182,6 +182,9 @@ class TdLibClient(context:Context) {
   _stories.value=_stories.value.map { if(it.chatId==chatId && it.storyId==storyId) it.copy(isViewed=true) else it }
  }
  fun closeStory(chatId:Long,storyId:Int) { send(TdApi.CloseStory(chatId,storyId)) }
+ fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") {
+  send(TdApi.SetStoryReaction(chatId,storyId,TdApi.ReactionTypeEmoji(emoji),true))
+ }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
