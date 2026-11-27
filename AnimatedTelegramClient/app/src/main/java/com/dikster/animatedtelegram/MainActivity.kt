@@ -560,8 +560,8 @@ private fun SettingsPanel(
                 PrivacyChoiceSection("Кто видит мою фотографию профиля", privacyPhoto, onPrivacyPhoto)
                 Text("Если в Telegram настроены исключения для отдельных людей, они будут обозначены как «Особые настройки». Выбор выше заменит такие исключения общим правилом.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
             } else if (page == "account") {
-                var firstName by remember(account?.name) { mutableStateOf(account?.name?.substringBeforeLast(" ")?.takeIf { account.name.contains(" ") } ?: account?.name.orEmpty()) }
-                var lastName by remember(account?.name) { mutableStateOf(account?.name?.substringAfterLast(" ")?.takeIf { account.name.contains(" ") }.orEmpty()) }
+                var firstName by remember(account?.firstName) { mutableStateOf(account?.firstName.orEmpty()) }
+                var lastName by remember(account?.lastName) { mutableStateOf(account?.lastName.orEmpty()) }
                 var bio by remember(account?.bio) { mutableStateOf(account?.bio.orEmpty()) }
                 Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Avatar(path = account?.avatarPath ?: "", fallback = (account?.name ?: "Я").take(1), id = 0, size = 76)
