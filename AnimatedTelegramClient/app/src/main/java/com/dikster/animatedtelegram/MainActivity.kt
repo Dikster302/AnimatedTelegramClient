@@ -122,6 +122,13 @@ private fun TelegramApp(td: TdLibClient) {
                 .onFailure { td.reportOperationError("Не удалось подготовить фото для истории: " + (it.message ?: "ошибка файла")) }
         }
     }
+    val storyVideoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { prepareStoryVideo(context, uri) }
+                .onSuccess { (file, duration) -> td.postVideoStory(file.absolutePath, duration) }
+                .onFailure { td.reportOperationError("Видео не подходит для истории: " + (it.message ?: "ошибка файла")) }
+        }
+    }
     val appearance = remember(themeName, glass, accentName, bubbleRadius, wallpaperName) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
@@ -192,6 +199,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onCloseStory = { td.closeStory(it.chatId,it.storyId) },
                             onReactToStory = { td.reactToStory(it.chatId,it.storyId) },
                             onPostStory = { storyImagePicker.launch(arrayOf("image/*")) },
+                            onPostVideoStory = { storyVideoPicker.launch(arrayOf("video/mp4", "video/*")) },
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
@@ -241,8 +249,9 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
+    var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
     val orderedStories = remember(stories) { stories.sortedWith(compareBy<TgStory> { it.date }.thenBy { it.chatId }.thenBy { it.storyId }) }
     val activeStoryIndex = orderedStories.indexOfFirst { viewingStory == (it.chatId to it.storyId) }
@@ -294,7 +303,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
         } else {
             if (folder != "Архив") {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
-                    Column(Modifier.width(66.dp).clickable(onClick = onPostStory), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.width(66.dp).clickable { showStoryComposer = true }, horizontalAlignment = Alignment.CenterHorizontally) {
                         Box(Modifier.size(58.dp).border(2.dp, LocalAppearance.current.accent, CircleShape).padding(4.dp).clip(CircleShape).background(LocalAppearance.current.panelLight), contentAlignment = Alignment.Center) {
                             Text("+", color = LocalAppearance.current.accent, fontSize = 34.sp, fontWeight = FontWeight.Light)
                         }
@@ -326,6 +335,18 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 }
             }
         }
+        if (showStoryComposer) AlertDialog(
+            onDismissRequest = { showStoryComposer = false },
+            title = { Text("Добавить историю", color = LocalAppearance.current.text) },
+            text = { Text("Выбери фото или видео из галереи.", color = LocalAppearance.current.muted) },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = { showStoryComposer = false; onPostStory() }) { Text("Фото") }
+                    TextButton(onClick = { showStoryComposer = false; onPostVideoStory() }) { Text("Видео") }
+                }
+            },
+            dismissButton = { TextButton(onClick = { showStoryComposer = false }) { Text("Отмена") } }
+        )
         if (activeStory != null) StoryViewer(
             story = activeStory,
             onDismiss = { onCloseStory(activeStory); viewingStory = null },
@@ -971,6 +992,52 @@ private fun CenterPanel(title: String, subtitle: String) {
         Text(title, color = LocalAppearance.current.text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(8.dp))
         Text(subtitle, color = LocalAppearance.current.muted, fontSize = 13.sp)
+    }
+}
+
+private fun prepareStoryVideo(context: android.content.Context, uri: Uri): Pair<File, Double> {
+    val file = File(context.cacheDir, "specialgram_story_video_" + System.currentTimeMillis() + ".mp4")
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        file.outputStream().use { output -> input.copyTo(output) }
+    } ?: error("Не удалось открыть видео")
+    require(file.length() in 1..(30L * 1024L * 1024L)) { "Размер видео должен быть не более 30 МБ" }
+    val extractor = android.media.MediaExtractor()
+    try {
+        extractor.setDataSource(file.absolutePath)
+        val track = (0 until extractor.trackCount).firstOrNull { index ->
+            extractor.getTrackFormat(index).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("video/") == true
+        } ?: error("В файле не найдена видеодорожка")
+        val format = extractor.getTrackFormat(track)
+        val mime = format.getString(android.media.MediaFormat.KEY_MIME) ?: ""
+        require(mime == "video/hevc") { "Нужен MP4 с кодеком H.265 (HEVC). Обычный H.264 пока не поддерживается." }
+        val width = format.getInteger(android.media.MediaFormat.KEY_WIDTH)
+        val height = format.getInteger(android.media.MediaFormat.KEY_HEIGHT)
+        require(width == 720 && height == 1280) { "Разрешение видео должно быть 720×1280" }
+        val durationUs = format.getLong(android.media.MediaFormat.KEY_DURATION)
+        val duration = durationUs / 1_000_000.0
+        require(duration in 0.1..60.0) { "Длительность должна быть не более 60 секунд" }
+        extractor.selectTrack(track)
+        var lastSyncUs = -1L
+        var firstSyncUs = -1L
+        var lastSampleUs = 0L
+        while (true) {
+            val sampleTime = extractor.sampleTime
+            if (sampleTime < 0) break
+            lastSampleUs = sampleTime
+            if (extractor.sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
+                if (firstSyncUs < 0) firstSyncUs = sampleTime
+                if (lastSyncUs >= 0) require(sampleTime - lastSyncUs <= 1_500_000L) { "В видео должны быть ключевые кадры примерно каждую секунду" }
+                lastSyncUs = sampleTime
+            }
+            if (!extractor.advance()) break
+        }
+        require(firstSyncUs in 0L..100_000L && lastSyncUs >= 0 && durationUs - lastSyncUs <= 1_500_000L) {
+            "Видео должно начинаться с ключевого кадра и содержать ключевые кадры примерно каждую секунду"
+        }
+        require(lastSampleUs <= durationUs + 100_000L) { "Некорректная длительность видео" }
+        return file to duration
+    } finally {
+        extractor.release()
     }
 }
 
