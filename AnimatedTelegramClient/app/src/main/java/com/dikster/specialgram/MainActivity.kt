@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import android.widget.VideoView
+import androidx.core.view.WindowCompat
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -87,8 +88,10 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
-        window.statusBarColor = android.graphics.Color.rgb(23, 33, 43)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
         window.navigationBarColor = android.graphics.Color.rgb(14, 22, 33)
+        WindowCompat.getInsetsController(window, window.decorView).isAppearanceLightStatusBars = false
         td = (application as SpecialgramApp).td
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
@@ -280,13 +283,15 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
         Box(Modifier.fillMaxWidth()) {
             HeaderWallpaper(uri = if (selectedTab == 0) headerWallpaper else null, modifier = Modifier.matchParentSize())
-            Column(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
                 Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Specialgram", modifier = Modifier.size(42.dp))
+                    Box(Modifier.size(42.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Color(0xFF79D8FF), Color(0xFF2879D0)))), contentAlignment = Alignment.Center) {
+                        Text("S", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.ExtraBold)
+                    }
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Specialgram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("${chats.size} чатов", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
+                        Text("${chats.size} чатов  ·  Telegram", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
                     }
                     if (selectedTab != 2) Box {
                         IconButton(onClick = { menuOpen = true }) { Text("⋮", color = Color.White, fontSize = 25.sp) }
@@ -298,11 +303,37 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     }
                 }
                 if (selectedTab == 0) {
-                    OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
-                        placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = LocalAppearance.current.muted) }, shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = LocalAppearance.current.panel.copy(alpha = 0.78f), unfocusedContainerColor = LocalAppearance.current.panel.copy(alpha = 0.78f), focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent, focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text))
-                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item -> FilterChip(selected = folder == item, onClick = { folder = item }, label = { Text(item) }) }
+                    OutlinedTextField(
+                        value = query, onValueChange = onQuery,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
+                        singleLine = true,
+                        placeholder = { Text("Поиск", color = Color.White.copy(alpha = 0.66f)) },
+                        leadingIcon = { Text("⌕", fontSize = 24.sp, color = Color.White.copy(alpha = 0.82f)) },
+                        shape = RoundedCornerShape(18.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = Color.White.copy(alpha = 0.16f),
+                            unfocusedContainerColor = Color.White.copy(alpha = 0.12f),
+                            focusedBorderColor = Color.White.copy(alpha = 0.30f),
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.12f),
+                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                            cursorColor = Color.White
+                        )
+                    )
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item ->
+                            Column(
+                                Modifier.clickable { folder = item }.padding(horizontal = 10.dp, vertical = 7.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(item, color = Color.White.copy(alpha = if (folder == item) 1f else 0.72f), fontSize = 14.sp, fontWeight = if (folder == item) FontWeight.SemiBold else FontWeight.Normal)
+                                Spacer(Modifier.height(7.dp))
+                                Box(Modifier.width(if (folder == item) 25.dp else 8.dp).height(3.dp).clip(CircleShape).background(if (folder == item) Color.White else Color.Transparent))
+                            }
+                        }
                     }
                 }
             }
@@ -407,7 +438,7 @@ private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
         Image(bitmap = bitmap, contentDescription = "Фон верхней панели", modifier = modifier, contentScale = ContentScale.Crop)
         Box(modifier.background(Color(0x99000000)))
     } else {
-        Box(modifier.background(LocalAppearance.current.panel))
+        Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF1B5C91), Color(0xFF183F69), Color(0xFF122C4B)))))
     }
 }
 
@@ -584,7 +615,7 @@ private fun SettingsPanel(
                 Text("Изменения отправляются непосредственно в Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
             } else {
                 Text(when (page) { "notifications" -> "Уведомления"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text(when (page) { "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                Text(when (page) { "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib.\n\nЗащищённая диагностика: приложение отправляет технические отчёты о сбоях и ошибках TDLib. Тексты сообщений, переписки, контакты и номер телефона в отчёты не включаются." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
@@ -723,7 +754,7 @@ private fun ConversationScreen(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
-    Column(Modifier.fillMaxSize().background(LocalAppearance.current.chatBackground)) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).background(LocalAppearance.current.chatBackground)) {
         if (showVideoShapePicker) AlertDialog(
             onDismissRequest = { showVideoShapePicker = false },
             title = { Text("Форма видеосообщения", color = LocalAppearance.current.text) },
