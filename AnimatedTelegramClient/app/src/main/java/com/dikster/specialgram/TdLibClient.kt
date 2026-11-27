@@ -256,7 +256,7 @@ class TdLibClient(context:Context) {
   val content=TdApi.InputStoryContentPhoto(TdApi.InputFileLocal(path),intArrayOf())
   val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
   val text=caption.trim().takeIf { it.isNotBlank() }?.let { TdApi.FormattedText(it,null) }
-  send(TdApi.PostStory(userId,content,null,text,privacy,intArrayOf(),86400,null,false,false)) { result ->
+  send(TdApi.PostStory(userId,content,null,text,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
    if(result is TdApi.Story) {
     updateStory(result,false)
     _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
@@ -270,7 +270,7 @@ class TdLibClient(context:Context) {
   if(duration<=0.0 || duration>60.0) { reportOperationError("Длительность видеоистории должна быть от 1 до 60 секунд"); return }
   val content=TdApi.InputStoryContentVideo(TdApi.InputFileLocal(path),intArrayOf(),duration,0.0,false)
   val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
-  send(TdApi.PostStory(userId,content,null,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
+  send(TdApi.PostStory(userId,content,null,null,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
    if(result is TdApi.Story) {
     updateStory(result,false)
     _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
@@ -420,7 +420,7 @@ fun reportOperationError(text:String) { _operationError.value=text }
   clearOperationError()
   send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
  }
- fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null) }; send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
+ fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null,0,null) }; send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun replyToStory(chatId:Long,storyId:Int,text:String) {
   val value=text.trim()
   if(value.isEmpty()) return
@@ -433,7 +433,7 @@ fun reportOperationError(text:String) { _operationError.value=text }
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
   if(chars.isEmpty())return
   clearOperationError()
-  val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null) }
+  val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null,0,null) }
   send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
    if(r is TdApi.Message && chars.size>1) {
     val serverId=confirmedIds[r.id]
