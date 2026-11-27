@@ -213,7 +213,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
                             videoNoteShape = videoNoteShape,
                             onVideoNoteShape = { videoNoteShape = it },
-                            onRecordVideo = { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) },
+                            onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
                             operationError = operationError,
                             onDismissOperationError = { td.clearOperationError() }
                         )
