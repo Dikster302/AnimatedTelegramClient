@@ -22,6 +22,7 @@ class TdLibClient(context:Context) {
  private val _auth=MutableStateFlow<Auth>(Auth.Loading); val auth=_auth.asStateFlow()
  private val _chats=MutableStateFlow<List<TgChat>>(emptyList()); val chats=_chats.asStateFlow()
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
+ private val _searchResults=MutableStateFlow<List<TgMessage>>(emptyList()); val searchResults=_searchResults.asStateFlow()
  private val _stories=MutableStateFlow<List<TgStory>>(emptyList()); val stories=_stories.asStateFlow()
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
@@ -30,6 +31,7 @@ class TdLibClient(context:Context) {
  private val _privacyPhone=MutableStateFlow("Загружаем…"); val privacyPhone=_privacyPhone.asStateFlow()
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
+ private var chatSearchGeneration=0
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private var myUserId:Long?=null
@@ -354,6 +356,8 @@ class TdLibClient(context:Context) {
  }
  fun openChat(id:Long) {
   activeChat=id
+  chatSearchGeneration++
+  _searchResults.value=emptyList()
   historyLoadingChats.remove(id)
   historyExhaustedChats.remove(id)
   _messages.value=emptyList()
@@ -373,6 +377,23 @@ class TdLibClient(context:Context) {
     _messages.value=mapped.map { item -> if(item.replyToMessageId!=0L) item.copy(replyToText=byId[item.replyToMessageId]?.text ?: item.replyToText) else item }.sortedBy{it.date}
     val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
     if(incomingIds.isNotEmpty()) send(TdApi.ViewMessages(id,incomingIds,null,true))
+   }
+  }
+ }
+ fun searchChatMessages(chatId:Long,query:String) {
+  val value=query.trim()
+  val generation=++chatSearchGeneration
+  if(value.isBlank()) {
+   _searchResults.value=emptyList()
+   return
+  }
+  if(activeChat!=chatId) return
+  _searchResults.value=emptyList()
+  send(TdApi.SearchChatMessages(chatId,value,0,0L,0,50,null)) { result ->
+   if(generation!=chatSearchGeneration || activeChat!=chatId) return@send
+   if(result is TdApi.Messages) {
+    val readMarker=_chats.value.firstOrNull { it.id==chatId }?.lastReadOutboxMessageId ?: 0L
+    _searchResults.value=result.messages.map { toTgMessage(it,readMarker) }.sortedBy { it.date }
    }
   }
  }
