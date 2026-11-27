@@ -578,7 +578,7 @@ private fun ConversationScreen(
             title = { Text("Форма видеосообщения", color = LocalAppearance.current.text) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("В обычном Telegram видеосообщения будут круглыми. Другие формы станут доступны между пользователями Specialgram после подключения сервера.", color = LocalAppearance.current.muted, fontSize = 12.sp)
+                    Text("В обычный Telegram придёт обычное видео. Выбранная форма (круг, сердце, звезда и другие) будет отображаться у пользователей Specialgram.", color = LocalAppearance.current.muted, fontSize = 12.sp)
                     listOf("circle" to "Круг", "square" to "Квадрат", "rounded" to "Скруглённый квадрат", "heart" to "Сердце", "star" to "Звезда", "hexagon" to "Шестиугольник").forEach { (key, title) ->
                         Row(Modifier.fillMaxWidth().clickable { onVideoNoteShape(key); showVideoShapePicker = false }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = videoNoteShape == key, onClick = { onVideoNoteShape(key); showVideoShapePicker = false })
