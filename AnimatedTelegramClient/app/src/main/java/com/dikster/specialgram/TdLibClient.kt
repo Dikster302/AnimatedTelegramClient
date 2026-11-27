@@ -46,7 +46,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
-  is TdApi.UpdateChatActiveStories -> updateChatStories(o.chatActiveStories)
+  is TdApi.UpdateChatActiveStories -> updateChatStories(o.activeStories)
   is TdApi.UpdateStory -> updateStory(o.story)
   is TdApi.UpdateStoryDeleted -> {
    _stories.value=_stories.value.filterNot { it.chatId==o.storyPosterChatId && it.storyId==o.storyId }
@@ -118,7 +118,7 @@ class TdLibClient(context:Context) {
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.isVerified,firstName=user.firstName,lastName=user.lastName)
+  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.verificationStatus?.isVerified == true,firstName=user.firstName,lastName=user.lastName)
   send(TdApi.GetUserFullInfo(user.id)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
   val photoId=user.profilePhoto?.small?.id ?: 0
   myPhotoFileId=photoId.takeIf { it>0 }
@@ -372,10 +372,12 @@ class TdLibClient(context:Context) {
 fun reportOperationError(text:String) { _operationError.value=text }
  fun sendVideo(chatId:Long,path:String,shape:String) {
   clearOperationError()
+  val video=TdApi.InputVideo()
+  video.video=TdApi.InputFileLocal(path)
+  video.supportsStreaming=true
   val content=TdApi.InputMessageVideo()
-  content.video=TdApi.InputFileLocal(path)
+  content.video=video
   content.caption=TdApi.FormattedText(encodeVideoShape(shape),null)
-  content.supportsStreaming=true
   send(TdApi.SendMessage(chatId,null,null,null,null,content))
  }
  private fun encodeVideoShape(shape:String):String {
@@ -397,7 +399,7 @@ fun reportOperationError(text:String) { _operationError.value=text }
  }
  fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) {
   clearOperationError()
-  send(TdApi.ForwardMessages(toChatId,0L,fromChatId,longArrayOf(messageId),null,false,false))
+  send(TdApi.ForwardMessages(toChatId,null,fromChatId,longArrayOf(messageId),null,false,false))
  }
  fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
   clearOperationError()
