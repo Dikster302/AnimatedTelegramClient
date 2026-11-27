@@ -703,7 +703,7 @@ private fun ConversationScreen(
                     }
                 },
                 confirmButton = {
-                    Row {
+                    Row(Modifier.horizontalScroll(rememberScrollState())) {
                         TextButton(onClick = { replyingTo = target; selectedMessage = null; deleteForBoth = false }) { Text("Ответить") }
                         TextButton(onClick = { forwardingMessage = target; selectedMessage = null; deleteForBoth = false }) { Text("Переслать") }
                         if (target.outgoing) {
