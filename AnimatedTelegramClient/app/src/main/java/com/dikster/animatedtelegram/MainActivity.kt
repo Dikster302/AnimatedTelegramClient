@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -78,6 +79,7 @@ private fun TelegramApp(td: TdLibClient) {
     val auth by td.auth.collectAsState()
     val chats by td.chats.collectAsState()
     val messages by td.messages.collectAsState()
+    val profile by td.profile.collectAsState()
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -107,6 +109,9 @@ private fun TelegramApp(td: TdLibClient) {
                         ConversationScreen(
                             chat = selectedChat!!,
                             messages = messages,
+                            profile = profile,
+                            onOpenProfile = { td.openProfile(selectedChat!!.id) },
+                            onCloseProfile = { td.closeProfile() },
                             onBack = { selectedChat = null },
                             onSend = { text, animated ->
                                 if (animated) td.sendAnimated(selectedChat!!.id, text)
@@ -258,7 +263,7 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int) {
 
 @Composable
 private fun ConversationScreen(
-    chat: TgChat, messages: List<TgMessage>, onBack: () -> Unit,
+    chat: TgChat, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
     onSend: (String, Boolean) -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
@@ -270,9 +275,9 @@ private fun ConversationScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
-        if (showProfile) AlertDialog(onDismissRequest = { showProfile = false }, title = { Text(chat.title) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Avatar(path = chat.avatarPath, fallback = chat.title.take(1).uppercase(), id = chat.id, size = 88); Text(chat.kind, color = tgMuted); Text("ID: " + chat.id, color = tgMuted); Text(chat.preview.ifBlank { "Нет последних сообщений" }, color = tgText) } }, confirmButton = { TextButton(onClick = { showProfile = false }) { Text("Закрыть") } })
+        if (showProfile) AlertDialog(onDismissRequest = { showProfile = false; onCloseProfile() }, title = { Text(profile?.name ?: chat.title) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 88); Text(profile?.kind ?: chat.kind, color = tgMuted); if (!profile?.phone.isNullOrBlank()) Text("Телефон: " + profile?.phone, color = tgText); if (!profile?.bio.isNullOrBlank()) Text(profile?.bio ?: "", color = tgText); Text("ID: " + chat.id, color = tgMuted) } }, confirmButton = { TextButton(onClick = { showProfile = false; onCloseProfile() }) { Text("Закрыть") } })
         Row(
-            Modifier.fillMaxWidth().background(tgPanel).clickable { showProfile = true }.padding(horizontal = 8.dp, vertical = 9.dp),
+            Modifier.fillMaxWidth().background(tgPanel).clickable { showProfile = true; onOpenProfile() }.padding(horizontal = 8.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("‹", color = tgBlue, fontSize = 34.sp, modifier = Modifier.clickable(onClick = onBack).padding(horizontal = 9.dp))
