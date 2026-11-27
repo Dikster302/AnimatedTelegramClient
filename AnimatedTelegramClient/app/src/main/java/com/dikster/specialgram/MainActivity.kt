@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
 import java.util.Locale
 
 private data class UiAppearance(
@@ -685,9 +686,16 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
     val time = remember(chat.lastDate) {
         if (chat.lastDate <= 0) "" else try {
             val d = Date(chat.lastDate.toLong() * 1000L)
-            val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
-            val day = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(d)
-            if (today == day) SimpleDateFormat("HH:mm", Locale.getDefault()).format(d) else SimpleDateFormat("dd.MM", Locale.getDefault()).format(d)
+            val today = Calendar.getInstance()
+            val messageDay = Calendar.getInstance().apply { time = d }
+            val sameDay = today.get(Calendar.YEAR) == messageDay.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == messageDay.get(Calendar.DAY_OF_YEAR)
+            val daysAgo = ((today.timeInMillis - messageDay.timeInMillis) / 86_400_000L).toInt()
+            when {
+                sameDay -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(d)
+                daysAgo == 1 -> "вчера"
+                daysAgo in 2..6 -> SimpleDateFormat("EEE", Locale.getDefault()).format(d)
+                else -> SimpleDateFormat("dd.MM.yy", Locale.getDefault()).format(d)
+            }
         } catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = if (compact) 5.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
