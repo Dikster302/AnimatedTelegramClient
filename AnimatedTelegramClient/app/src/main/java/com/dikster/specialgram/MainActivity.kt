@@ -312,6 +312,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                         singleLine = true,
                         placeholder = { Text("Поиск", color = Color.White.copy(alpha = 0.66f)) },
                         leadingIcon = { Text("⌕", fontSize = 24.sp, color = Color.White.copy(alpha = 0.82f)) },
+                        trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Text("✕", color = Color.White.copy(alpha = 0.82f), fontSize = 16.sp) } },
                         shape = RoundedCornerShape(18.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = Color.White.copy(alpha = 0.16f),
@@ -455,7 +456,9 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
             Text(contacts.size.toString(), color = LocalAppearance.current.muted, fontSize = 13.sp)
         }
         OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), singleLine = true,
-            placeholder = { Text("Поиск контактов") }, shape = RoundedCornerShape(24.dp),
+            placeholder = { Text("Поиск контактов") },
+            trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Text("✕", color = LocalAppearance.current.muted, fontSize = 15.sp) } },
+            shape = RoundedCornerShape(24.dp),
             colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), unfocusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent, focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text))
         if (contacts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
