@@ -234,6 +234,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onDeleteMessage = { message, revoke -> td.deleteMessage(selectedChat!!.id, message.id, revoke) },
                             onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
+                            onReactToMessage = { message, emoji -> td.reactToMessage(selectedChat!!.id, message.id, emoji) },
                             videoNoteShape = videoNoteShape,
                             onVideoNoteShape = { videoNoteShape = it },
                             onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
@@ -631,6 +632,7 @@ private fun ConversationScreen(
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
     onEditMessage: (TgMessage, String) -> Unit,
+    onReactToMessage: (TgMessage, String) -> Unit,
     videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
     operationError: String?, onDismissOperationError: () -> Unit
 ) {
@@ -681,6 +683,14 @@ private fun ConversationScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (target.outgoing) Text("Выберите действие для своего сообщения", color = LocalAppearance.current.muted)
                         else Text("Выберите, удалить сообщение только у себя или у всех участников чата.", color = LocalAppearance.current.muted)
+                        Text("Быстрая реакция", color = LocalAppearance.current.muted, fontSize = 12.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            listOf("👍", "❤️", "😂", "😮", "😢", "🔥").forEach { emoji ->
+                                TextButton(onClick = { onReactToMessage(target, emoji); selectedMessage = null }) {
+                                    Text(emoji, fontSize = 20.sp)
+                                }
+                            }
+                        }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = deleteForBoth, onCheckedChange = { deleteForBoth = it })
                             Text("Удалить у всех", color = LocalAppearance.current.text, fontSize = 13.sp)
