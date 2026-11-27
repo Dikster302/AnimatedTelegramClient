@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -442,7 +443,7 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
         } catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = if (compact) 5.dp else 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline)
+        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline, hasStory = chat.hasStory)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -471,9 +472,11 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
 }
 
 @Composable
-private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false) {
+private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false) {
     val bitmap = remember(path) { if (path.isNotBlank()) runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() else null }
-    Box(Modifier.size(size.dp).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
+    val storyRing = Brush.sweepGradient(listOf(Color(0xFF42C7FF), Color(0xFF6575FF), Color(0xFFB34DFF), Color(0xFF6575FF), Color(0xFF42C7FF)))
+    val ringModifier = if (hasStory) Modifier.border(2.8.dp, storyRing, CircleShape).padding(3.dp) else Modifier
+    Box(Modifier.size(size.dp).then(ringModifier).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
         if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Аватар", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(fallback, color = Color.White, fontSize = (size / 3).sp, fontWeight = FontWeight.SemiBold)
         if (online) Box(Modifier.align(Alignment.BottomEnd).size((size / 4).dp).clip(CircleShape).background(Color(0xFF35C759)).padding(2.dp).background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), CircleShape).padding(2.dp).background(Color(0xFF35C759), CircleShape))
