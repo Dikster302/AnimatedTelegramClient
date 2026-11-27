@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
@@ -17,6 +17,7 @@ class TdLibClient(context:Context) {
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
  private var activeChat:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
+ private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
  private val client=Client.create({ o -> onUpdate(o) }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") })
@@ -26,6 +27,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
@@ -40,7 +42,14 @@ class TdLibClient(context:Context) {
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
- fun loadChats()=send(TdApi.GetChats(TdApi.ChatListMain(),100)) { r -> if(r is TdApi.Chats) r.chatIds.forEach { id -> send(TdApi.GetChat(id)) { c -> if(c is TdApi.Chat) putChat(c) } } }
+ fun loadChats() { loadChatList(TdApi.ChatListMain(),false); loadChatList(TdApi.ChatListArchive(),true) }
+ private fun loadChatList(list:TdApi.ChatList,archived:Boolean) {
+  send(TdApi.GetChats(list,100)) { r -> if(r is TdApi.Chats) r.chatIds.forEach { id -> send(TdApi.GetChat(id)) { c -> if(c is TdApi.Chat) putChat(c,archived) } } }
+ }
+ fun archiveChat(id:Long,archived:Boolean) {
+  if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
+  else send(TdApi.RemoveChatFromList(id,TdApi.ChatListArchive())) { loadChats() }
+ }
  private fun putChat(c:TdApi.Chat) {
   val last=c.lastMessage
   val preview=last?.let { messagePreview(it.content) } ?: ""
@@ -64,13 +73,13 @@ class TdLibClient(context:Context) {
  fun openChat(id:Long) { activeChat=id; _messages.value=emptyList(); send(TdApi.GetChatHistory(id,0,0,50,false)) { r -> if(r is TdApi.Messages) _messages.value=r.messages.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing,it.date)}.sortedBy{it.date} } }
  fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun sendAnimated(id:Long,text:String) {
-  val words=text.trim().split(Regex("\\s+")).filter{it.isNotBlank()}
-  if(words.isEmpty())return
-  send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(words.first(),null),null,true))) { r ->
-   if(r is TdApi.Message && words.size>1) {
+  val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
+  if(chars.isEmpty())return
+  send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
+   if(r is TdApi.Message && chars.size>1) {
     val serverId=confirmedIds[r.id]
-    if(serverId!=null) scheduleEdits(id,serverId,words)
-    else pendingEdits[r.id]=words
+    if(serverId!=null) scheduleEdits(id,serverId,chars)
+    else pendingEdits[r.id]=chars
    }
   }
  }
@@ -78,12 +87,12 @@ class TdLibClient(context:Context) {
   if(words.size<2)return
   val scheduler=java.util.concurrent.Executors.newSingleThreadScheduledExecutor()
   for(i in 1 until words.size) {
-   val value=words.take(i+1).joinToString(" ")
+   val value=words.take(i+1).joinToString("")
    scheduler.schedule({
     send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
-   },i*850L,java.util.concurrent.TimeUnit.MILLISECONDS)
+   },i*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
   }
-  scheduler.schedule({scheduler.shutdown()},words.size*850L,java.util.concurrent.TimeUnit.MILLISECONDS)
+  scheduler.schedule({scheduler.shutdown()},words.size*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
  }
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) { client.send(f,Client.ResultHandler { r -> if(r is TdApi.Error) _operationError.value=r.message else handler?.invoke(r) }) }
  fun close(){client.send(TdApi.Close(),null)}
