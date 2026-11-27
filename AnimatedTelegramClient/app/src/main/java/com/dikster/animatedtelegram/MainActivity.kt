@@ -209,6 +209,7 @@ private fun SettingsLine(title: String, subtitle: String) {
 
 @Composable
 private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
+    var menu by remember { mutableStateOf(false) }
     val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
     val time = remember(chat.lastDate) {
         if (chat.lastDate <= 0) "" else try {
@@ -235,6 +236,12 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
                         Text(if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) { Text("⋮", color = tgMuted, fontSize = 20.sp) }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(text = { Text(if (chat.archived) "Вернуть из архива" else "В архив") }, onClick = { menu = false; onArchive() })
             }
         }
     }
