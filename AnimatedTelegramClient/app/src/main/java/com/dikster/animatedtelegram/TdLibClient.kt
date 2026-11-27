@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
@@ -21,6 +21,7 @@ class TdLibClient(context:Context) {
  private var activeChat:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
+ private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
  private val client=Client.create({ o -> onUpdate(o) }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") })
@@ -30,7 +31,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
-  is TdApi.UpdateUser -> updateUserProfile(o.user)
+  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
@@ -64,7 +65,8 @@ class TdLibClient(context:Context) {
     _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
-     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) updateUserProfile(u) }
+     userToChat[userId]=chatId
+     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) { updateUserProfile(u); updateChatUser(u) } }
      send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount) }
     }
    }
@@ -75,12 +77,14 @@ class TdLibClient(context:Context) {
   _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.username,status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
  }
  private fun refreshUserStatus(userId:Long,status:TdApi.UserStatus) {
-  val current=_profile.value ?: return
-  send(TdApi.GetChat(current.chatId)) { result ->
-   if(result is TdApi.Chat && result.type is TdApi.ChatTypePrivate && (result.type as TdApi.ChatTypePrivate).userId==userId) {
-    _profile.value=_profile.value?.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline)
-   }
-  }
+  val chatId=userToChat[userId]
+  if(chatId!=null) _chats.value=_chats.value.map { if(it.id==chatId) it.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline) else it }
+  val current=_profile.value
+  if(current!=null && chatId==current.chatId) _profile.value=current.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline)
+ }
+ private fun updateChatUser(user:TdApi.User) {
+  val chatId=userToChat[user.id] ?: return
+  _chats.value=_chats.value.map { if(it.id==chatId) it.copy(status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium) else it }
  }
  private fun userStatusText(status:TdApi.UserStatus):String = when(status) {
   is TdApi.UserStatusOnline -> "в сети"
@@ -97,8 +101,13 @@ class TdLibClient(context:Context) {
   val photoId=c.photo?.small?.id ?: 0
   val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived)
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
+  if(c.type is TdApi.ChatTypePrivate) {
+   val userId=(c.type as TdApi.ChatTypePrivate).userId
+   userToChat[userId]=c.id
+   send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) updateChatUser(u) }
+  }
   if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
  }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
