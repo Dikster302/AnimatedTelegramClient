@@ -68,6 +68,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
@@ -164,6 +165,7 @@ private fun TelegramApp(td: TdLibClient) {
     val stories by td.stories.collectAsState()
     val contacts by td.contacts.collectAsState()
     val messages by td.messages.collectAsState()
+    val searchResults by td.searchResults.collectAsState()
     val profile by td.profile.collectAsState()
     val account by td.account.collectAsState()
     val privacyLastSeen by td.privacyLastSeen.collectAsState()
@@ -241,6 +243,8 @@ private fun TelegramApp(td: TdLibClient) {
                             chat = selectedChat!!,
                             chats = chats,
                             messages = messages,
+                            searchResults = searchResults,
+                            onSearchMessages = { td.searchChatMessages(selectedChat!!.id,it) },
                             profile = profile,
                             onOpenProfile = { td.openProfile(selectedChat!!.id) },
                             onCloseProfile = { td.closeProfile() },
@@ -740,7 +744,7 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: 
 
 @Composable
 private fun ConversationScreen(
-    chat: TgChat, chats: List<TgChat>, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
+    chat: TgChat, chats: List<TgChat>, messages: List<TgMessage>, searchResults: List<TgMessage>, onSearchMessages: (String) -> Unit, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
     onSend: (String, Boolean, Long?) -> Unit,
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
@@ -768,10 +772,18 @@ private fun ConversationScreen(
     var messageSearchQuery by remember { mutableStateOf("") }
     var messageSearchIndex by remember { mutableIntStateOf(0) }
     val orderedMessages = remember(messages) { messages.sortedBy { it.date } }
-    val messageSearchMatches = remember(orderedMessages, messageSearchQuery) {
-        if (messageSearchQuery.isBlank()) emptyList() else orderedMessages.indices.filter { orderedMessages[it].text.contains(messageSearchQuery.trim(), ignoreCase = true) }
+    val localSearchMatches = remember(orderedMessages, messageSearchQuery) {
+        if (messageSearchQuery.isBlank()) emptyList() else orderedMessages.filter { it.text.contains(messageSearchQuery.trim(), ignoreCase = true) }
     }
-    val visibleMessages = if (messageSearchOpen && messageSearchQuery.isNotBlank()) messageSearchMatches.map { orderedMessages[it] } else orderedMessages
+    val visibleMessages = if (messageSearchOpen && messageSearchQuery.isNotBlank()) {
+        if (chat.kind == "Секретный чат") localSearchMatches else searchResults
+    } else orderedMessages
+    LaunchedEffect(messageSearchQuery, messageSearchOpen, chat.id) {
+        if (messageSearchOpen && messageSearchQuery.isNotBlank() && chat.kind != "Секретный чат") {
+            delay(350)
+            onSearchMessages(messageSearchQuery.trim())
+        } else onSearchMessages("")
+    }
     val listState = rememberLazyListState()
     var hasScrolledAwayFromBottom by remember(chat.id) { mutableStateOf(false) }
     LaunchedEffect(chat.id, listState) {
@@ -787,9 +799,9 @@ private fun ConversationScreen(
     LaunchedEffect(orderedMessages.lastOrNull()?.id, messageSearchOpen, messageSearchQuery) {
         if (!messageSearchOpen && orderedMessages.isNotEmpty()) listState.animateScrollToItem(orderedMessages.lastIndex)
     }
-    LaunchedEffect(messageSearchMatches, messageSearchIndex, messageSearchOpen) {
-        if (messageSearchOpen && messageSearchMatches.isNotEmpty()) {
-            messageSearchIndex = messageSearchIndex.coerceIn(0, messageSearchMatches.lastIndex)
+    LaunchedEffect(visibleMessages, messageSearchIndex, messageSearchOpen) {
+        if (messageSearchOpen && visibleMessages.isNotEmpty()) {
+            messageSearchIndex = messageSearchIndex.coerceIn(0, visibleMessages.lastIndex)
             listState.animateScrollToItem(messageSearchIndex)
         }
     }
@@ -963,9 +975,9 @@ private fun ConversationScreen(
                     shape = RoundedCornerShape(18.dp),
                     colors = OutlinedTextFieldDefaults.colors(focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text, cursorColor = LocalAppearance.current.accent)
                 )
-                Text(if (messageSearchQuery.isBlank()) " " else "${if (messageSearchMatches.isEmpty()) 0 else messageSearchIndex + 1}/${messageSearchMatches.size}", color = LocalAppearance.current.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp))
-                IconButton(enabled = messageSearchMatches.isNotEmpty(), onClick = { messageSearchIndex = if (messageSearchIndex <= 0) messageSearchMatches.lastIndex else messageSearchIndex - 1 }) { Text("↑", color = LocalAppearance.current.text) }
-                IconButton(enabled = messageSearchMatches.isNotEmpty(), onClick = { messageSearchIndex = (messageSearchIndex + 1) % messageSearchMatches.size }) { Text("↓", color = LocalAppearance.current.text) }
+                Text(if (messageSearchQuery.isBlank()) " " else "${if (visibleMessages.isEmpty()) 0 else messageSearchIndex + 1}/${visibleMessages.size}", color = LocalAppearance.current.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp))
+                IconButton(enabled = visibleMessages.isNotEmpty(), onClick = { messageSearchIndex = if (messageSearchIndex <= 0) visibleMessages.lastIndex else messageSearchIndex - 1 }) { Text("↑", color = LocalAppearance.current.text) }
+                IconButton(enabled = visibleMessages.isNotEmpty(), onClick = { messageSearchIndex = (messageSearchIndex + 1) % visibleMessages.size }) { Text("↓", color = LocalAppearance.current.text) }
                 IconButton(onClick = { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }) { Text("✕", color = LocalAppearance.current.text) }
             }
         }
