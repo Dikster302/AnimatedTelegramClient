@@ -780,6 +780,7 @@ private fun ConversationScreen(
     } else orderedMessages
     LaunchedEffect(messageSearchQuery, messageSearchOpen, chat.id) {
         if (messageSearchOpen && messageSearchQuery.isNotBlank() && chat.kind != "Секретный чат") {
+            onSearchMessages("")
             delay(350)
             onSearchMessages(messageSearchQuery.trim())
         } else onSearchMessages("")
