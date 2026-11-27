@@ -26,6 +26,8 @@ class TdLibClient(context:Context) {
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
  private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
  private val _privacyLastSeen=MutableStateFlow("Загружаем…"); val privacyLastSeen=_privacyLastSeen.asStateFlow()
+ private val _privacyPhone=MutableStateFlow("Загружаем…"); val privacyPhone=_privacyPhone.asStateFlow()
+ private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
  private var myUserId:Long?=null
  private var activeProfileUserId:Long?=null
@@ -50,7 +52,11 @@ class TdLibClient(context:Context) {
    _chats.value=_chats.value.map { if(it.id==o.storyPosterChatId) it.copy(hasStory=remaining.isNotEmpty(),hasUnviewedStory=remaining.any { story -> !story.isViewed }) else it }
   }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
-  is TdApi.UpdateUserPrivacySettingRules -> if(o.setting is TdApi.UserPrivacySettingShowStatus) _privacyLastSeen.value=privacyLabel(o.rules)
+  is TdApi.UpdateUserPrivacySettingRules -> when(o.setting) {
+   is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=privacyLabel(o.rules)
+   is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=privacyLabel(o.rules)
+   is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=privacyLabel(o.rules)
+  }
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
@@ -145,9 +151,9 @@ class TdLibClient(context:Context) {
   else -> "давно не был(а) в сети"
  }
  fun loadPrivacySettings() {
-  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus())) { result ->
-   if(result is TdApi.UserPrivacySettingRules) _privacyLastSeen.value=privacyLabel(result)
-  }
+  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyLastSeen.value=privacyLabel(result) }
+  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowPhoneNumber())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyPhone.value=privacyLabel(result) }
+  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowProfilePhoto())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyPhoto.value=privacyLabel(result) }
  }
  private fun privacyLabel(rules:TdApi.UserPrivacySettingRules):String {
   if(rules.rules.size!=1) return "Особые настройки"
@@ -168,6 +174,17 @@ class TdLibClient(context:Context) {
   send(TdApi.SetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus(),TdApi.UserPrivacySettingRules(arrayOf(rule)))) { result ->
    if(result is TdApi.Ok) _privacyLastSeen.value=value
   }
+ }
+ fun setPhonePrivacy(value:String) { setSimplePrivacy(TdApi.UserPrivacySettingShowPhoneNumber(),value) { _privacyPhone.value=it } }
+ fun setPhotoPrivacy(value:String) { setSimplePrivacy(TdApi.UserPrivacySettingShowProfilePhoto(),value) { _privacyPhoto.value=it } }
+ private fun setSimplePrivacy(setting:TdApi.UserPrivacySetting,value:String,onSaved:(String)->Unit) {
+  val rule:TdApi.UserPrivacySettingRule=when(value) {
+   "Все" -> TdApi.UserPrivacySettingRuleAllowAll()
+   "Мои контакты" -> TdApi.UserPrivacySettingRuleAllowContacts()
+   "Никто" -> TdApi.UserPrivacySettingRuleRestrictAll()
+   else -> return
+  }
+  send(TdApi.SetUserPrivacySettingRules(setting,TdApi.UserPrivacySettingRules(arrayOf(rule)))) { result -> if(result is TdApi.Ok) onSaved(value) }
  }
  fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
