@@ -119,6 +119,7 @@ private fun TelegramApp(td: TdLibClient) {
     val messages by td.messages.collectAsState()
     val profile by td.profile.collectAsState()
     val account by td.account.collectAsState()
+    val operationError by td.operationError.collectAsState()
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -169,7 +170,9 @@ private fun TelegramApp(td: TdLibClient) {
                             },
                             onDeleteMessage = { message, revoke -> td.deleteMessage(selectedChat!!.id, message.id, revoke) },
                             onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
-                            onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) }
+                            onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
+                            operationError = operationError,
+                            onDismissOperationError = { td.clearOperationError() }
                         )
                     }
                 }
@@ -468,7 +471,8 @@ private fun ConversationScreen(
     onSend: (String, Boolean) -> Unit,
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
-    onEditMessage: (TgMessage, String) -> Unit
+    onEditMessage: (TgMessage, String) -> Unit,
+    operationError: String?, onDismissOperationError: () -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
@@ -486,6 +490,12 @@ private fun ConversationScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.chatBackground)) {
+        if (operationError != null) AlertDialog(
+            onDismissRequest = onDismissOperationError,
+            title = { Text("Не удалось выполнить действие", color = LocalAppearance.current.text) },
+            text = { Text(operationError, color = LocalAppearance.current.muted) },
+            confirmButton = { TextButton(onClick = onDismissOperationError) { Text("Понятно") } }
+        )
         selectedMessage?.let { target ->
             AlertDialog(
                 onDismissRequest = { selectedMessage = null },
