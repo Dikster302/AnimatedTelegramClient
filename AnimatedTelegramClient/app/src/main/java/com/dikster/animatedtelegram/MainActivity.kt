@@ -123,7 +123,7 @@ private fun ChatsScreen(
     var menuOpen by remember { mutableStateOf(false) }
     val filtered = remember(chats, query, sortNewest) {
         val found = chats.filter { it.title.contains(query, ignoreCase = true) }
-        if (sortNewest) found else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
+        if (sortNewest) found.sortedBy { it.title.lowercase(Locale.getDefault()) } else found.sortedByDescending { it.title.lowercase(Locale.getDefault()) }
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
         Row(
@@ -141,8 +141,8 @@ private fun ChatsScreen(
             Box {
                 IconButton(onClick = { menuOpen = true }) { Text("⋮", color = tgText, fontSize = 25.sp) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Порядок Telegram") }, onClick = { onSort(true); menuOpen = false })
-                    DropdownMenuItem(text = { Text("По названию") }, onClick = { onSort(false); menuOpen = false })
+                    DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(true); menuOpen = false })
+                    DropdownMenuItem(text = { Text("По названию: Я — А") }, onClick = { onSort(false); menuOpen = false })
                 }
             }
         }
@@ -158,7 +158,7 @@ private fun ChatsScreen(
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Все чаты", color = tgBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.weight(1f))
-            Text(if (sortNewest) "Порядок Telegram" else "По алфавиту", color = tgMuted, fontSize = 12.sp)
+            Text(if (sortNewest) "А — Я" else "Я — А", color = tgMuted, fontSize = 12.sp)
         }
         if (filtered.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
