@@ -3,6 +3,7 @@ import android.content.Context
 import android.os.Build
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
@@ -40,7 +41,23 @@ class TdLibClient(context:Context) {
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
- private val client=Client.create({ o -> onUpdate(o) }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") }, { e -> _auth.value=Auth.Error(e.message ?: "TDLib error") })
+ private val client=Client.create(
+  { o -> onUpdate(o) },
+  { e ->
+   FirebaseCrashlytics.getInstance().apply {
+    setCustomKey("tdlib_callback", "update_error")
+    recordException(IllegalStateException("TDLib update callback failed"))
+   }
+   _auth.value=Auth.Error(e.message ?: "TDLib error")
+  },
+  { e ->
+   FirebaseCrashlytics.getInstance().apply {
+    setCustomKey("tdlib_callback", "fatal_error")
+    recordException(IllegalStateException("TDLib fatal callback failed"))
+   }
+   _auth.value=Auth.Error(e.message ?: "TDLib error")
+  }
+ )
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
  private fun onUpdate(o:TdApi.Object) { when(o) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
@@ -453,7 +470,18 @@ fun reportOperationError(text:String) { _operationError.value=text }
   }
   scheduler.schedule({scheduler.shutdown()},words.size*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
  }
- private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) { client.send(f,Client.ResultHandler { r -> if(r is TdApi.Error) _operationError.value=r.message else handler?.invoke(r) }) }
+ private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) {
+  client.send(f,Client.ResultHandler { r ->
+   if(r is TdApi.Error) {
+    FirebaseCrashlytics.getInstance().apply {
+     setCustomKey("tdlib_function", f.javaClass.simpleName)
+     setCustomKey("tdlib_error_code", r.code)
+     recordException(IllegalStateException("TDLib request failed"))
+    }
+    _operationError.value=r.message
+   } else handler?.invoke(r)
+  })
+ }
  fun close(){client.send(TdApi.Close(),null)}
  private fun databaseKey():ByteArray { val alias="animatedtelegram_tdlib_db"; val store=java.security.KeyStore.getInstance("AndroidKeyStore").apply{load(null)}; var secret=store.getKey(alias,null) as? javax.crypto.SecretKey; if(secret==null){val gen=javax.crypto.KeyGenerator.getInstance("AES","AndroidKeyStore");gen.init(android.security.keystore.KeyGenParameterSpec.Builder(alias,3).setBlockModes("GCM").setEncryptionPaddings("NoPadding").build());secret=gen.generateKey()}; val prefs=app.getSharedPreferences("tdlib_secure",Context.MODE_PRIVATE); val saved=prefs.getString("dbkey",null); if(saved!=null){val bytes=android.util.Base64.decode(saved,0);val cipher=javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");cipher.init(2,secret,javax.crypto.spec.GCMParameterSpec(128,bytes.copyOfRange(0,12)));return cipher.doFinal(bytes.copyOfRange(12,bytes.size))}; val raw=ByteArray(32).also{java.security.SecureRandom().nextBytes(it)};val cipher=javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");cipher.init(1,secret);prefs.edit().putString("dbkey",android.util.Base64.encodeToString(cipher.iv+cipher.doFinal(raw),0)).apply();return raw }
 
