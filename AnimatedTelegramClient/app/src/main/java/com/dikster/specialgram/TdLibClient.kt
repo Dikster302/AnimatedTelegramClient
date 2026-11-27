@@ -30,6 +30,7 @@ class TdLibClient(context:Context) {
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
  private var myUserId:Long?=null
+ private var pendingPushToken:String?=app.getSharedPreferences("push",Context.MODE_PRIVATE).getString("fcm_token",null)
  private var myPhotoFileId:Int?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
@@ -76,9 +77,12 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
-  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; pendingPushToken?.let { registerPushToken(it) }; loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
+ fun updatePushToken(token:String) { if(token.isBlank()) return; pendingPushToken=token; app.getSharedPreferences("push",Context.MODE_PRIVATE).edit().putString("fcm_token",token).apply(); if(_auth.value is Auth.Ready) registerPushToken(token) }
+ private fun registerPushToken(token:String) { send(TdApi.RegisterDevice(TdApi.DeviceTokenFirebaseCloudMessaging(token,true), longArrayOf())) }
+ fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdApi.ProcessPushNotification(payload)) }
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
