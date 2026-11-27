@@ -160,7 +160,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
         if (selectedTab == 2) {
             SettingsPanel()
         } else if (selectedTab == 1) {
-            ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, onOpenContact)
+            ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
         } else {
             OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
                 placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) }, shape = RoundedCornerShape(24.dp),
@@ -190,13 +190,16 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
 }
 
 @Composable
-private fun ContactsPanel(contacts: List<TgContact>, onOpen: (TgContact) -> Unit) {
+private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, onOpen: (TgContact) -> Unit) {
     Column(Modifier.fillMaxSize().background(tgBackground)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("Контакты", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.weight(1f))
             Text(contacts.size.toString(), color = tgMuted, fontSize = 13.sp)
         }
+        OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), singleLine = true,
+            placeholder = { Text("Поиск контактов") }, shape = RoundedCornerShape(24.dp),
+            colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = tgPanelLight, unfocusedContainerColor = tgPanelLight, focusedBorderColor = tgBlue, unfocusedBorderColor = Color.Transparent, focusedTextColor = tgText, unfocusedTextColor = tgText))
         if (contacts.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text("Контакты не найдены", color = tgMuted)
