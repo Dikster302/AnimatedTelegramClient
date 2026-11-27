@@ -225,7 +225,7 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
         } catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56)
+        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -253,11 +253,12 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
 }
 
 @Composable
-private fun Avatar(path: String, fallback: String, id: Long, size: Int) {
+private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false) {
     val bitmap = remember(path) { if (path.isNotBlank()) runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() else null }
     Box(Modifier.size(size.dp).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
         if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Аватар", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         else Text(fallback, color = Color.White, fontSize = (size / 3).sp, fontWeight = FontWeight.SemiBold)
+        if (online) Box(Modifier.align(Alignment.BottomEnd).size((size / 4).dp).clip(CircleShape).background(Color(0xFF35C759)).padding(2.dp).background(tgPanel, CircleShape).padding(2.dp).background(Color(0xFF35C759), CircleShape))
     }
 }
 
@@ -275,7 +276,25 @@ private fun ConversationScreen(
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
-        if (showProfile) AlertDialog(onDismissRequest = { showProfile = false; onCloseProfile() }, title = { Text(profile?.name ?: chat.title) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 88); Text(profile?.kind ?: chat.kind, color = tgMuted); if (!profile?.phone.isNullOrBlank()) Text("Телефон: " + profile?.phone, color = tgText); if (!profile?.bio.isNullOrBlank()) Text(profile?.bio ?: "", color = tgText); Text("ID: " + chat.id, color = tgMuted) } }, confirmButton = { TextButton(onClick = { showProfile = false; onCloseProfile() }) { Text("Закрыть") } })
+        if (showProfile) AlertDialog(
+            onDismissRequest = { showProfile = false; onCloseProfile() },
+            title = { Text(profile?.name ?: chat.title, color = tgText) },
+            text = {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 104, online = profile?.isOnline == true)
+                    Text(profile?.status ?: "Загружаем статус…", color = if (profile?.isOnline == true) Color(0xFF35C759) else tgMuted, fontSize = 13.sp)
+                    if (profile?.isVerified == true) Text("✓ Подтверждённый аккаунт", color = tgBlue, fontSize = 12.sp)
+                    if (profile?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontWeight = FontWeight.SemiBold)
+                    if (!profile?.username.isNullOrBlank()) Text("@${profile?.username}", color = tgBlue)
+                    Text(profile?.kind ?: chat.kind, color = tgMuted)
+                    if (!profile?.bio.isNullOrBlank()) Text(profile?.bio ?: "", color = tgText)
+                    if (!profile?.phone.isNullOrBlank()) ProfileInfoLine("Телефон", profile?.phone ?: "")
+                    if (profile?.commonGroups != null && profile.commonGroups > 0) ProfileInfoLine("Общие группы", profile.commonGroups.toString())
+                    ProfileInfoLine("ID", chat.id.toString())
+                }
+            },
+            confirmButton = { TextButton(onClick = { showProfile = false; onCloseProfile() }) { Text("Закрыть") } }
+        )
         Row(
             Modifier.fillMaxWidth().background(tgPanel).clickable { showProfile = true; onOpenProfile() }.padding(horizontal = 8.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -285,7 +304,7 @@ private fun ConversationScreen(
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(chat.title, color = tgText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("Telegram", color = tgMuted, fontSize = 12.sp)
+                Text(profile?.status ?: "Telegram", color = if (profile?.isOnline == true) Color(0xFF35C759) else tgMuted, fontSize = 12.sp)
             }
             Text("⋮", color = tgText, fontSize = 24.sp, modifier = Modifier.padding(horizontal = 10.dp))
         }
@@ -347,6 +366,14 @@ private fun ConversationScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ProfileInfoLine(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = tgMuted, fontSize = 12.sp)
+        Text(value, color = tgText, fontSize = 12.sp)
     }
 }
 
