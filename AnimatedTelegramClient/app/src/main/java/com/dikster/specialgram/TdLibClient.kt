@@ -86,7 +86,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
-  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val mediaMessageId=mediaFileToMessage[file.id]; if(mediaMessageId!=null && activeChat!=null) _messages.value=_messages.value.map { if(it.id==mediaMessageId) it.copy(mediaPath=if(file.local.isDownloadingCompleted) file.local.path else it.mediaPath,mediaSize=file.size) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val mediaMessageId=mediaFileToMessage[file.id]; if(mediaMessageId!=null && activeChat!=null) _messages.value=_messages.value.map { if(it.id==mediaMessageId) it.copy(mediaPath=file.local.path,photoPath=file.local.path,mediaSize=file.size) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
@@ -381,10 +381,6 @@ class TdLibClient(context:Context) {
   is TdApi.MessageAnimation -> content.animation.caption?.text?.ifBlank { "GIF" } ?: "GIF"
   is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
-  is TdApi.MessageSticker -> "Стикер"
-  is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
-  is TdApi.MessageAnimation -> "GIF"
-  is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
   else -> "Сообщение"
  }
  private fun videoShapeTitle(shape:String):String = when(shape) { "square" -> "Квадрат"; "rounded" -> "Скруглённый квадрат"; "heart" -> "Сердце"; "star" -> "Звезда"; "hexagon" -> "Шестиугольник"; else -> "Круг" }

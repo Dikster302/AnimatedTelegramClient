@@ -1261,17 +1261,6 @@ private fun MessageBubble(
                 AndroidView(factory = { viewContext -> VideoView(viewContext).apply { setVideoPath(message.mediaPath); setOnPreparedListener { player -> player.isLooping = true; start() } } }, modifier = Modifier.width(230.dp).height(230.dp).clip(RoundedCornerShape(12.dp)))
                 if (message.text.isNotBlank() && message.text != "GIF") Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
             } else if (message.videoPath.isNotBlank()) {
-                Image(
-                    bitmap = photoBitmap,
-                    contentDescription = "Фото",
-                    modifier = Modifier.width(240.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Crop
-                )
-                if (message.text.isNotBlank() && message.text != "📷 Фото") {
-                    Spacer(Modifier.height(4.dp))
-                    Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
-                }
-            } else if (message.videoPath.isNotBlank()) {
                 AndroidView(
                     factory = { viewContext -> VideoView(viewContext).apply {
                         setVideoPath(message.videoPath)
