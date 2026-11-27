@@ -981,12 +981,12 @@ private fun ConversationScreen(
                 IconButton(onClick = { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }) { Text("✕", color = LocalAppearance.current.text) }
             }
         }
-        if (orderedMessages.isEmpty() || visibleMessages.isEmpty()) {
+        if (visibleMessages.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "⌕" else "✉", color = LocalAppearance.current.muted, fontSize = 34.sp)
                     Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "Ничего не найдено" else "Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
-                    Text(if (messageSearchOpen) "Поиск выполняется по загруженным сообщениям" else "Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
+                    Text(if (messageSearchOpen) if (chat.kind == "Секретный чат") "Поиск по загруженным сообщениям" else "Поиск по истории Telegram" else "Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
                 }
             }
         } else {
