@@ -50,11 +50,15 @@ class TdLibClient(context:Context) {
   if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
   else send(TdApi.RemoveChatFromList(id,TdApi.ChatListArchive())) { loadChats() }
  }
- private fun putChat(c:TdApi.Chat) {
+ private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
   val last=c.lastMessage
   val preview=last?.let { messagePreview(it.content) } ?: ""
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount)
+  val photoId=c.photo?.small?.id ?: 0
+  val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
+  val old=_chats.value.firstOrNull{it.id==c.id}
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
+  if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
  }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
