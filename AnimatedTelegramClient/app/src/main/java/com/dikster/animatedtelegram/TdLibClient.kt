@@ -52,6 +52,21 @@ class TdLibClient(context:Context) {
   if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
   else send(TdApi.RemoveChatFromList(id,TdApi.ChatListArchive())) { loadChats() }
  }
+ fun openProfile(chatId:Long) {
+  send(TdApi.GetChat(chatId)) { result ->
+   if(result is TdApi.Chat) {
+    val chat=result
+    val kind=when(chat.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
+    _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
+    if(chat.type is TdApi.ChatTypePrivate) {
+     val userId=(chat.type as TdApi.ChatTypePrivate).userId
+     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) _profile.value=_profile.value?.copy(name=listOf(u.firstName,u.lastName).filter{it.isNotBlank()}.joinToString(" ").ifBlank{chat.title},phone=u.phoneNumber) }
+     send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "") }
+    }
+   }
+  }
+ }
+ fun closeProfile() { _profile.value=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
   val last=c.lastMessage
   val preview=last?.let { messagePreview(it.content) } ?: ""
