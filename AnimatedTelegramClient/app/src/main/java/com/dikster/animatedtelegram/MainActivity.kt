@@ -155,6 +155,7 @@ private fun TelegramApp(td: TdLibClient) {
     val messages by td.messages.collectAsState()
     val profile by td.profile.collectAsState()
     val account by td.account.collectAsState()
+    val privacyLastSeen by td.privacyLastSeen.collectAsState()
     val operationError by td.operationError.collectAsState()
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
@@ -207,7 +208,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onSort = { sortNewest = it },
                             compactChats = compactChats,
                             onCompactChats = { compactChats = it },
-                            account = account, themeName = themeName, onTheme = { themeName = it },
+                            account = account, privacyLastSeen = privacyLastSeen, onPrivacyLastSeen = { td.setLastSeenPrivacy(it) }, themeName = themeName, onTheme = { themeName = it },
                             glass = glass, onGlass = { glass = it }, fontScale = fontScale, onFontScale = { fontScale = it },
                             accentName = accentName, onAccent = { accentName = it }, bubbleRadius = bubbleRadius, onBubbleRadius = { bubbleRadius = it },
                             wallpaperName = wallpaperName, onWallpaper = { wallpaperName = it },
@@ -299,7 +300,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, onTheme, glass, onGlass, fontScale, onFontScale, accentName, onAccent, bubbleRadius, onBubbleRadius, wallpaperName, onWallpaper, compactChats, onCompactChats, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper, onSelectCosmicCover) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, privacyLastSeen, onPrivacyLastSeen, themeName, onTheme, glass, onGlass, fontScale, onFontScale, accentName, onAccent, bubbleRadius, onBubbleRadius, wallpaperName, onWallpaper, compactChats, onCompactChats, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper, onSelectCosmicCover) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -440,7 +441,7 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
 
 @Composable
 private fun SettingsPanel(
-    account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
+    account: TgAccount?, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
     accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
     wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit,
@@ -457,7 +458,7 @@ private fun SettingsPanel(
             }.padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("‹", color = LocalAppearance.current.accent, fontSize = 30.sp)
                 Spacer(Modifier.width(12.dp))
-                Text(if (page == "cover") "Обложка Specialgram" else "Внешний вид", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(when(page) { "cover" -> "Обложка Specialgram"; "appearance" -> "Внешний вид"; "account" -> "Аккаунт"; "notifications" -> "Уведомления"; "privacy" -> "Конфиденциальность"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -534,9 +535,24 @@ private fun SettingsPanel(
                 CoverChoice("Стандартная", "Обычный фон Telegram", headerWallpaper == null) { onClearHeaderWallpaper() }
                 CoverChoice("Космос", "Градиент со звёздами", headerWallpaper == "preset:cosmic") { onSelectCosmicCover() }
                 CoverChoice("Моя фотография", "Выбрать изображение из галереи", headerWallpaper != null && headerWallpaper != "preset:cosmic") { onPickHeaderWallpaper() }
+            } else if (page == "privacy") {
+                Text("Кто видит время последнего посещения и статус «в сети»", color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
+                Text("Настройка применяется к аккаунту Telegram и синхронизируется с другими клиентами.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 14.dp))
+                listOf("Все", "Мои контакты", "Никто").forEach { choice ->
+                    Row(Modifier.fillMaxWidth().clickable { onPrivacyLastSeen(choice) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(choice, color = LocalAppearance.current.text, fontSize = 15.sp)
+                            if (privacyLastSeen == choice) Text("Текущий выбор", color = LocalAppearance.current.accent, fontSize = 11.sp)
+                        }
+                        RadioButton(selected = privacyLastSeen == choice, onClick = { onPrivacyLastSeen(choice) })
+                    }
+                    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f))
+                }
+                Text("Сейчас: $privacyLastSeen", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
+                Text("Если в Telegram настроены исключения для отдельных людей, они будут обозначены как «Особые настройки». Выбор выше заменит такие исключения общим правилом.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
             } else {
-                Text(when (page) { "account" -> "Данные аккаунта"; "notifications" -> "Уведомления"; "privacy" -> "Конфиденциальность"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text(when (page) { "account" -> account?.phone?.ifBlank { "Номер скрыт Telegram" } ?: "Данные аккаунта загружаются"; "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "privacy" -> "Параметры приватности пока не подключены к интерфейсу TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                Text(when (page) { "account" -> "Данные аккаунта"; "notifications" -> "Уведомления"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
+                Text(when (page) { "account" -> account?.phone?.ifBlank { "Номер скрыт Telegram" } ?: "Данные аккаунта загружаются"; "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
