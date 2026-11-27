@@ -1,6 +1,7 @@
 package com.dikster.animatedtelegram
 
 import android.os.Bundle
+import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -87,6 +88,13 @@ private fun TelegramApp(td: TdLibClient) {
     var bubbleRadius by remember { mutableFloatStateOf(prefs.getFloat("bubbleRadius", 18f)) }
     var wallpaperName by remember { mutableStateOf(prefs.getString("wallpaper", "По теме") ?: "По теме") }
     var compactChats by remember { mutableStateOf(prefs.getBoolean("compactChats", false)) }
+    var headerWallpaper by remember { mutableStateOf(prefs.getString("headerWallpaper", null)) }
+    val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            headerWallpaper = uri.toString()
+        }
+    }
     val appearance = remember(themeName, glass, accentName, bubbleRadius, wallpaperName) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
@@ -99,8 +107,8 @@ private fun TelegramApp(td: TdLibClient) {
         UiAppearance(colors[0], colors[1], colors[2], chatBackground, accent, colors[4], colors[5],
             Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass, bubbleRadius)
     }
-    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName, compactChats) {
-        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).putBoolean("compactChats", compactChats).apply()
+    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName, compactChats, headerWallpaper) {
+        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).putBoolean("compactChats", compactChats).putString("headerWallpaper", headerWallpaper).apply()
     }
     CompositionLocalProvider(LocalAppearance provides appearance,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
@@ -135,6 +143,9 @@ private fun TelegramApp(td: TdLibClient) {
                             onSort = { sortNewest = it },
                             compactChats = compactChats,
                             onCompactChats = { compactChats = it },
+                            headerWallpaper = headerWallpaper,
+                            onPickHeaderWallpaper = { imagePicker.launch(arrayOf("image/*")) },
+                            onClearHeaderWallpaper = { headerWallpaper = null },
                             onOpen = { selectedChat = it; td.openChat(it.id) },
                             onOpenContact = { contact -> td.openContact(contact.id) { selectedChat = it; td.openChat(it.id) } },
                             onArchive = { td.archiveChat(it.id, !it.archived) }
@@ -162,7 +173,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -172,7 +183,10 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
         if (sortNewest) found.sortedByDescending { it.lastDate } else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
-        Row(Modifier.fillMaxWidth().background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.fillMaxWidth()) {
+        HeaderWallpaper(uri = headerWallpaper, modifier = Modifier.matchParentSize())
+        Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(42.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -189,7 +203,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }, compactChats, { compactChats = it }) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }, compactChats, { compactChats = it }, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -201,6 +215,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item -> FilterChip(selected = folder == item, onClick = { folder = item }, label = { Text(item) }) }
             }
+        }
+        }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (selectedTab == 1) "Все контакты" else "Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
@@ -219,6 +235,22 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Text("♙", fontSize = 20.sp) }, label = { Text("Контакты") })
             NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Text("⚙", fontSize = 20.sp) }, label = { Text("Настройки") })
         }
+    }
+}
+
+@Composable
+private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bitmap = remember(uri) {
+        if (uri.isNullOrBlank()) null else runCatching {
+            context.contentResolver.openInputStream(Uri.parse(uri))?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
+        }.getOrNull()
+    }
+    if (bitmap != null) {
+        Image(bitmap = bitmap, contentDescription = "Фон верхней панели", modifier = modifier, contentScale = ContentScale.Crop)
+        Box(modifier.background(Color(0x99000000)))
+    } else {
+        Box(modifier.background(LocalAppearance.current.panel))
     }
 }
 
@@ -263,7 +295,8 @@ private fun SettingsPanel(
     account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
     accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
-    wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit
+    wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit,
+    headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -313,6 +346,12 @@ private fun SettingsPanel(
                     }
                 }
             }
+        }
+        Text("Обложка верхней панели", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+        Text("От верхнего края до вкладок чатов. Истории и список останутся на обычном фоне.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp)
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = onPickHeaderWallpaper) { Text(if (headerWallpaper == null) "Выбрать фото" else "Изменить фото") }
+            if (headerWallpaper != null) TextButton(onClick = onClearHeaderWallpaper) { Text("Убрать") }
         }
         Text("Фон переписки", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 9.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
