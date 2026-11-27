@@ -343,7 +343,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     }
                     stories.distinctBy { it.chatId }.forEach { story ->
                         val owner = chats.firstOrNull { it.id == story.chatId }
-                        Column(Modifier.width(66.dp).clickable {
+                        Column(Modifier.width(70.dp).clickable {
                             val first = stories.filter { it.chatId == story.chatId }.let { items -> items.firstOrNull { !it.isViewed } ?: items.firstOrNull() }
                             if (first != null) { viewingStory = first.chatId to first.storyId; onOpenStory(first) }
                         }, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -692,13 +692,13 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (chat.isPremium) Text("✦", color = Color(0xFFB58CFF), fontSize = 13.sp)
                 if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 12.sp)
             }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chat.preview.ifBlank { chat.status.ifBlank { "Нет сообщений" } }, color = if (chat.isOnline) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(chat.preview.ifBlank { chat.status.ifBlank { "Нет сообщений" } }, color = LocalAppearance.current.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (chat.unreadCount > 0) {
                     Spacer(Modifier.width(8.dp))
                     Box(Modifier.defaultMinSize(minWidth = 21.dp, minHeight = 21.dp).clip(CircleShape).background(LocalAppearance.current.accent).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
@@ -872,9 +872,9 @@ private fun ConversationScreen(
             onDismissRequest = { showProfile = false; onCloseProfile() },
             title = { Text(profile?.name ?: chat.title, color = LocalAppearance.current.text) },
             text = {
-                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 104, online = profile?.isOnline == true)
-                    Text(profile?.status ?: "Загружаем статус…", color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 13.sp)
+                Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 112, online = profile?.isOnline == true)
+                    Text(profile?.status ?: "Загружаем статус…", color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     if (profile?.isVerified == true) Text("✓ Подтверждённый аккаунт", color = LocalAppearance.current.accent, fontSize = 12.sp)
                     if (profile?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontWeight = FontWeight.SemiBold)
                     if (!profile?.username.isNullOrBlank()) Text("@${profile?.username}", color = LocalAppearance.current.accent)
@@ -891,8 +891,8 @@ private fun ConversationScreen(
             Modifier.fillMaxWidth().background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)).clickable { showProfile = true; onOpenProfile() }.padding(horizontal = 8.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("‹", color = LocalAppearance.current.accent, fontSize = 34.sp, modifier = Modifier.clickable(onClick = onBack).padding(horizontal = 9.dp))
-            Avatar(path = chat.avatarPath, fallback = chat.title.take(1).uppercase(), id = chat.id, size = 42)
+            IconButton(onClick = onBack) { Text("‹", color = LocalAppearance.current.accent, fontSize = 32.sp) }
+            Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 44, online = profile?.isOnline == true)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -915,7 +915,11 @@ private fun ConversationScreen(
 
         if (messages.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Text("Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("✉", color = LocalAppearance.current.muted, fontSize = 34.sp)
+                    Text("Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
+                    Text("Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
+                }
             }
         } else {
             LazyColumn(
@@ -1086,10 +1090,10 @@ private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit, onReactio
                     modifier = Modifier.width(224.dp).height(224.dp).clip(messageVideoShape(message.videoShape))
                 )
                 Text(message.text, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 16.sp)
-            } else Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
+            } else Text(message.text, color = LocalAppearance.current.text, fontSize = 16.sp, lineHeight = 21.sp)
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                Text(time, color = Color(0xFFB5C9D8), fontSize = 10.sp)
-                if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) Color(0xFF79C6F5) else Color(0xFFB5C9D8), fontSize = 10.sp)
+                Text(time, color = LocalAppearance.current.muted.copy(alpha = 0.88f), fontSize = 11.sp)
+                if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 11.sp)
             }
             if (message.reactions.isNotEmpty()) {
                 Spacer(Modifier.height(5.dp))
