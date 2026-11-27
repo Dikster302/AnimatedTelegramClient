@@ -25,7 +25,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing)).distinctBy{it.id}; }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
-  is TdApi.AuthorizationStateWaitTdlibParameters -> { val d=File(app.filesDir,"tdlib"); val f=File(app.filesDir,"tdlib-files"); d.mkdirs(); f.mkdirs(); send(TdApi.SetTdlibParameters(false,d.absolutePath,f.absolutePath,databaseKey(),true,true,true,true,BuildConfig.TELEGRAM_API_ID.toInt(),BuildConfig.TELEGRAM_API_HASH,"ru",Build.MANUFACTURER+" "+Build.MODEL,Build.VERSION.RELEASE,"1.0.0",true,false)) }
+  is TdApi.AuthorizationStateWaitTdlibParameters -> { val d=File(app.filesDir,"tdlib"); val f=File(app.filesDir,"tdlib-files"); d.mkdirs(); f.mkdirs(); send(TdApi.SetTdlibParameters(false,d.absolutePath,f.absolutePath,databaseKey(),true,true,true,true,BuildConfig.TELEGRAM_API_ID.toInt(),BuildConfig.TELEGRAM_API_HASH,"ru",Build.MANUFACTURER+" "+Build.MODEL,Build.VERSION.RELEASE,"1.0.0")) }
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
@@ -37,7 +37,7 @@ class TdLibClient(context:Context) {
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
  fun loadChats()=send(TdApi.GetChats(TdApi.ChatListMain(),100)) { r -> if(r is TdApi.Chats) r.chatIds.forEach { id -> send(TdApi.GetChat(id)) { c -> if(c is TdApi.Chat) putChat(c) } } }
  private fun putChat(c:TdApi.Chat) { _chats.value=(_chats.value.filterNot{it.id==c.id}+TgChat(c.id,c.title)).sortedBy{it.title.lowercase()} }
- fun openChat(id:Long) { activeChat=id; _messages.value=emptyList(); send(TdApi.GetChatHistory(id,0,0,50,false)) { r -> if(r is TdApi.Messages) _messages.value=r.messages.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing)}.sortedBy{it.id} } }
+ fun openChat(id:Long) { activeChat=id; _messages.value=emptyList(); send(TdApi.GetChatHistory(id,null,0,0,50,false)) { r -> if(r is TdApi.Messages) _messages.value=r.messages.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing)}.sortedBy{it.id} } }
  fun sendAnimated(id:Long,text:String) { val words=text.trim().split(Regex("\\s+")).filter{it.isNotBlank()}; if(words.isEmpty())return; send(TdApi.SendMessage(id,0,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(words.first(),null),null,true))) { r -> if(r is TdApi.Message && words.size>1) { val scheduler=java.util.concurrent.Executors.newSingleThreadScheduledExecutor(); var prefix=words.first(); words.drop(1).forEachIndexed { i,w -> prefix=prefix+" "+w; val p=prefix; scheduler.schedule({send(TdApi.EditMessageText(id,r.id,null,TdApi.InputMessageText(TdApi.FormattedText(p,null),null,true)))},(i+1)*700L,java.util.concurrent.TimeUnit.MILLISECONDS) }; scheduler.schedule({scheduler.shutdown()},words.size*700L,java.util.concurrent.TimeUnit.MILLISECONDS) } } }
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) { client.send(f,Client.ResultHandler { r -> handler?.invoke(r); if(r is TdApi.Error) _auth.value=Auth.Error(r.message) }) }
  fun close(){client.send(TdApi.Close(),null)}
