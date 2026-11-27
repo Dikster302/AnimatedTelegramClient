@@ -6,10 +6,11 @@ import org.drinkless.tdlib.TdApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
+import java.text.SimpleDateFormat
 
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
-data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="")
+data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
@@ -28,6 +29,8 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
+  is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
+  is TdApi.UpdateUser -> updateUserProfile(o.user)
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
@@ -61,11 +64,31 @@ class TdLibClient(context:Context) {
     _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
-     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) _profile.value=_profile.value?.copy(name=listOf(u.firstName,u.lastName).filter{it.isNotBlank()}.joinToString(" ").ifBlank{chat.title},phone=u.phoneNumber) }
-     send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "") }
+     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) updateUserProfile(u) }
+     send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount) }
     }
    }
   }
+ }
+ private fun updateUserProfile(user:TdApi.User) {
+  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
+  _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.username,status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
+ }
+ private fun refreshUserStatus(userId:Long,status:TdApi.UserStatus) {
+  val current=_profile.value ?: return
+  send(TdApi.GetChat(current.chatId)) { result ->
+   if(result is TdApi.Chat && result.type is TdApi.ChatTypePrivate && (result.type as TdApi.ChatTypePrivate).userId==userId) {
+    _profile.value=_profile.value?.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline)
+   }
+  }
+ }
+ private fun userStatusText(status:TdApi.UserStatus):String = when(status) {
+  is TdApi.UserStatusOnline -> "в сети"
+  is TdApi.UserStatusOffline -> "был(а) в сети " + SimpleDateFormat("dd.MM.yyyy в HH:mm",java.util.Locale.getDefault()).format(java.util.Date(status.wasOnline.toLong()*1000L))
+  is TdApi.UserStatusRecently -> "был(а) недавно"
+  is TdApi.UserStatusLastWeek -> "был(а) на этой неделе"
+  is TdApi.UserStatusLastMonth -> "был(а) в этом месяце"
+  else -> "давно не был(а) в сети"
  }
  fun closeProfile() { _profile.value=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
