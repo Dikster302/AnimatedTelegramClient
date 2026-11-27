@@ -228,15 +228,26 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
 }
 
 @Composable
-private fun SettingsPanel() {
+private fun SettingsPanel(account: TgAccount?) {
     Column(Modifier.fillMaxSize().background(tgBackground).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
             Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(68.dp))
             Spacer(Modifier.width(16.dp))
-            Column { Text("Мой аккаунт Telegram", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold); Text("Подключён через TDLib", color = tgMuted, fontSize = 13.sp) }
+            Column(Modifier.weight(1f)) {
+                Text(account?.name ?: "Мой аккаунт Telegram", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (account?.username.isNullOrBlank()) "Подключён через TDLib" else "@${account?.username}", color = tgMuted, fontSize = 13.sp)
+                if (account?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                if (account?.isVerified == true) Text("✓ Подтверждённый аккаунт", color = tgBlue, fontSize = 12.sp)
+            }
         }
         HorizontalDivider(color = Color(0xFF253341))
-        SettingsLine("Уведомления", "Настройки уведомлений Telegram")
+        if (account != null) {
+            SettingsLine("Номер телефона", account.phone.ifBlank { "Скрыт Telegram" })
+        } else {
+            SettingsLine("Аккаунт", "Загружаем данные Telegram…")
+        }
+        HorizontalDivider(color = Color(0xFF253341))
+        SettingsLine("Уведомления", "Параметры уведомлений Telegram")
         SettingsLine("Конфиденциальность", "Управление приватностью аккаунта")
         SettingsLine("Данные и память", "Использование сети и хранилища")
         SettingsLine("Оформление", "Тёмная тема")
