@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
 private fun TelegramApp(td: TdLibClient) {
     val auth by td.auth.collectAsState()
     val chats by td.chats.collectAsState()
+    val contacts by td.contacts.collectAsState()
     val messages by td.messages.collectAsState()
     val profile by td.profile.collectAsState()
     var phone by remember { mutableStateOf("") }
@@ -99,11 +100,13 @@ private fun TelegramApp(td: TdLibClient) {
                     if (selectedChat == null) {
                         ChatsScreen(
                             chats = chats,
+                            contacts = contacts,
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
                             onSort = { sortNewest = it },
                             onOpen = { selectedChat = it; td.openChat(it.id) },
+                            onOpenContact = { contact -> td.openContact(contact.id) { selectedChat = it; td.openChat(it.id) } },
                             onArchive = { td.archiveChat(it.id, !it.archived) }
                         )
                     } else {
@@ -128,7 +131,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -156,6 +159,8 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
         }
         if (selectedTab == 2) {
             SettingsPanel()
+        } else if (selectedTab == 1) {
+            ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, onOpenContact)
         } else {
             OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
                 placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) }, shape = RoundedCornerShape(24.dp),
@@ -180,6 +185,39 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
             NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
             NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Text("♙", fontSize = 20.sp) }, label = { Text("Контакты") })
             NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Text("⚙", fontSize = 20.sp) }, label = { Text("Настройки") })
+        }
+    }
+}
+
+@Composable
+private fun ContactsPanel(contacts: List<TgContact>, onOpen: (TgContact) -> Unit) {
+    Column(Modifier.fillMaxSize().background(tgBackground)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Контакты", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.weight(1f))
+            Text(contacts.size.toString(), color = tgMuted, fontSize = 13.sp)
+        }
+        if (contacts.isEmpty()) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Контакты не найдены", color = tgMuted)
+            }
+        } else {
+            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp)) {
+                items(contacts, key = { it.id }) { contact ->
+                    Row(Modifier.fillMaxWidth().clickable { onOpen(contact) }.padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Avatar(path = "", fallback = contact.name.take(1).uppercase(), id = contact.id, size = 48, online = contact.isOnline)
+                        Spacer(Modifier.width(13.dp))
+                        Column(Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(contact.name, color = tgText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (contact.isPremium) Text("  ✦", color = Color(0xFFB58CFF), fontSize = 12.sp)
+                            }
+                            Text(if (contact.isOnline) "в сети" else contact.status.ifBlank { contact.username.takeIf { it.isNotBlank() }?.let { "@$it" } ?: contact.phone }, color = if (contact.isOnline) Color(0xFF35C759) else tgMuted, fontSize = 12.sp)
+                        }
+                    }
+                    HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 76.dp))
+                }
+            }
         }
     }
 }
