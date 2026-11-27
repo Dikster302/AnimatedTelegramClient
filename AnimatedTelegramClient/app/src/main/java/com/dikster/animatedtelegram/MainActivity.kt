@@ -200,6 +200,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onReactToStory = { td.reactToStory(it.chatId,it.storyId) },
                             onPostStory = { storyImagePicker.launch(arrayOf("image/*")) },
                             onPostVideoStory = { storyVideoPicker.launch(arrayOf("video/mp4", "video/*")) },
+                            onReplyToStory = { story, text -> td.replyToStory(story.chatId, story.storyId, text) },
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
@@ -249,7 +250,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
@@ -361,7 +362,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             },
             storyPosition = activeStoryIndex + 1,
             storyCount = orderedStories.size,
-            onReact = { onReactToStory(activeStory) }
+            onReact = { onReactToStory(activeStory) },
+            onReply = { text -> onReplyToStory(activeStory, text) }
         )
         NavigationBar(containerColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), contentColor = LocalAppearance.current.accent, tonalElevation = 0.dp) {
             NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
@@ -833,7 +835,9 @@ private fun ConversationScreen(
 }
 
 @Composable
-private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit) {
+private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit, onReply: (String) -> Unit) {
+    var replyText by remember(story.chatId, story.storyId) { mutableStateOf("") }
+
     val bitmap = remember(story.path, story.isVideo) {
         if (!story.isVideo && story.path.isNotBlank() && story.path != "unsupported") runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
     }
@@ -866,11 +870,35 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
                     } else Text("Не удалось загрузить историю", color = Color.White)
                 }
                 if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onPrevious, enabled = storyPosition > 1) { Text("Назад", color = Color.White) }
                     TextButton(onClick = onReact) { Text("❤️", fontSize = 22.sp) }
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = onNext) { Text("Далее", color = Color.White) }
+                }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = replyText,
+                        onValueChange = { replyText = it },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("Ответить на историю…", color = Color.LightGray) },
+                        singleLine = true,
+                        shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF42C7FF), unfocusedBorderColor = Color.White.copy(alpha = 0.35f),
+                            cursorColor = Color(0xFF42C7FF)
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = {
+                            val value = replyText.trim()
+                            if (value.isNotEmpty()) { onReply(value); replyText = "" }
+                        })
+                    )
+                    TextButton(
+                        onClick = { val value = replyText.trim(); if (value.isNotEmpty()) { onReply(value); replyText = "" } },
+                        enabled = replyText.isNotBlank()
+                    ) { Text("Отпр.", color = Color(0xFF42C7FF)) }
                 }
             }
         }
