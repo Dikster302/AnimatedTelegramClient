@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false)
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
@@ -36,6 +36,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
+  is TdApi.UpdateChatActiveStories -> updateChatStories(o.chatActiveStories)
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
@@ -136,12 +137,17 @@ class TdLibClient(context:Context) {
   val old=_chats.value.firstOrNull{it.id==c.id}
   val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
+  send(TdApi.GetChatActiveStories(c.id)) { result -> if(result is TdApi.ChatActiveStories) updateChatStories(result) }
   if(c.type is TdApi.ChatTypePrivate) {
    val userId=(c.type as TdApi.ChatTypePrivate).userId
    userToChat[userId]=c.id
    send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) updateChatUser(u) }
   }
   if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
+ }
+ private fun updateChatStories(stories:TdApi.ChatActiveStories) {
+  val hasStory=stories.hasUnexpiredStories || stories.stories.isNotEmpty()
+  _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory) else it }
  }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
