@@ -559,9 +559,29 @@ private fun SettingsPanel(
                 HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), modifier = Modifier.padding(vertical = 14.dp))
                 PrivacyChoiceSection("Кто видит мою фотографию профиля", privacyPhoto, onPrivacyPhoto)
                 Text("Если в Telegram настроены исключения для отдельных людей, они будут обозначены как «Особые настройки». Выбор выше заменит такие исключения общим правилом.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
+            } else if (page == "account") {
+                var firstName by remember(account?.name) { mutableStateOf(account?.name?.substringBeforeLast(" ")?.takeIf { account.name.contains(" ") } ?: account?.name.orEmpty()) }
+                var lastName by remember(account?.name) { mutableStateOf(account?.name?.substringAfterLast(" ")?.takeIf { account.name.contains(" ") }.orEmpty()) }
+                var bio by remember(account?.bio) { mutableStateOf(account?.bio.orEmpty()) }
+                Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Avatar(path = account?.avatarPath ?: "", fallback = (account?.name ?: "Я").take(1), id = 0, size = 76)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(account?.name ?: "Мой аккаунт", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (account?.username.isNullOrBlank()) "Имя пользователя не задано" else "@${account?.username}", color = LocalAppearance.current.muted, fontSize = 13.sp)
+                        if (account?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontSize = 12.sp)
+                    }
+                }
+                OutlinedButton(onClick = onPickProfilePhoto, modifier = Modifier.fillMaxWidth()) { Text("Изменить фотографию профиля") }
+                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Имя") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Фамилия") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("\\n", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
+                Button(onClick = { onSaveMyProfile(firstName, lastName, bio) }, enabled = firstName.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Сохранить изменения") }
+                Text("Телефон: ${account?.phone?.ifBlank { "не указан" } ?: "Загружаем…"}", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
+                Text("Изменения отправляются непосредственно в Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
             } else {
-                Text(when (page) { "account" -> "Данные аккаунта"; "notifications" -> "Уведомления"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text(when (page) { "account" -> account?.phone?.ifBlank { "Номер скрыт Telegram" } ?: "Данные аккаунта загружаются"; "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+                Text(when (page) { "notifications" -> "Уведомления"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
+                Text(when (page) { "notifications" -> "Управление уведомлениями Telegram будет доступно после подключения соответствующих настроек TDLib."; "storage" -> "Управление хранилищем пока не подключено."; else -> "Specialgram — клиент Telegram на базе TDLib." }, color = LocalAppearance.current.muted, fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
             }
         }
     }
@@ -1176,6 +1196,20 @@ private fun prepareStoryVideo(context: android.content.Context, uri: Uri): Pair<
     } finally {
         extractor.release()
     }
+}
+
+private fun prepareProfilePhoto(context: android.content.Context, uri: Uri): File {
+    val decoded = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: error("Не удалось открыть фотографию")
+    val side = minOf(decoded.width, decoded.height)
+    val cropped = Bitmap.createBitmap(decoded, (decoded.width - side) / 2, (decoded.height - side) / 2, side, side)
+    val scaled = Bitmap.createScaledBitmap(cropped, 640, 640, true)
+    val target = File(context.cacheDir, "specialgram_profile_" + System.currentTimeMillis() + ".jpg")
+    target.outputStream().use { if (!scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it)) error("Не удалось сохранить фотографию") }
+    decoded.recycle()
+    if (cropped !== decoded) cropped.recycle()
+    if (scaled !== cropped) scaled.recycle()
+    require(target.length() <= 10L * 1024L * 1024L) { "Фото профиля превышает 10 МБ" }
+    return target
 }
 
 private fun prepareStoryPhoto(context: android.content.Context, uri: Uri): File {
