@@ -1139,9 +1139,10 @@ private fun MessageBubble(
         Column(
             Modifier.widthIn(max = 310.dp).combinedClickable(onClick = {}, onLongClick = onLongPress).clip(
                 RoundedCornerShape(
-                    topStart = LocalAppearance.current.bubbleRadius.dp, topEnd = LocalAppearance.current.bubbleRadius.dp,
-                    bottomStart = if (message.outgoing || groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp,
-                    bottomEnd = if (!message.outgoing || groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp
+                    topStart = if (!message.outgoing && groupedWithPrevious) 4.dp else LocalAppearance.current.bubbleRadius.dp,
+                    topEnd = if (message.outgoing && groupedWithPrevious) 4.dp else LocalAppearance.current.bubbleRadius.dp,
+                    bottomStart = if (message.outgoing) LocalAppearance.current.bubbleRadius.dp else 4.dp,
+                    bottomEnd = if (message.outgoing) 4.dp else LocalAppearance.current.bubbleRadius.dp
                 )
             ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
         ) {
