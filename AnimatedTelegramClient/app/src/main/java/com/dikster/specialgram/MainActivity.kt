@@ -905,6 +905,10 @@ private fun ConversationScreen(
                         text = { Text("Очистить переписку") },
                         onClick = { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
                     )
+                    DropdownMenuItem(
+                        text = { Text(if (animatedMode) "✓ Постепенная отправка" else "Постепенная отправка") },
+                        onClick = { animatedMode = !animatedMode; chatMenuOpen = false }
+                    )
                 }
             }
         }
@@ -938,17 +942,6 @@ private fun ConversationScreen(
                 }
                 Spacer(Modifier.height(5.dp))
             }
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f)).padding(horizontal = 11.dp, vertical = 5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Постепенная отправка", color = LocalAppearance.current.text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    Text(if (animatedMode) "Текст появляется по частям" else "Обычная отправка", color = LocalAppearance.current.muted, fontSize = 11.sp)
-                }
-                Switch(checked = animatedMode, onCheckedChange = { animatedMode = it })
-            }
-            Spacer(Modifier.height(6.dp))
             Row(verticalAlignment = Alignment.Bottom) {
                 OutlinedTextField(
                     value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
