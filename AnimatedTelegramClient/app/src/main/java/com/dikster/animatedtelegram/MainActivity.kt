@@ -309,7 +309,7 @@ private fun SettingsPanel(
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(60.dp))
+            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Specialgram", modifier = Modifier.size(60.dp))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(account?.name ?: "Мой аккаунт Telegram", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
@@ -642,7 +642,7 @@ private fun AuthScreen(
         Modifier.fillMaxSize().background(LocalAppearance.current.background).padding(horizontal = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
     ) {
-        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(92.dp))
+        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Specialgram", modifier = Modifier.size(92.dp))
         Spacer(Modifier.height(25.dp))
         Text(title, color = LocalAppearance.current.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
