@@ -143,6 +143,10 @@ private fun TelegramApp(td: TdLibClient) {
                             onSort = { sortNewest = it },
                             compactChats = compactChats,
                             onCompactChats = { compactChats = it },
+                            account = account, themeName = themeName, onTheme = { themeName = it },
+                            glass = glass, onGlass = { glass = it }, fontScale = fontScale, onFontScale = { fontScale = it },
+                            accentName = accentName, onAccent = { accentName = it }, bubbleRadius = bubbleRadius, onBubbleRadius = { bubbleRadius = it },
+                            wallpaperName = wallpaperName, onWallpaper = { wallpaperName = it },
                             headerWallpaper = headerWallpaper,
                             onPickHeaderWallpaper = { imagePicker.launch(arrayOf("image/*")) },
                             onClearHeaderWallpaper = { headerWallpaper = null },
@@ -173,7 +177,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -213,7 +217,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }, compactChats, { compactChats = it }, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, onTheme, glass, onGlass, fontScale, onFontScale, accentName, onAccent, bubbleRadius, onBubbleRadius, wallpaperName, onWallpaper, compactChats, onCompactChats, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
