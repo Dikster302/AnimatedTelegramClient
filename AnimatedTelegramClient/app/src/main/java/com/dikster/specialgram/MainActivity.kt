@@ -258,7 +258,8 @@ private fun TelegramApp(td: TdLibClient) {
                             onVideoNoteShape = { videoNoteShape = it },
                             onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
                             operationError = operationError,
-                            onDismissOperationError = { td.clearOperationError() }
+                            onDismissOperationError = { td.clearOperationError() },
+                            onLoadOlderMessages = { td.loadOlderMessages(selectedChat!!.id) }
                         )
                     }
                 }
@@ -747,7 +748,8 @@ private fun ConversationScreen(
     onReactToMessage: (TgMessage, String) -> Unit,
     onForwardMessage: (TgMessage, TgChat) -> Unit,
     videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
-    operationError: String?, onDismissOperationError: () -> Unit
+    operationError: String?, onDismissOperationError: () -> Unit,
+    onLoadOlderMessages: () -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
@@ -771,6 +773,16 @@ private fun ConversationScreen(
     }
     val visibleMessages = if (messageSearchOpen && messageSearchQuery.isNotBlank()) messageSearchMatches.map { orderedMessages[it] } else orderedMessages
     val listState = rememberLazyListState()
+    var hasScrolledAwayFromBottom by remember(chat.id) { mutableStateOf(false) }
+    LaunchedEffect(chat.id, listState) {
+        snapshotFlow { listState.firstVisibleItemIndex }.collect { firstVisible ->
+            if (firstVisible > 2) hasScrolledAwayFromBottom = true
+            else if (hasScrolledAwayFromBottom && !messageSearchOpen) {
+                hasScrolledAwayFromBottom = false
+                onLoadOlderMessages()
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     LaunchedEffect(orderedMessages.lastOrNull()?.id, messageSearchOpen, messageSearchQuery) {
         if (!messageSearchOpen && orderedMessages.isNotEmpty()) listState.animateScrollToItem(orderedMessages.lastIndex)
