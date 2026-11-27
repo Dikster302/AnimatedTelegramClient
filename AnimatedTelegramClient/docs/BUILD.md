@@ -1,9 +1,6 @@
-# Build notes
-
-1. Install Android Studio and Android SDK Platform 35.
-2. Open the project root (`settings.gradle.kts`) in Android Studio.
-3. Allow Gradle sync to finish.
-4. Select Build → Build Bundle(s) / APK(s) → Build APK(s).
-5. The debug APK is normally at `app/build/outputs/apk/debug/app-debug.apk`.
-
-This initial scaffold is only a Compose UI demonstration. It does not yet connect to Telegram servers. A working client requires the official TDLib Java/JNI artifacts for Android and implementation of TDLib authorization/update handling. The upstream TDLib Android instructions are linked in the README.
+# Build instructions
+1. Add Actions secrets TELEGRAM_API_ID and TELEGRAM_API_HASH.
+2. Open Actions → Build Android APK → Run workflow.
+3. Wait for native TDLib and Gradle builds.
+4. Download AnimatedTelegramClient-debug from Artifacts, extract app-debug.apk, and install on an ARM64 Android device.
+The workflow builds a pinned official TDLib revision using upstream Android scripts.
