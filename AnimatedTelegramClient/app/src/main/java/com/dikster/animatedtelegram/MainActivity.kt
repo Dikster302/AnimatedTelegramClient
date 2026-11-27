@@ -244,7 +244,9 @@ private fun TelegramApp(td: TdLibClient) {
 private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
-    val activeStory = stories.firstOrNull { viewingStory == (it.chatId to it.storyId) }
+    val orderedStories = remember(stories) { stories.sortedWith(compareBy<TgStory> { it.date }.thenBy { it.chatId }.thenBy { it.storyId }) }
+    val activeStoryIndex = orderedStories.indexOfFirst { viewingStory == (it.chatId to it.storyId) }
+    val activeStory = orderedStories.getOrNull(activeStoryIndex)
     var selectedTab by remember { mutableStateOf(0) }
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -327,12 +329,17 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
         if (activeStory != null) StoryViewer(
             story = activeStory,
             onDismiss = { onCloseStory(activeStory); viewingStory = null },
+            onPrevious = {
+                val previous = orderedStories.getOrNull(activeStoryIndex - 1)
+                if (previous != null) { onCloseStory(activeStory); viewingStory = previous.chatId to previous.storyId; onOpenStory(previous) }
+            },
             onNext = {
-                val sameChat = stories.filter { it.chatId == activeStory.chatId }.sortedBy { it.date }
-                val next = sameChat.firstOrNull { it.storyId > activeStory.storyId }
+                val next = orderedStories.getOrNull(activeStoryIndex + 1)
                 if (next != null) { onCloseStory(activeStory); viewingStory = next.chatId to next.storyId; onOpenStory(next) }
                 else { onCloseStory(activeStory); viewingStory = null }
             },
+            storyPosition = activeStoryIndex + 1,
+            storyCount = orderedStories.size,
             onReact = { onReactToStory(activeStory) }
         )
         NavigationBar(containerColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), contentColor = LocalAppearance.current.accent, tonalElevation = 0.dp) {
@@ -805,16 +812,25 @@ private fun ConversationScreen(
 }
 
 @Composable
-private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Unit, onReact: () -> Unit) {
+private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit) {
     val bitmap = remember(story.path, story.isVideo) {
         if (!story.isVideo && story.path.isNotBlank() && story.path != "unsupported") runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().height(620.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth()) {
-                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(story.ownerName, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Закрыть", color = Color.White) }
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(story.ownerName, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                        Text("$storyPosition/$storyCount", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
+                        TextButton(onClick = onDismiss) { Text("Закрыть", color = Color.White) }
+                    }
+                    LinearProgressIndicator(
+                        progress = { if (storyCount > 0) storyPosition.toFloat() / storyCount else 0f },
+                        modifier = Modifier.fillMaxWidth().height(2.dp),
+                        color = Color(0xFF42C7FF),
+                        trackColor = Color.White.copy(alpha = 0.18f)
+                    )
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (story.path.isBlank()) CircularProgressIndicator(color = Color.White)
@@ -830,6 +846,7 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Uni
                 }
                 if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onPrevious, enabled = storyPosition > 1) { Text("Назад", color = Color.White) }
                     TextButton(onClick = onReact) { Text("❤️", fontSize = 22.sp) }
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = onNext) { Text("Далее", color = Color.White) }
