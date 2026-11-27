@@ -214,10 +214,30 @@ class TdLibClient(context:Context) {
  fun reportOperationError(text:String) { _operationError.value=text }
  fun sendVideo(chatId:Long,path:String,shape:String) {
   clearOperationError()
-  val content=TdApi.InputMessageVideo()
-  content.video=TdApi.InputFileLocal(path)
-  content.caption=TdApi.FormattedText(encodeVideoShape(shape),null)
-  content.supportsStreaming=true
+  val metadata=android.media.MediaMetadataRetriever()
+  var duration=0
+  var length=0
+  try {
+   metadata.setDataSource(path)
+   duration=((metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L)/1000L).toInt().coerceIn(0,60)
+   val width=metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toIntOrNull() ?: 0
+   val height=metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toIntOrNull() ?: 0
+   length=minOf(width,height).coerceAtLeast(0)
+  } catch (_:Exception) {
+   reportOperationError("Не удалось прочитать параметры видео.")
+   return
+  } finally {
+   try { metadata.release() } catch (_:Exception) {}
+  }
+  if(duration<=0 || length<=0) {
+   reportOperationError("Видео не подходит для видеосообщения. Запишите его ещё раз.")
+   return
+  }
+  val content=TdApi.InputMessageVideoNote()
+  content.videoNote=TdApi.InputFileLocal(path)
+  content.duration=duration
+  content.length=length
+  content.addedVideoNote=false
   send(TdApi.SendMessage(chatId,null,null,null,null,content))
  }
  private fun encodeVideoShape(shape:String):String {
