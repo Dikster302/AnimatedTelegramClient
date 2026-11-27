@@ -8,8 +8,10 @@ import android.content.Intent
 import android.provider.MediaStore
 import androidx.activity.result.contract.ActivityResultContracts
 import java.io.File
+import androidx.core.content.FileProvider
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
+import android.media.MediaPlayer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.BackHandler
@@ -126,6 +128,18 @@ private fun TelegramApp(td: TdLibClient) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             headerWallpaper = uri.toString()
         }
+    }
+    val chatPhotoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        val chatId = selectedChat?.id
+        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_photo", 20L * 1024L * 1024L) }
+            .onSuccess { td.sendPhoto(chatId, it.absolutePath) }
+            .onFailure { td.reportOperationError("Не удалось отправить фото: ${it.message ?: "ошибка файла"}") }
+    }
+    val chatDocumentPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        val chatId = selectedChat?.id
+        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_document", 50L * 1024L * 1024L) }
+            .onSuccess { td.sendDocument(chatId, it.absolutePath) }
+            .onFailure { td.reportOperationError("Не удалось отправить файл: ${it.message ?: "ошибка файла"}") }
     }
     val storyImagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -263,7 +277,9 @@ private fun TelegramApp(td: TdLibClient) {
                             onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
                             operationError = operationError,
                             onDismissOperationError = { td.clearOperationError() },
-                            onLoadOlderMessages = { td.loadOlderMessages(selectedChat!!.id) }
+                            onLoadOlderMessages = { td.loadOlderMessages(selectedChat!!.id) },
+                            onSendPhoto = { chatPhotoPicker.launch(arrayOf("image/*")) },
+                            onSendDocument = { chatDocumentPicker.launch(arrayOf("*/*")) }
                         )
                     }
                 }
@@ -753,7 +769,9 @@ private fun ConversationScreen(
     onForwardMessage: (TgMessage, TgChat) -> Unit,
     videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
     operationError: String?, onDismissOperationError: () -> Unit,
-    onLoadOlderMessages: () -> Unit
+    onLoadOlderMessages: () -> Unit,
+    onSendPhoto: () -> Unit,
+    onSendDocument: () -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
@@ -768,6 +786,7 @@ private fun ConversationScreen(
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
     var forwardingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var showVideoShapePicker by remember { mutableStateOf(false) }
+    var attachmentMenuOpen by remember { mutableStateOf(false) }
     var messageSearchOpen by remember { mutableStateOf(false) }
     var messageSearchQuery by remember { mutableStateOf("") }
     var messageSearchIndex by remember { mutableIntStateOf(0) }
@@ -1031,6 +1050,13 @@ private fun ConversationScreen(
                 Spacer(Modifier.height(5.dp))
             }
             Row(verticalAlignment = Alignment.Bottom) {
+                Box {
+                    IconButton(onClick = { attachmentMenuOpen = true }) { Text("＋", color = LocalAppearance.current.accent, fontSize = 27.sp) }
+                    DropdownMenu(expanded = attachmentMenuOpen, onDismissRequest = { attachmentMenuOpen = false }) {
+                        DropdownMenuItem(text = { Text("Фото или изображение") }, onClick = { attachmentMenuOpen = false; onSendPhoto() })
+                        DropdownMenuItem(text = { Text("Файл или документ") }, onClick = { attachmentMenuOpen = false; onSendDocument() })
+                    }
+                }
                 OutlinedTextField(
                     value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
                     placeholder = { Text("Сообщение", color = LocalAppearance.current.muted) }, maxLines = 4,
@@ -1209,7 +1235,32 @@ private fun MessageBubble(
             val photoBitmap = remember(message.photoPath) {
                 if (message.photoPath.isNotBlank()) runCatching { BitmapFactory.decodeFile(message.photoPath)?.asImageBitmap() }.getOrNull() else null
             }
+            val context = androidx.compose.ui.platform.LocalContext.current
             if (photoBitmap != null) {
+                Image(bitmap = photoBitmap, contentDescription = "Фото", modifier = Modifier.width(240.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp)).clickable { openDownloadedMedia(context, message.mediaPath.ifBlank { message.photoPath }, "image/*") }, contentScale = ContentScale.Crop)
+                if (message.text.isNotBlank() && message.text != "📷 Фото") {
+                    Spacer(Modifier.height(4.dp))
+                    Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
+                }
+            } else if (message.mediaKind == "sticker" && message.mediaPath.isNotBlank()) {
+                val stickerBitmap = remember(message.mediaPath) { runCatching { BitmapFactory.decodeFile(message.mediaPath)?.asImageBitmap() }.getOrNull() }
+                if (stickerBitmap != null) Image(stickerBitmap, contentDescription = "Стикер", modifier = Modifier.size(156.dp), contentScale = ContentScale.Fit)
+                else Text("Стикер загружается…", color = LocalAppearance.current.muted, fontSize = 13.sp)
+            } else if (message.mediaKind == "document") {
+                Row(Modifier.widthIn(min = 190.dp, max = 270.dp).clip(RoundedCornerShape(10.dp)).clickable { openDownloadedMedia(context, message.mediaPath, message.mediaMimeType) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("📎", fontSize = 27.sp); Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(message.mediaName.ifBlank { "Файл" }, color = LocalAppearance.current.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${formatFileSize(message.mediaSize)} · ${if (message.mediaPath.isBlank()) "Загрузка…" else "Открыть файл"}", color = LocalAppearance.current.muted, fontSize = 11.sp)
+                    }
+                }
+                if (message.text.isNotBlank() && !message.text.startsWith("📎")) Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
+            } else if (message.mediaKind == "audio" || message.mediaKind == "voice") {
+                AudioMessagePlayer(message.mediaPath, message.mediaName.ifBlank { message.text }, message.mediaDuration)
+            } else if (message.mediaKind == "animation" && message.mediaPath.isNotBlank()) {
+                AndroidView(factory = { viewContext -> VideoView(viewContext).apply { setVideoPath(message.mediaPath); setOnPreparedListener { player -> player.isLooping = true; start() } } }, modifier = Modifier.width(230.dp).height(230.dp).clip(RoundedCornerShape(12.dp)))
+                if (message.text.isNotBlank() && message.text != "GIF") Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
+            } else if (message.videoPath.isNotBlank()) {
                 Image(
                     bitmap = photoBitmap,
                     contentDescription = "Фото",
@@ -1433,6 +1484,68 @@ private fun prepareStoryPhoto(context: android.content.Context, uri: Uri): File 
     if (cropped !== decoded) cropped.recycle()
     if (outputBitmap !== cropped) outputBitmap.recycle()
     require(target.length() <= 10L * 1024L * 1024L) { "Фото превышает лимит Telegram 10 МБ" }
+    return target
+}
+
+
+@Composable
+private fun AudioMessagePlayer(path: String, title: String, duration: Int) {
+    var player by remember(path) { mutableStateOf<MediaPlayer?>(null) }
+    var prepared by remember(path) { mutableStateOf(false) }
+    var playing by remember(path) { mutableStateOf(false) }
+    var pendingPlay by remember(path) { mutableStateOf(false) }
+    DisposableEffect(path) {
+        if (path.isNotBlank()) {
+            val media = MediaPlayer()
+            runCatching {
+                media.setDataSource(path)
+                media.setOnPreparedListener { prepared = true; if (pendingPlay) { it.start(); playing = true; pendingPlay = false } }
+                media.setOnCompletionListener { playing = false; runCatching { it.seekTo(0) } }
+                media.prepareAsync(); player = media
+            }.onFailure { media.release() }
+        }
+        onDispose { runCatching { player?.release() }; player = null }
+    }
+    Row(Modifier.widthIn(min = 210.dp, max = 270.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(enabled = path.isNotBlank(), onClick = {
+            val media = player ?: return@IconButton
+            if (!prepared) pendingPlay = true else if (playing) { media.pause(); playing = false } else { media.start(); playing = true }
+        }) { Text(if (playing) "Ⅱ" else "▶", color = LocalAppearance.current.accent, fontSize = 22.sp) }
+        Column(Modifier.weight(1f)) {
+            Text(title.ifBlank { "Аудиосообщение" }, color = LocalAppearance.current.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (path.isBlank()) "Загрузка…" else if (prepared) formatDuration(duration) else "Подготовка аудио…", color = LocalAppearance.current.muted, fontSize = 11.sp)
+        }
+    }
+}
+private fun formatDuration(seconds: Int): String {
+    val safe = seconds.coerceAtLeast(0)
+    return "%d:%02d".format(Locale.getDefault(), safe / 60, safe % 60)
+}
+private fun formatFileSize(bytes: Long): String {
+    if (bytes <= 0L) return "Файл"
+    val kb = bytes / 1024.0
+    return if (kb < 1024) "%.0f КБ".format(Locale.getDefault(), kb) else "%.1f МБ".format(Locale.getDefault(), kb / 1024.0)
+}
+private fun openDownloadedMedia(context: android.content.Context, path: String, mimeType: String) {
+    if (path.isBlank()) { android.widget.Toast.makeText(context, "Файл ещё загружается", android.widget.Toast.LENGTH_SHORT).show(); return }
+    runCatching {
+        val file = File(path); require(file.exists()) { "Файл ещё не загружен" }
+        val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
+        context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeType.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+    }.onFailure { android.widget.Toast.makeText(context, "Не удалось открыть файл: ${it.message ?: "нет подходящего приложения"}", android.widget.Toast.LENGTH_LONG).show() }
+}
+private fun prepareOutgoingMedia(context: android.content.Context, uri: Uri, prefix: String, maxBytes: Long): File {
+    val resolver = context.contentResolver
+    val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }?.substringAfterLast('/')?.take(100)
+    val extension = name?.substringAfterLast('.', "")?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }?.let { ".$it" } ?: ""
+    val target = File(context.cacheDir, "${prefix}_${System.currentTimeMillis()}$extension")
+    resolver.openInputStream(uri)?.use { input ->
+        target.outputStream().use { output ->
+            val buffer = ByteArray(64 * 1024); var total = 0L
+            while (true) { val count = input.read(buffer); if (count < 0) break; total += count; require(total <= maxBytes) { "Файл превышает лимит ${maxBytes / (1024 * 1024)} МБ" }; output.write(buffer, 0, count) }
+        }
+    } ?: error("Не удалось открыть выбранный файл")
+    require(target.length() > 0L) { "Выбран пустой файл" }
     return target
 }
 
