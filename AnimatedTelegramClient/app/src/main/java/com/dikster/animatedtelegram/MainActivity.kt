@@ -16,6 +16,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -165,7 +166,9 @@ private fun TelegramApp(td: TdLibClient) {
                             onSend = { text, animated ->
                                 if (animated) td.sendAnimated(selectedChat!!.id, text)
                                 else td.sendPlain(selectedChat!!.id, text)
-                            }
+                            },
+                            onDeleteMessage = { td.deleteMessage(selectedChat!!.id, it.id) },
+                            onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) }
                         )
                     }
                 }
@@ -461,17 +464,49 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: 
 @Composable
 private fun ConversationScreen(
     chat: TgChat, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
-    onSend: (String, Boolean) -> Unit
+    onSend: (String, Boolean) -> Unit,
+    onDeleteMessage: (TgMessage) -> Unit,
+    onEditMessage: (TgMessage, String) -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
     var showProfile by remember { mutableStateOf(false) }
+    var selectedMessage by remember { mutableStateOf<TgMessage?>(null) }
+    var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
+    var editDraft by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.chatBackground)) {
+        selectedMessage?.let { target ->
+            AlertDialog(
+                onDismissRequest = { selectedMessage = null },
+                title = { Text("Сообщение", color = LocalAppearance.current.text) },
+                text = { Text(if (target.outgoing) "Выберите действие для своего сообщения" else "Это сообщение другого пользователя", color = LocalAppearance.current.muted) },
+                confirmButton = {
+                    Row {
+                        if (target.outgoing) {
+                            TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
+                            TextButton(onClick = { onDeleteMessage(target); selectedMessage = null }) { Text("Удалить", color = Color(0xFFFF6B6B)) }
+                        }
+                        TextButton(onClick = { selectedMessage = null }) { Text("Отмена") }
+                    }
+                }
+            )
+        }
+        editingMessage?.let { target ->
+            AlertDialog(
+                onDismissRequest = { editingMessage = null },
+                title = { Text("Изменить сообщение", color = LocalAppearance.current.text) },
+                text = { OutlinedTextField(value = editDraft, onValueChange = { editDraft = it }, modifier = Modifier.fillMaxWidth(), maxLines = 5) },
+                confirmButton = {
+                    TextButton(onClick = { onEditMessage(target, editDraft); editingMessage = null }) { Text("Сохранить") }
+                },
+                dismissButton = { TextButton(onClick = { editingMessage = null }) { Text("Отмена") } }
+            )
+        }
         if (showProfile) AlertDialog(
             onDismissRequest = { showProfile = false; onCloseProfile() },
             title = { Text(profile?.name ?: chat.title, color = LocalAppearance.current.text) },
@@ -517,7 +552,7 @@ private fun ConversationScreen(
             ) {
                 items(messages.sortedBy { it.date }, key = { it.id }) { message ->
                     AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 })) {
-                        MessageBubble(message)
+                        MessageBubble(message, onLongPress = { selectedMessage = message })
                     }
                 }
             }
@@ -574,14 +609,14 @@ private fun ProfileInfoLine(label: String, value: String) {
 }
 
 @Composable
-private fun MessageBubble(message: TgMessage) {
+private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit) {
     val time = remember(message.date) {
         try { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.date.toLong() * 1000L)) }
         catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.outgoing) Arrangement.End else Arrangement.Start) {
         Column(
-            Modifier.widthIn(max = 310.dp).clip(
+            Modifier.widthIn(max = 310.dp).combinedClickable(onClick = {}, onLongClick = onLongPress).clip(
                 RoundedCornerShape(
                     topStart = LocalAppearance.current.bubbleRadius.dp, topEnd = LocalAppearance.current.bubbleRadius.dp,
                     bottomStart = if (message.outgoing) LocalAppearance.current.bubbleRadius.dp else 4.dp,
