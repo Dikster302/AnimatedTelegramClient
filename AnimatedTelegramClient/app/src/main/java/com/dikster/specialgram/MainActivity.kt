@@ -173,6 +173,7 @@ private fun TelegramApp(td: TdLibClient) {
     var password by remember { mutableStateOf("") }
     var selectedChat by remember { mutableStateOf<TgChat?>(null) }
     var query by remember { mutableStateOf("") }
+    var contactsQuery by remember { mutableStateOf("") }
     var sortNewest by remember { mutableStateOf(true) }
     val videoCaptureLauncher = androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val uri = result.data?.data
@@ -215,6 +216,8 @@ private fun TelegramApp(td: TdLibClient) {
                             onReplyToStory = { story, text -> td.replyToStory(story.chatId, story.storyId, text) },
                             query = query,
                             onQuery = { query = it },
+                            contactsQuery = contactsQuery,
+                            onContactsQuery = { contactsQuery = it },
                             sortNewest = sortNewest,
                             onSort = { sortNewest = it },
                             compactChats = compactChats,
@@ -265,7 +268,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
@@ -342,7 +345,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, onSaveMyProfile, onPickProfilePhoto, operationError, onDismissOperationError, privacyLastSeen, onPrivacyLastSeen, privacyPhone, onPrivacyPhone, privacyPhoto, onPrivacyPhoto, themeName, onTheme, glass, onGlass, fontScale, onFontScale, accentName, onAccent, bubbleRadius, onBubbleRadius, wallpaperName, onWallpaper, compactChats, onCompactChats, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper, onSelectCosmicCover) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
+                ContactsPanel(contacts.filter { it.name.contains(contactsQuery, true) || it.username.contains(contactsQuery, true) || it.phone.contains(contactsQuery) }, contactsQuery, onContactsQuery, onOpenContact)
             }
         } else {
             if (folder != "Архив") {
