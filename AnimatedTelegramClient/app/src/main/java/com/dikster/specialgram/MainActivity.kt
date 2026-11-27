@@ -322,22 +322,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                             cursorColor = Color.White
                         )
                     )
-                    Row(
-                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item ->
-                            Column(
-                                Modifier.clickable { folder = item }.padding(horizontal = 10.dp, vertical = 7.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(item, color = Color.White.copy(alpha = if (folder == item) 1f else 0.72f), fontSize = 14.sp, fontWeight = if (folder == item) FontWeight.SemiBold else FontWeight.Normal)
-                                Spacer(Modifier.height(7.dp))
-                                Box(Modifier.width(if (folder == item) 25.dp else 8.dp).height(3.dp).clip(CircleShape).background(if (folder == item) Color.White else Color.Transparent))
-                            }
-                        }
-                    }
+
                 }
             }
         }
@@ -369,6 +354,22 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     }
                 }
             }
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item ->
+                            Column(
+                                Modifier.clickable { folder = item }.padding(horizontal = 10.dp, vertical = 7.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(item, color = Color.White.copy(alpha = if (folder == item) 1f else 0.72f), fontSize = 14.sp, fontWeight = if (folder == item) FontWeight.SemiBold else FontWeight.Normal)
+                                Spacer(Modifier.height(7.dp))
+                                Box(Modifier.width(if (folder == item) 25.dp else 8.dp).height(3.dp).clip(CircleShape).background(if (folder == item) Color.White else Color.Transparent))
+                            }
+                        }
+                    }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
