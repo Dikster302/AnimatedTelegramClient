@@ -578,8 +578,7 @@ private fun SettingsPanel(
                 OutlinedButton(onClick = onPickProfilePhoto, modifier = Modifier.fillMaxWidth()) { Text("Изменить фотографию профиля") }
                 OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Имя") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Фамилия") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("
-", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
+                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("\n", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
                 Button(onClick = { onSaveMyProfile(firstName, lastName, bio) }, enabled = firstName.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Сохранить изменения") }
                 Text("Телефон: ${account?.phone?.ifBlank { "не указан" } ?: "Загружаем…"}", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
                 Text("Изменения отправляются непосредственно в Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
