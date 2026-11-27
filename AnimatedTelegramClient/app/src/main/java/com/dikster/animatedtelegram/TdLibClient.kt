@@ -43,8 +43,8 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
-  is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) { _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date,m.isOutgoing && m.id<=(_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L))).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
-  is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=(o.newContent as? TdApi.MessageText)?.text?.text ?: ""; _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
+  is TdApi.UpdateNewMessage -> { val m=o.message; val t=messageDisplayText(m.content); if(m.chatId==activeChat) { _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date,m.isOutgoing && m.id<=(_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L))).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
+  is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=messageDisplayText(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
@@ -142,6 +142,17 @@ class TdLibClient(context:Context) {
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
+ private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
+  is TdApi.MessageText -> content.text.text
+  is TdApi.MessagePhoto -> "📷 Фото"
+  is TdApi.MessageVideo -> "🎥 Видео"
+  is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
+  is TdApi.MessageSticker -> "Стикер"
+  is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
+  is TdApi.MessageAnimation -> "GIF"
+  is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
+  else -> "Сообщение"
+ }
  private fun messagePreview(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
@@ -166,7 +177,7 @@ class TdLibClient(context:Context) {
    if(r is TdApi.Messages) {
     val loaded=r.messages
     val readMarker=_chats.value.firstOrNull{it.id==id}?.lastReadOutboxMessageId ?: 0L
-    _messages.value=loaded.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing,it.date,it.isOutgoing && it.id<=readMarker)}.sortedBy{it.date}
+    _messages.value=loaded.map{TgMessage(it.id,messageDisplayText(it.content),it.isOutgoing,it.date,it.isOutgoing && it.id<=readMarker)}.sortedBy{it.date}
     val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
     if(incomingIds.isNotEmpty()) send(TdApi.ViewMessages(id,incomingIds,null,true))
    }
