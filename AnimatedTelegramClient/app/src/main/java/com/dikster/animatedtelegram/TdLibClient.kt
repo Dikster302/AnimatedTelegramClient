@@ -11,7 +11,7 @@ import java.text.SimpleDateFormat
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
-data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
+data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)\ndata class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
@@ -19,7 +19,7 @@ class TdLibClient(context:Context) {
  private val _chats=MutableStateFlow<List<TgChat>>(emptyList()); val chats=_chats.asStateFlow()
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
- private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
+ private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()\n private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
  private var activeChat:Long?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
@@ -34,7 +34,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
-  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user) }
+  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(_account.value?.phone==o.user.phoneNumber || _account.value?.username==o.user.usernames?.activeUsernames?.firstOrNull()) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
@@ -46,7 +46,7 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
-  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; loadChats(); loadContacts() }
+  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; loadChats(); loadContacts(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
@@ -77,7 +77,7 @@ class TdLibClient(context:Context) {
    }
   }
  }
- private fun updateUserProfile(user:TdApi.User) {
+ private fun updateAccount(user:TdApi.User) {\n  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")\n  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)\n }\n private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
   _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.usernames?.activeUsernames?.firstOrNull() ?: "",status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
