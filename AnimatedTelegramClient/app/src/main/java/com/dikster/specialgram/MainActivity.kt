@@ -763,10 +763,10 @@ private fun ConversationScreen(
     var showVideoShapePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(messages.size) {
+    LaunchedEffect(messages.lastOrNull()?.id) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).background(LocalAppearance.current.chatBackground)) {
+    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
         if (showVideoShapePicker) AlertDialog(
             onDismissRequest = { showVideoShapePicker = false },
             title = { Text("Форма видеосообщения", color = LocalAppearance.current.text) },
@@ -938,9 +938,24 @@ private fun ConversationScreen(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
-                items(messages.sortedBy { it.date }, key = { it.id }) { message ->
+                val orderedMessages = messages.sortedBy { it.date }
+                itemsIndexed(orderedMessages, key = { _, message -> message.id }) { index, message ->
+                    val previous = orderedMessages.getOrNull(index - 1)
+                    val next = orderedMessages.getOrNull(index + 1)
+                    val startsDay = previous == null || !isSameMessageDay(previous.date, message.date)
+                    val continuesGroup = previous != null && previous.outgoing == message.outgoing &&
+                        isSameMessageDay(previous.date, message.date) && message.date - previous.date < 300
+                    val continuesAfter = next != null && next.outgoing == message.outgoing &&
+                        isSameMessageDay(next.date, message.date) && next.date - message.date < 300
+                    if (startsDay) MessageDateDivider(message.date)
                     AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 })) {
-                        MessageBubble(message, onLongPress = { selectedMessage = message }, onReaction = { emoji -> onReactToMessage(message, emoji) })
+                        MessageBubble(
+                            message,
+                            onLongPress = { selectedMessage = message },
+                            onReaction = { emoji -> onReactToMessage(message, emoji) },
+                            groupedWithPrevious = continuesGroup,
+                            groupedWithNext = continuesAfter
+                        )
                     }
                 }
             }
@@ -1079,8 +1094,42 @@ private fun ProfileInfoLine(label: String, value: String) {
     }
 }
 
+private fun isSameMessageDay(first: Int, second: Int): Boolean {
+    if (first <= 0 || second <= 0) return false
+    val a = Calendar.getInstance().apply { timeInMillis = first.toLong() * 1000L }
+    val b = Calendar.getInstance().apply { timeInMillis = second.toLong() * 1000L }
+    return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
+        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
+}
+
 @Composable
-private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit, onReaction: (String) -> Unit) {
+private fun MessageDateDivider(timestamp: Int) {
+    val label = remember(timestamp) {
+        val date = Date(timestamp.toLong() * 1000L)
+        val today = Calendar.getInstance()
+        val target = Calendar.getInstance().apply { time = date }
+        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+        when {
+            today.get(Calendar.YEAR) == target.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR) -> "Сегодня"
+            yesterday.get(Calendar.YEAR) == target.get(Calendar.YEAR) && yesterday.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR) -> "Вчера"
+            else -> SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(date)
+        }
+    }
+    Box(Modifier.fillMaxWidth().padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+        Surface(color = LocalAppearance.current.panel.copy(alpha = 0.88f), shape = RoundedCornerShape(20.dp)) {
+            Text(label, color = LocalAppearance.current.muted, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
+        }
+    }
+}
+
+@Composable
+private fun MessageBubble(
+    message: TgMessage,
+    onLongPress: () -> Unit,
+    onReaction: (String) -> Unit,
+    groupedWithPrevious: Boolean = false,
+    groupedWithNext: Boolean = false
+) {
     val time = remember(message.date) {
         try { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.date.toLong() * 1000L)) }
         catch (_: Exception) { "" }
@@ -1090,8 +1139,8 @@ private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit, onReactio
             Modifier.widthIn(max = 310.dp).combinedClickable(onClick = {}, onLongClick = onLongPress).clip(
                 RoundedCornerShape(
                     topStart = LocalAppearance.current.bubbleRadius.dp, topEnd = LocalAppearance.current.bubbleRadius.dp,
-                    bottomStart = if (message.outgoing) LocalAppearance.current.bubbleRadius.dp else 4.dp,
-                    bottomEnd = if (message.outgoing) 4.dp else LocalAppearance.current.bubbleRadius.dp
+                    bottomStart = if (message.outgoing || groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp,
+                    bottomEnd = if (!message.outgoing || groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp
                 )
             ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
         ) {
