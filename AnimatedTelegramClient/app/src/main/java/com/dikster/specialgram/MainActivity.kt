@@ -335,8 +335,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
         } else {
             if (folder != "Архив") {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
-                    Column(Modifier.width(66.dp).clickable { showStoryComposer = true }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(58.dp).border(2.dp, LocalAppearance.current.accent, CircleShape).padding(4.dp).clip(CircleShape).background(LocalAppearance.current.panelLight), contentAlignment = Alignment.Center) {
+                    Column(Modifier.width(70.dp).clickable { showStoryComposer = true }, horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(62.dp).border(2.dp, LocalAppearance.current.accent, CircleShape).padding(4.dp).clip(CircleShape).background(LocalAppearance.current.panelLight), contentAlignment = Alignment.Center) {
                             Text("+", color = LocalAppearance.current.accent, fontSize = 34.sp, fontWeight = FontWeight.Light)
                         }
                         Text("Моя история", color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -348,7 +348,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                             if (first != null) { viewingStory = first.chatId to first.storyId; onOpenStory(first) }
                         }, horizontalAlignment = Alignment.CenterHorizontally) {
                             val groupStories = stories.filter { it.chatId == story.chatId }
-                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 58, hasStory = true, storyViewed = groupStories.all { it.isViewed })
+                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 62, hasStory = true, storyViewed = groupStories.all { it.isViewed })
                             Text(owner?.title ?: story.ownerName, color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
