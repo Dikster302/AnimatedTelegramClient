@@ -9,5 +9,7 @@ class SpecialgramApp : Application() {
     override fun onCreate() {
         super.onCreate()
         td = TdLibClient(this)
+        com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token -> td.updatePushToken(token) }
     }
 }
