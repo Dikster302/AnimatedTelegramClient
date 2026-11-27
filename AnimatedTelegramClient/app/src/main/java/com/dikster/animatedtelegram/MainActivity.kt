@@ -46,14 +46,22 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val tgBackground = Color(0xFF0E1621)
-private val tgPanel = Color(0xFF17212B)
-private val tgPanelLight = Color(0xFF202B36)
-private val tgBlue = Color(0xFF2AABEE)
-private val tgOutgoing = Color(0xFF2B5278)
-private val tgIncoming = Color(0xFF182533)
-private val tgText = Color(0xFFEAF2F8)
-private val tgMuted = Color(0xFF8A9AA9)
+private data class UiAppearance(
+    val background: Color, val panel: Color, val panelLight: Color, val accent: Color,
+    val outgoing: Color, val incoming: Color, val text: Color, val muted: Color, val glass: Float
+)
+private val LocalAppearance = staticCompositionLocalOf {
+    UiAppearance(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE),
+        Color(0xFF2B5278), Color(0xFF182533), Color(0xFFEAF2F8), Color(0xFF8A9AA9), 0f)
+}
+private val tgBackground get() = LocalAppearance.current.background
+private val tgPanel get() = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)
+private val tgPanelLight get() = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f)
+private val tgBlue get() = LocalAppearance.current.accent
+private val tgOutgoing get() = LocalAppearance.current.outgoing
+private val tgIncoming get() = LocalAppearance.current.incoming
+private val tgText get() = LocalAppearance.current.text
+private val tgMuted get() = LocalAppearance.current.muted
 
 class MainActivity : ComponentActivity() {
     private lateinit var td: TdLibClient
@@ -64,8 +72,8 @@ class MainActivity : ComponentActivity() {
         td = TdLibClient(this)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
-                primary = tgBlue, background = tgBackground, surface = tgPanel,
-                onBackground = tgText, onSurface = tgText
+                primary = Color(0xFF2AABEE), background = Color(0xFF0E1621), surface = Color(0xFF17212B),
+                onBackground = Color(0xFFEAF2F8), onSurface = Color(0xFFEAF2F8)
             )) { TelegramApp(td) }
         }
     }
@@ -77,6 +85,26 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun TelegramApp(td: TdLibClient) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val prefs = remember { context.getSharedPreferences("appearance", android.content.Context.MODE_PRIVATE) }
+    var themeName by remember { mutableStateOf(prefs.getString("theme", "Telegram") ?: "Telegram") }
+    var glass by remember { mutableFloatStateOf(prefs.getFloat("glass", 0.35f)) }
+    var fontScale by remember { mutableFloatStateOf(prefs.getFloat("fontScale", 1f)) }
+    val appearance = remember(themeName, glass) {
+        val colors = when (themeName) {
+            "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
+            "Aurora" -> listOf(Color(0xFF071A20), Color(0xFF102B32), Color(0xFF193B43), Color(0xFF45D6C5), Color(0xFF236D69), Color(0xFF153039))
+            "Rose" -> listOf(Color(0xFF1C101B), Color(0xFF2B1929), Color(0xFF3A2237), Color(0xFFFF78B7), Color(0xFF75405F), Color(0xFF382334))
+            else -> listOf(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE), Color(0xFF2B5278), Color(0xFF182533))
+        }
+        UiAppearance(colors[0], colors[1], colors[2], colors[3], colors[4], colors[5],
+            Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass)
+    }
+    LaunchedEffect(themeName, glass, fontScale) {
+        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).apply()
+    }
+    CompositionLocalProvider(LocalAppearance provides appearance,
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
     val auth by td.auth.collectAsState()
     val chats by td.chats.collectAsState()
     val contacts by td.contacts.collectAsState()
@@ -129,6 +157,7 @@ private fun TelegramApp(td: TdLibClient) {
             }
         }
     }
+    }
 }
 
 @Composable
@@ -159,7 +188,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -229,11 +258,14 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
 }
 
 @Composable
-private fun SettingsPanel(account: TgAccount?) {
-    Column(Modifier.fillMaxSize().background(tgBackground).padding(18.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
-            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(68.dp))
-            Spacer(Modifier.width(16.dp))
+private fun SettingsPanel(
+    account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
+    glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit
+) {
+    Column(Modifier.fillMaxSize().background(tgBackground).padding(horizontal = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(60.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(account?.name ?: "Мой аккаунт Telegram", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 Text(if (account?.username.isNullOrBlank()) "Подключён через TDLib" else "@${account?.username}", color = tgMuted, fontSize = 13.sp)
@@ -241,24 +273,60 @@ private fun SettingsPanel(account: TgAccount?) {
                 if (account?.isVerified == true) Text("✓ Подтверждённый аккаунт", color = tgBlue, fontSize = 12.sp)
             }
         }
-        HorizontalDivider(color = Color(0xFF253341))
-        if (account != null) {
-            SettingsLine("Номер телефона", account.phone.ifBlank { "Скрыт Telegram" })
-        } else {
-            SettingsLine("Аккаунт", "Загружаем данные Telegram…")
+        HorizontalDivider(color = tgMuted.copy(alpha = 0.18f))
+        Text("ВНЕШНИЙ ВИД", color = tgBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
+        Text("Цветовая тема", color = tgText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Telegram", "Midnight", "Aurora", "Rose").forEach { name ->
+                FilterChip(selected = themeName == name, onClick = { onTheme(name) }, label = { Text(name) })
+            }
         }
-        HorizontalDivider(color = Color(0xFF253341))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Эффект стекла", color = tgText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Прозрачность панелей и карточек", color = tgMuted, fontSize = 12.sp)
+            }
+            Text("${(glass * 100).toInt()}%", color = tgBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(value = glass, onValueChange = onGlass, valueRange = 0f..1f)
+        Surface(color = tgPanel, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
+            Column(Modifier.padding(14.dp)) {
+                Text("Предпросмотр стекла", color = tgText, fontWeight = FontWeight.SemiBold)
+                Text("Так будут выглядеть панели приложения", color = tgMuted, fontSize = 12.sp)
+                Spacer(Modifier.height(10.dp))
+                Surface(color = tgPanelLight, shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(34.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) { Text("A", color = Color.White, fontWeight = FontWeight.Bold) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Animated Telegram", color = tgText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Пример полупрозрачной карточки", color = tgMuted, fontSize = 11.sp)
+                        }
+                        Text("✓✓", color = tgBlue, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Размер текста", color = tgText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Масштаб интерфейса", color = tgMuted, fontSize = 12.sp)
+            }
+            Text("${(fontScale * 100).toInt()}%", color = tgBlue, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(value = fontScale, onValueChange = onFontScale, valueRange = 0.85f..1.25f)
+        HorizontalDivider(color = tgMuted.copy(alpha = 0.18f), modifier = Modifier.padding(top = 10.dp))
+        Text("АККАУНТ", color = tgBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 15.dp, bottom = 5.dp))
+        if (account != null) SettingsLine("Номер телефона", account.phone.ifBlank { "Скрыт Telegram" })
+        else SettingsLine("Аккаунт", "Загружаем данные Telegram…")
         SettingsLine("Уведомления", "Параметры уведомлений Telegram")
-        SettingsLine("Конфиденциальность", "Управление приватностью аккаунта")
+        SettingsLine("Конфиденциальность", "Настройки приватности аккаунта")
         SettingsLine("Данные и память", "Использование сети и хранилища")
-        SettingsLine("Оформление", "Тёмная тема")
         SettingsLine("О приложении", "Animated Telegram · 0.3")
-        Spacer(Modifier.height(12.dp))
-        Text("Авторская функция", color = tgBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-        Text("Постепенная отправка текста доступна в каждом чате — включай или выключай её переключателем над полем ввода.", color = tgMuted, fontSize = 13.sp, lineHeight = 19.sp)
+        Text("Авторская функция", color = tgBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+        Text("Постепенная отправка текста доступна в каждом чате — включай или выключай её переключателем.", color = tgMuted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
     }
 }
-
 @Composable
 private fun SettingsLine(title: String, subtitle: String) {
     Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
