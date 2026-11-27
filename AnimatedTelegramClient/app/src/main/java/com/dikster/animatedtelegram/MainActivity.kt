@@ -184,21 +184,31 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
         Box(Modifier.fillMaxWidth()) {
-        HeaderWallpaper(uri = headerWallpaper, modifier = Modifier.matchParentSize())
-        Column(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(42.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Telegram", color = LocalAppearance.current.text, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Text("${chats.size} чатов", color = LocalAppearance.current.muted, fontSize = 12.sp)
-            }
-            if (selectedTab != 2) Box {
-                IconButton(onClick = { menuOpen = true }) { Text("⋮", color = LocalAppearance.current.text, fontSize = 25.sp) }
-                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("Сначала новые") }, onClick = { onSort(true); menuOpen = false })
-                    DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(false); menuOpen = false })
-                    DropdownMenuItem(text = { Text(if (unreadOnly) "Показать все чаты" else "Только непрочитанные") }, onClick = { unreadOnly = !unreadOnly; menuOpen = false })
+            HeaderWallpaper(uri = if (selectedTab == 0) headerWallpaper else null, modifier = Modifier.matchParentSize())
+            Column(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(42.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Telegram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("${chats.size} чатов", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
+                    }
+                    if (selectedTab != 2) Box {
+                        IconButton(onClick = { menuOpen = true }) { Text("⋮", color = Color.White, fontSize = 25.sp) }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            DropdownMenuItem(text = { Text("Сначала новые") }, onClick = { onSort(true); menuOpen = false })
+                            DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(false); menuOpen = false })
+                            DropdownMenuItem(text = { Text(if (unreadOnly) "Показать все чаты" else "Только непрочитанные") }, onClick = { unreadOnly = !unreadOnly; menuOpen = false })
+                        }
+                    }
+                }
+                if (selectedTab == 0) {
+                    OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
+                        placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = LocalAppearance.current.muted) }, shape = RoundedCornerShape(24.dp),
+                        colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = LocalAppearance.current.panel.copy(alpha = 0.78f), unfocusedContainerColor = LocalAppearance.current.panel.copy(alpha = 0.78f), focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent, focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item -> FilterChip(selected = folder == item, onClick = { folder = item }, label = { Text(item) }) }
+                    }
                 }
             }
         }
@@ -209,16 +219,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
             }
         } else {
-            OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
-                placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = LocalAppearance.current.muted) }, shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), unfocusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent, focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item -> FilterChip(selected = folder == item, onClick = { folder = item }, label = { Text(item) }) }
-            }
-        }
-        }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (selectedTab == 1) "Все контакты" else "Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
                 Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = LocalAppearance.current.muted, fontSize = 12.sp)
             }
