@@ -2,6 +2,10 @@ package com.dikster.animatedtelegram
 
 import android.os.Bundle
 import android.net.Uri
+import android.content.Intent
+import android.provider.MediaStore
+import androidx.activity.result.contract.ActivityResultContracts
+import java.io.File
 import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -94,6 +98,7 @@ private fun TelegramApp(td: TdLibClient) {
     var wallpaperName by remember { mutableStateOf(prefs.getString("wallpaper", "По теме") ?: "По теме") }
     var compactChats by remember { mutableStateOf(prefs.getBoolean("compactChats", false)) }
     var headerWallpaper by remember { mutableStateOf(prefs.getString("headerWallpaper", null)) }
+    var videoNoteShape by remember { mutableStateOf(prefs.getString("videoNoteShape", "circle") ?: "circle") }
     val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             runCatching { context.contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION) }
@@ -116,6 +121,7 @@ private fun TelegramApp(td: TdLibClient) {
     LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName, compactChats, headerWallpaper) {
         prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).putBoolean("compactChats", compactChats).putString("headerWallpaper", headerWallpaper).apply()
     }
+    LaunchedEffect(videoNoteShape) { prefs.edit().putString("videoNoteShape", videoNoteShape).apply() }
     CompositionLocalProvider(LocalAppearance provides appearance,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
     val auth by td.auth.collectAsState()
@@ -131,6 +137,20 @@ private fun TelegramApp(td: TdLibClient) {
     var selectedChat by remember { mutableStateOf<TgChat?>(null) }
     var query by remember { mutableStateOf("") }
     var sortNewest by remember { mutableStateOf(true) }
+    val videoCaptureLauncher = androidx.activity.compose.rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val uri = result.data?.data
+        val chatId = selectedChat?.id
+        if (result.resultCode == android.app.Activity.RESULT_OK && uri != null && chatId != null) {
+            val target = File(context.cacheDir, "specialgram_video_${System.currentTimeMillis()}.mp4")
+            runCatching {
+                context.contentResolver.openInputStream(uri)?.use { input -> target.outputStream().use { output -> input.copyTo(output) } }
+                    ?: error("Камера не вернула видеофайл")
+            }.onSuccess { td.sendVideo(chatId, target.absolutePath, videoNoteShape) }
+                .onFailure { td.reportOperationError("Не удалось получить видео: ${it.message ?: "ошибка файла"}") }
+        } else if (result.resultCode == android.app.Activity.RESULT_OK) {
+            td.reportOperationError("Камера не вернула ссылку на записанное видео. Попробуйте другую камеру.")
+        }
+    }
 
     BackHandler(enabled = selectedChat != null) {
         td.closeProfile()
@@ -182,6 +202,9 @@ private fun TelegramApp(td: TdLibClient) {
                             onDeleteMessage = { message, revoke -> td.deleteMessage(selectedChat!!.id, message.id, revoke) },
                             onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
+                            videoNoteShape = videoNoteShape,
+                            onVideoNoteShape = { videoNoteShape = it },
+                            onRecordVideo = { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) },
                             operationError = operationError,
                             onDismissOperationError = { td.clearOperationError() }
                         )
@@ -521,6 +544,7 @@ private fun ConversationScreen(
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
     onEditMessage: (TgMessage, String) -> Unit,
+    videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
     operationError: String?, onDismissOperationError: () -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
@@ -533,12 +557,28 @@ private fun ConversationScreen(
     var clearForBoth by remember { mutableStateOf(false) }
     var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var editDraft by remember { mutableStateOf("") }
+    var showVideoShapePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.chatBackground)) {
+        if (showVideoShapePicker) AlertDialog(
+            onDismissRequest = { showVideoShapePicker = false },
+            title = { Text("Форма видеосообщения", color = LocalAppearance.current.text) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("circle" to "Круг", "square" to "Квадрат", "rounded" to "Скруглённый квадрат", "heart" to "Сердце", "star" to "Звезда", "hexagon" to "Шестиугольник").forEach { (key, title) ->
+                        Row(Modifier.fillMaxWidth().clickable { onVideoNoteShape(key); showVideoShapePicker = false }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = videoNoteShape == key, onClick = { onVideoNoteShape(key); showVideoShapePicker = false })
+                            Text(title, color = LocalAppearance.current.text)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showVideoShapePicker = false }) { Text("Готово") } }
+        )
         if (operationError != null) AlertDialog(
             onDismissRequest = onDismissOperationError,
             title = { Text("Не удалось выполнить действие", color = LocalAppearance.current.text) },
@@ -683,7 +723,12 @@ private fun ConversationScreen(
                         focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text, cursorColor = LocalAppearance.current.accent
                     )
                 )
-                Spacer(Modifier.width(7.dp))
+                Spacer(Modifier.width(5.dp))
+                Surface(
+                    modifier = Modifier.size(49.dp).clip(CircleShape).combinedClickable(onClick = onRecordVideo, onLongClick = { showVideoShapePicker = true }),
+                    color = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), shape = CircleShape
+                ) { Box(contentAlignment = Alignment.Center) { Text("◎", color = LocalAppearance.current.accent, fontSize = 25.sp) } }
+                Spacer(Modifier.width(5.dp))
                 val sendScale by animateFloatAsState(if (draft.isBlank()) 0.92f else 1f, label = "send-button")
                 Surface(
                     modifier = Modifier.size(49.dp).clip(CircleShape).clickable(enabled = draft.isNotBlank()) {
