@@ -115,6 +115,13 @@ private fun TelegramApp(td: TdLibClient) {
             headerWallpaper = uri.toString()
         }
     }
+    val storyImagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            runCatching { prepareStoryPhoto(context, uri) }
+                .onSuccess { td.postPhotoStory(it.absolutePath) }
+                .onFailure { td.reportOperationError("Не удалось подготовить фото для истории: " + (it.message ?: "ошибка файла")) }
+        }
+    }
     val appearance = remember(themeName, glass, accentName, bubbleRadius, wallpaperName) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
@@ -184,6 +191,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onOpenStory = { td.openStory(it.chatId,it.storyId) },
                             onCloseStory = { td.closeStory(it.chatId,it.storyId) },
                             onReactToStory = { td.reactToStory(it.chatId,it.storyId) },
+                            onPostStory = { storyImagePicker.launch(arrayOf("image/*")) },
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
@@ -233,7 +241,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
     val activeStory = stories.firstOrNull { viewingStory == (it.chatId to it.storyId) }
@@ -282,8 +290,14 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
             }
         } else {
-            if (stories.isNotEmpty() && folder != "Архив") {
+            if (folder != "Архив") {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
+                    Column(Modifier.width(66.dp).clickable(onClick = onPostStory), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(58.dp).border(2.dp, LocalAppearance.current.accent, CircleShape).padding(4.dp).clip(CircleShape).background(LocalAppearance.current.panelLight), contentAlignment = Alignment.Center) {
+                            Text("+", color = LocalAppearance.current.accent, fontSize = 34.sp, fontWeight = FontWeight.Light)
+                        }
+                        Text("Моя история", color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                     stories.distinctBy { it.chatId }.forEach { story ->
                         val owner = chats.firstOrNull { it.id == story.chatId }
                         Column(Modifier.width(66.dp).clickable {
@@ -941,6 +955,45 @@ private fun CenterPanel(title: String, subtitle: String) {
         Spacer(Modifier.height(8.dp))
         Text(subtitle, color = LocalAppearance.current.muted, fontSize = 13.sp)
     }
+}
+
+private fun prepareStoryPhoto(context: android.content.Context, uri: Uri): File {
+    val resolver = context.contentResolver
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        ?: error("Не удалось открыть изображение")
+    require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Некорректное изображение" }
+    var sample = 1
+    while (bounds.outWidth / sample > 2160 || bounds.outHeight / sample > 3840) sample *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+        ?: error("Не удалось прочитать изображение")
+    val targetRatio = 9f / 16f
+    val sourceRatio = decoded.width.toFloat() / decoded.height.toFloat()
+    val cropWidth: Int
+    val cropHeight: Int
+    if (sourceRatio > targetRatio) {
+        cropHeight = decoded.height
+        cropWidth = (cropHeight * targetRatio).toInt().coerceAtLeast(1)
+    } else {
+        cropWidth = decoded.width
+        cropHeight = (cropWidth / targetRatio).toInt().coerceAtLeast(1)
+    }
+    val cropped = Bitmap.createBitmap(decoded, (decoded.width - cropWidth) / 2, (decoded.height - cropHeight) / 2, cropWidth, cropHeight)
+    val outputBitmap = Bitmap.createScaledBitmap(cropped, 1080, 1920, true)
+    val target = File(context.cacheDir, "specialgram_story_" + System.currentTimeMillis() + ".jpg")
+    var quality = 90
+    do {
+        target.outputStream().use { stream ->
+            if (!outputBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, stream)) error("Не удалось сжать изображение")
+        }
+        quality -= 5
+    } while (target.length() > 10L * 1024L * 1024L && quality >= 70)
+    decoded.recycle()
+    if (cropped !== decoded) cropped.recycle()
+    if (outputBitmap !== cropped) outputBitmap.recycle()
+    require(target.length() <= 10L * 1024L * 1024L) { "Фото превышает лимит Telegram 10 МБ" }
+    return target
 }
 
 private fun avatarColor(id: Long): Color {
