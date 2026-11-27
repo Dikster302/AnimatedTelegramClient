@@ -160,14 +160,21 @@ class TdLibClient(context:Context) {
    val shape=decodeVideoShape((content.caption?.text ?: ""))
    val path=file.local.path
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
-   return TgMessage(message.id,"🎥 Видеосообщение · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path)
+   return TgMessage(message.id,"🎥 Видео · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path)
+  }
+  if(content is TdApi.MessageVideoNote) {
+   val file=content.videoNote.video
+   val path=file.local.path
+   if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
+   return TgMessage(message.id,"🎥 Видеокружок",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,"circle",path)
   }
   return TgMessage(message.id,messageDisplayText(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker)
  }
  private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
-  is TdApi.MessageVideo -> "🎥 Видеосообщение · ${videoShapeTitle(decodeVideoShape((content.caption?.text ?: "")))}"
+  is TdApi.MessageVideo -> "🎥 Видео"
+  is TdApi.MessageVideoNote -> "🎥 Видеокружок"
   is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
   is TdApi.MessageSticker -> "Стикер"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
@@ -180,6 +187,7 @@ class TdLibClient(context:Context) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
   is TdApi.MessageVideo -> "🎥 Видео"
+  is TdApi.MessageVideoNote -> "🎥 Видеокружок"
   is TdApi.MessageDocument -> "📎 Файл"
   is TdApi.MessageSticker -> "Стикер"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
