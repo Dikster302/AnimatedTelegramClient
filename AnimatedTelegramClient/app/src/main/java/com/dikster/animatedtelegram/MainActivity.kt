@@ -116,82 +116,119 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(
-    chats: List<TgChat>, query: String, onQuery: (String) -> Unit,
-    sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit
-) {
+private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
-    val filtered = remember(chats, query, sortNewest) {
-        val found = chats.filter { it.title.contains(query, ignoreCase = true) }
-        if (sortNewest) found.sortedBy { it.title.lowercase(Locale.getDefault()) } else found.sortedByDescending { it.title.lowercase(Locale.getDefault()) }
+    var selectedTab by remember { mutableStateOf(0) }
+    var unreadOnly by remember { mutableStateOf(false) }
+    val filtered = remember(chats, query, sortNewest, unreadOnly) {
+        val found = chats.filter { it.title.contains(query, ignoreCase = true) && (!unreadOnly || it.unreadCount > 0) }
+        if (sortNewest) found.sortedByDescending { it.lastDate } else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
-        Row(
-            Modifier.fillMaxWidth().background(tgPanel).padding(horizontal = 16.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(Modifier.size(42.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) {
-                Text("✈", color = Color.White, fontSize = 22.sp)
-            }
+        Row(Modifier.fillMaxWidth().background(tgPanel).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(38.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) { Text("✈", color = Color.White, fontSize = 21.sp) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Telegram", color = tgText, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Telegram", color = tgText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 Text("${chats.size} чатов", color = tgMuted, fontSize = 12.sp)
             }
-            Box {
+            if (selectedTab != 2) Box {
                 IconButton(onClick = { menuOpen = true }) { Text("⋮", color = tgText, fontSize = 25.sp) }
                 DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                    DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(true); menuOpen = false })
-                    DropdownMenuItem(text = { Text("По названию: Я — А") }, onClick = { onSort(false); menuOpen = false })
+                    DropdownMenuItem(text = { Text("Сначала новые") }, onClick = { onSort(true); menuOpen = false })
+                    DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(false); menuOpen = false })
+                    DropdownMenuItem(text = { Text(if (unreadOnly) "Показать все чаты" else "Только непрочитанные") }, onClick = { unreadOnly = !unreadOnly; menuOpen = false })
                 }
             }
         }
-        OutlinedTextField(
-            value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-            singleLine = true, placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) },
-            shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = tgPanelLight, unfocusedContainerColor = tgPanelLight,
-                focusedBorderColor = tgBlue, unfocusedBorderColor = Color.Transparent,
-                focusedTextColor = tgText, unfocusedTextColor = tgText
-            )
-        )
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Все чаты", color = tgBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Spacer(Modifier.weight(1f))
-            Text(if (sortNewest) "А — Я" else "Я — А", color = tgMuted, fontSize = 12.sp)
-        }
-        if (filtered.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = tgMuted)
-            }
+        if (selectedTab == 2) {
+            SettingsPanel()
         } else {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+            OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
+                placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) }, shape = RoundedCornerShape(24.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = tgPanelLight, unfocusedContainerColor = tgPanelLight, focusedBorderColor = tgBlue, unfocusedBorderColor = Color.Transparent, focusedTextColor = tgText, unfocusedTextColor = tgText))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (selectedTab == 1) "Все контакты" else "Все чаты", color = tgBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Spacer(Modifier.weight(1f))
+                Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = tgMuted, fontSize = 12.sp)
+            }
+            if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = tgMuted) }
+            else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
                 items(filtered, key = { it.id }) { chat ->
-                    ChatRow(chat, onClick = { onOpen(chat) })
+                    ChatRow(chat) { onOpen(chat) }
                     HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
                 }
             }
         }
+        NavigationBar(containerColor = tgPanel, contentColor = tgBlue, tonalElevation = 0.dp) {
+            NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
+            NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Text("♙", fontSize = 20.sp) }, label = { Text("Контакты") })
+            NavigationBarItem(selected = selectedTab == 2, onClick = { selectedTab = 2 }, icon = { Text("⚙", fontSize = 20.sp) }, label = { Text("Настройки") })
+        }
+    }
+}
+
+@Composable
+private fun SettingsPanel() {
+    Column(Modifier.fillMaxSize().background(tgBackground).padding(18.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
+            Box(Modifier.size(68.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) { Text("✈", color = Color.White, fontSize = 31.sp) }
+            Spacer(Modifier.width(16.dp))
+            Column { Text("Мой аккаунт Telegram", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold); Text("Подключён через TDLib", color = tgMuted, fontSize = 13.sp) }
+        }
+        HorizontalDivider(color = Color(0xFF253341))
+        SettingsLine("Уведомления", "Настройки уведомлений Telegram")
+        SettingsLine("Конфиденциальность", "Управление приватностью аккаунта")
+        SettingsLine("Данные и память", "Использование сети и хранилища")
+        SettingsLine("Оформление", "Тёмная тема")
+        SettingsLine("О приложении", "Animated Telegram · 0.3")
+        Spacer(Modifier.height(12.dp))
+        Text("Авторская функция", color = tgBlue, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        Text("Постепенная отправка текста доступна в каждом чате — включай или выключай её переключателем над полем ввода.", color = tgMuted, fontSize = 13.sp, lineHeight = 19.sp)
+    }
+}
+
+@Composable
+private fun SettingsLine(title: String, subtitle: String) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
+        Text(title, color = tgText, fontSize = 15.sp)
+        Spacer(Modifier.height(3.dp))
+        Text(subtitle, color = tgMuted, fontSize = 12.sp)
     }
 }
 
 @Composable
 private fun ChatRow(chat: TgChat, onClick: () -> Unit) {
     val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(54.dp).clip(CircleShape).background(avatarColor(chat.id)), contentAlignment = Alignment.Center) {
+    val time = remember(chat.lastDate) {
+        if (chat.lastDate <= 0) "" else try {
+            val d = Date(chat.lastDate.toLong() * 1000L)
+            val today = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date())
+            val day = SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(d)
+            if (today == day) SimpleDateFormat("HH:mm", Locale.getDefault()).format(d) else SimpleDateFormat("dd.MM", Locale.getDefault()).format(d)
+        } catch (_: Exception) { "" }
+    }
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(56.dp).clip(CircleShape).background(avatarColor(chat.id)), contentAlignment = Alignment.Center) {
             Text(initials.ifBlank { "T" }, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
-            Text(chat.title, color = tgText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(4.dp))
-            Text("Открыть переписку", color = tgMuted, fontSize = 13.sp, maxLines = 1)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(chat.title, color = tgText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0) tgBlue else tgMuted, fontSize = 11.sp)
+            }
+            Spacer(Modifier.height(5.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(chat.preview.ifBlank { "Нет сообщений" }, color = tgMuted, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (chat.unreadCount > 0) {
+                    Spacer(Modifier.width(8.dp))
+                    Box(Modifier.defaultMinSize(minWidth = 21.dp, minHeight = 21.dp).clip(CircleShape).background(tgBlue).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
+                        Text(if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
         }
-        Text("›", color = tgMuted, fontSize = 25.sp)
     }
 }
 
