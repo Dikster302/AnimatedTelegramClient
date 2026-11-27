@@ -77,7 +77,11 @@ class TdLibClient(context:Context) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
      activeProfileUserId=userId
      userToChat[userId]=chatId
-     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) { updateUserProfile(u); updateChatUser(u) } }
+     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) {
+      updateUserProfile(u); updateChatUser(u)
+      val profilePhotoId=u.profilePhoto?.small?.id ?: 0
+      if(profilePhotoId>0) { fileToChat[profilePhotoId]=chatId; send(TdApi.DownloadFile(profilePhotoId,32,0,0,false)) }
+     } }
      send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount) }
     }
    }
