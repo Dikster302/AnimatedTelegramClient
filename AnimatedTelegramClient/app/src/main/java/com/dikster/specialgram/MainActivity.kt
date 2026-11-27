@@ -683,7 +683,7 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
             if (today == day) SimpleDateFormat("HH:mm", Locale.getDefault()).format(d) else SimpleDateFormat("dd.MM", Locale.getDefault()).format(d)
         } catch (_: Exception) { "" }
     }
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = if (compact) 5.dp else 9.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(horizontal = 14.dp, vertical = if (compact) 5.dp else 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline, hasStory = chat.hasStory, storyViewed = !chat.hasUnviewedStory)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
@@ -703,11 +703,8 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
                 }
             }
         }
-        Box {
-            IconButton(onClick = { menu = true }) { Text("⋮", color = LocalAppearance.current.muted, fontSize = 20.sp) }
-            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                DropdownMenuItem(text = { Text(if (chat.archived) "Вернуть из архива" else "В архив") }, onClick = { menu = false; onArchive() })
-            }
+        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text(if (chat.archived) "Вернуть из архива" else "В архив") }, onClick = { menu = false; onArchive() })
         }
     }
 }
