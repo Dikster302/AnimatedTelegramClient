@@ -30,6 +30,8 @@ class TdLibClient(context:Context) {
  private val _privacyPhone=MutableStateFlow("Загружаем…"); val privacyPhone=_privacyPhone.asStateFlow()
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
+ private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+ private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private var myUserId:Long?=null
  private var pendingPushToken:String?=app.getSharedPreferences("push",Context.MODE_PRIVATE).getString("fcm_token",null)
  private var myPhotoFileId:Int?=null
@@ -352,6 +354,8 @@ class TdLibClient(context:Context) {
  }
  fun openChat(id:Long) {
   activeChat=id
+  historyLoadingChats.remove(id)
+  historyExhaustedChats.remove(id)
   _messages.value=emptyList()
   send(TdApi.GetChat(id)) { result ->
    if(result is TdApi.Chat) {
@@ -360,8 +364,9 @@ class TdLibClient(context:Context) {
    }
   }
   send(TdApi.GetChatHistory(id,0,0,50,false)) { r ->
-   if(r is TdApi.Messages) {
+   if(r is TdApi.Messages && activeChat==id) {
     val loaded=r.messages
+    if(loaded.size<50) historyExhaustedChats.add(id)
     val readMarker=_chats.value.firstOrNull{it.id==id}?.lastReadOutboxMessageId ?: 0L
     val mapped=loaded.map{toTgMessage(it,readMarker)}
     val byId=mapped.associateBy{it.id}
@@ -369,6 +374,29 @@ class TdLibClient(context:Context) {
     val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
     if(incomingIds.isNotEmpty()) send(TdApi.ViewMessages(id,incomingIds,null,true))
    }
+  }
+ }
+ fun loadOlderMessages(chatId:Long) {
+  if(activeChat!=chatId || chatId in historyLoadingChats || chatId in historyExhaustedChats) return
+  val oldest=_messages.value.minByOrNull { it.date } ?: return
+  historyLoadingChats.add(chatId)
+  send(TdApi.GetChatHistory(chatId,oldest.id,0,50,false)) { result ->
+   historyLoadingChats.remove(chatId)
+   if(activeChat!=chatId || result !is TdApi.Messages) return@send
+   val loaded=result.messages
+   if(loaded.isEmpty()) {
+    historyExhaustedChats.add(chatId)
+    return@send
+   }
+   val previous=_messages.value
+   val readMarker=_chats.value.firstOrNull{it.id==chatId}?.lastReadOutboxMessageId ?: 0L
+   val older=loaded.map { toTgMessage(it,readMarker) }
+   val combined=(older+previous).distinctBy { it.id }.sortedBy { it.date }
+   val byId=combined.associateBy { it.id }
+   _messages.value=combined.map { item ->
+    if(item.replyToMessageId!=0L && item.replyToText.isBlank()) item.copy(replyToText=byId[item.replyToMessageId]?.text ?: item.replyToText) else item
+   }
+   if(loaded.size<50 || _messages.value.size==previous.size) historyExhaustedChats.add(chatId)
   }
  }
  private fun updateOutboxRead(chatId:Long,lastReadId:Long) {
