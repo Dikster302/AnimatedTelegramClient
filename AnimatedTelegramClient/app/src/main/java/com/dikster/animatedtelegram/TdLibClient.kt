@@ -192,6 +192,20 @@ class TdLibClient(context:Context) {
  fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") {
   send(TdApi.SetStoryReaction(chatId,storyId,TdApi.ReactionTypeEmoji(emoji),true))
  }
+ fun postPhotoStory(path:String,caption:String="") {
+  clearOperationError()
+  val userId=myUserId
+  if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
+  val content=TdApi.InputStoryContentPhoto(TdApi.InputFileLocal(path),intArrayOf())
+  val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
+  val text=caption.trim().takeIf { it.isNotBlank() }?.let { TdApi.FormattedText(it,null) }
+  send(TdApi.PostStory(userId,content,null,text,privacy,intArrayOf(),86400,null,false,false)) { result ->
+   if(result is TdApi.Story) {
+    updateStory(result,false)
+    _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
+   }
+  }
+ }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
