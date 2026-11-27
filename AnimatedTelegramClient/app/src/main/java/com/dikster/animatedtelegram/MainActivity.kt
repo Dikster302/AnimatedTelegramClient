@@ -167,7 +167,8 @@ private fun TelegramApp(td: TdLibClient) {
                                 if (animated) td.sendAnimated(selectedChat!!.id, text)
                                 else td.sendPlain(selectedChat!!.id, text)
                             },
-                            onDeleteMessage = { td.deleteMessage(selectedChat!!.id, it.id) },
+                            onDeleteMessage = { message, revoke -> td.deleteMessage(selectedChat!!.id, message.id, revoke) },
+                            onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) }
                         )
                     }
@@ -465,13 +466,18 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: 
 private fun ConversationScreen(
     chat: TgChat, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
     onSend: (String, Boolean) -> Unit,
-    onDeleteMessage: (TgMessage) -> Unit,
+    onDeleteMessage: (TgMessage, Boolean) -> Unit,
+    onClearHistory: (Boolean) -> Unit,
     onEditMessage: (TgMessage, String) -> Unit
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
     var showProfile by remember { mutableStateOf(false) }
     var selectedMessage by remember { mutableStateOf<TgMessage?>(null) }
+    var deleteForBoth by remember { mutableStateOf(false) }
+    var chatMenuOpen by remember { mutableStateOf(false) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var clearForBoth by remember { mutableStateOf(false) }
     var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var editDraft by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -484,14 +490,23 @@ private fun ConversationScreen(
             AlertDialog(
                 onDismissRequest = { selectedMessage = null },
                 title = { Text("Сообщение", color = LocalAppearance.current.text) },
-                text = { Text(if (target.outgoing) "Выберите действие для своего сообщения" else "Это сообщение другого пользователя", color = LocalAppearance.current.muted) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (target.outgoing) Text("Выберите действие для своего сообщения", color = LocalAppearance.current.muted)
+                        else Text("Можно удалить это сообщение только у себя или попробовать удалить у всех.", color = LocalAppearance.current.muted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = deleteForBoth, onCheckedChange = { deleteForBoth = it })
+                            Text("Удалить также у собеседника", color = LocalAppearance.current.text, fontSize = 13.sp)
+                        }
+                    }
+                },
                 confirmButton = {
                     Row {
                         if (target.outgoing) {
                             TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
-                            TextButton(onClick = { onDeleteMessage(target); selectedMessage = null }) { Text("Удалить", color = Color(0xFFFF6B6B)) }
                         }
-                        TextButton(onClick = { selectedMessage = null }) { Text("Отмена") }
+                        TextButton(onClick = { onDeleteMessage(target, deleteForBoth); selectedMessage = null; deleteForBoth = false }) { Text("Удалить", color = Color(0xFFFF6B6B)) }
+                        TextButton(onClick = { selectedMessage = null; deleteForBoth = false }) { Text("Отмена") }
                     }
                 }
             )
@@ -507,6 +522,25 @@ private fun ConversationScreen(
                 dismissButton = { TextButton(onClick = { editingMessage = null }) { Text("Отмена") } }
             )
         }
+        if (showClearHistoryDialog) AlertDialog(
+            onDismissRequest = { showClearHistoryDialog = false; clearForBoth = false },
+            title = { Text("Очистить переписку?", color = LocalAppearance.current.text) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("История сообщений будет удалена.", color = LocalAppearance.current.muted)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = clearForBoth, onCheckedChange = { clearForBoth = it })
+                        Text("Удалить также у собеседника", color = LocalAppearance.current.text, fontSize = 13.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { onClearHistory(clearForBoth); showClearHistoryDialog = false; clearForBoth = false }) {
+                    Text("Очистить", color = Color(0xFFFF6B6B))
+                }
+            },
+            dismissButton = { TextButton(onClick = { showClearHistoryDialog = false; clearForBoth = false }) { Text("Отмена") } }
+        )
         if (showProfile) AlertDialog(
             onDismissRequest = { showProfile = false; onCloseProfile() },
             title = { Text(profile?.name ?: chat.title, color = LocalAppearance.current.text) },
@@ -537,7 +571,15 @@ private fun ConversationScreen(
                 Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(profile?.status ?: "Telegram", color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 12.sp)
             }
-            Text("⋮", color = LocalAppearance.current.text, fontSize = 24.sp, modifier = Modifier.padding(horizontal = 10.dp))
+            Box {
+                IconButton(onClick = { chatMenuOpen = true }) { Text("⋮", color = LocalAppearance.current.text, fontSize = 24.sp) }
+                DropdownMenu(expanded = chatMenuOpen, onDismissRequest = { chatMenuOpen = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Очистить переписку") },
+                        onClick = { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
+                    )
+                }
+            }
         }
 
         if (messages.isEmpty()) {
