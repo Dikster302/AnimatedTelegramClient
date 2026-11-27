@@ -25,6 +25,7 @@ class TdLibClient(context:Context) {
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
  private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
  private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
+ private val _privacyLastSeen=MutableStateFlow("Загружаем…"); val privacyLastSeen=_privacyLastSeen.asStateFlow()
  private var activeChat:Long?=null
  private var myUserId:Long?=null
  private var activeProfileUserId:Long?=null
@@ -49,6 +50,7 @@ class TdLibClient(context:Context) {
    _chats.value=_chats.value.map { if(it.id==o.storyPosterChatId) it.copy(hasStory=remaining.isNotEmpty(),hasUnviewedStory=remaining.any { story -> !story.isViewed }) else it }
   }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
+  is TdApi.UpdateUserPrivacySettingRules -> if(o.setting is TdApi.UserPrivacySettingShowStatus) _privacyLastSeen.value=privacyLabel(o.rules)
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
@@ -67,7 +69,7 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
-  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; loadChats(); loadContacts(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
@@ -141,6 +143,31 @@ class TdLibClient(context:Context) {
   is TdApi.UserStatusLastWeek -> "был(а) на этой неделе"
   is TdApi.UserStatusLastMonth -> "был(а) в этом месяце"
   else -> "давно не был(а) в сети"
+ }
+ fun loadPrivacySettings() {
+  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus())) { result ->
+   if(result is TdApi.UserPrivacySettingRules) _privacyLastSeen.value=privacyLabel(result)
+  }
+ }
+ private fun privacyLabel(rules:TdApi.UserPrivacySettingRules):String {
+  if(rules.rules.size!=1) return "Особые настройки"
+  return when(rules.rules.firstOrNull()) {
+   is TdApi.UserPrivacySettingRuleAllowAll -> "Все"
+   is TdApi.UserPrivacySettingRuleAllowContacts -> "Мои контакты"
+   is TdApi.UserPrivacySettingRuleRestrictAll -> "Никто"
+   else -> "Особые настройки"
+  }
+ }
+ fun setLastSeenPrivacy(value:String) {
+  val rule:TdApi.UserPrivacySettingRule=when(value) {
+   "Все" -> TdApi.UserPrivacySettingRuleAllowAll()
+   "Мои контакты" -> TdApi.UserPrivacySettingRuleAllowContacts()
+   "Никто" -> TdApi.UserPrivacySettingRuleRestrictAll()
+   else -> return
+  }
+  send(TdApi.SetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus(),TdApi.UserPrivacySettingRules(arrayOf(rule)))) { result ->
+   if(result is TdApi.Ok) _privacyLastSeen.value=value
+  }
  }
  fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
