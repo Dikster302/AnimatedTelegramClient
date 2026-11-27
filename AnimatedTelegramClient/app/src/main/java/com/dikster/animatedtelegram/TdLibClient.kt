@@ -320,6 +320,10 @@ class TdLibClient(context:Context) {
   clearOperationError()
   send(TdApi.AddMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji),false,true))
  }
+ fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) {
+  clearOperationError()
+  send(TdApi.ForwardMessages(toChatId,0L,fromChatId,longArrayOf(messageId),null,false,false))
+ }
  fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
   clearOperationError()
   send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
