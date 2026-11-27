@@ -294,7 +294,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
                         Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Specialgram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("${chats.size} чатов  ·  Telegram", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
+                        Text(if (selectedTab == 0) "${chats.count { !it.archived }} диалогов" else "Specialgram · Telegram", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
                     }
                     if (selectedTab != 2) Box {
                         IconButton(onClick = { menuOpen = true }) { Text("⋮", color = Color.White, fontSize = 25.sp) }
@@ -379,7 +379,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
                 items(filtered, key = { it.id }) { chat ->
                     ChatRow(chat, compact = compactChats, onArchive = { onArchive(chat) }) { onOpen(chat) }
-                    HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
+                    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
                 }
             }
         }
@@ -523,7 +523,7 @@ private fun SettingsPanel(
                 SettingsNavigationRow("Данные и память", "Сеть и хранилище") { page = "storage" }
                 SettingsNavigationRow("О приложении", "Specialgram · 0.3") { page = "about" }
                 Text("Авторская функция", color = LocalAppearance.current.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
-                Text("Постепенная отправка текста доступна в каждом чате — включай или выключай её переключателем.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
+                Text("Постепенную отправку текста можно включить отдельно в меню каждого чата.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
             } else if (page == "appearance") {
                 Text("SPECIALGRAM · ВНЕШНИЙ ВИД", color = LocalAppearance.current.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
                 Text("Цветовая тема", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
