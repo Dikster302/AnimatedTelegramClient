@@ -8,8 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
-data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0)
+data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false)
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
@@ -39,8 +39,10 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
+  is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
+  is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
-  is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
+  is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date,m.isOutgoing && m.id<=(_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L))).distinctBy{it.id}.sortedBy{it.date}; }
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=(o.newContent as? TdApi.MessageText)?.text?.text ?: ""; _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
@@ -127,7 +129,7 @@ class TdLibClient(context:Context) {
   val photoId=c.photo?.small?.id ?: 0
   val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false)
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
   if(c.type is TdApi.ChatTypePrivate) {
    val userId=(c.type as TdApi.ChatTypePrivate).userId
@@ -150,7 +152,28 @@ class TdLibClient(context:Context) {
   is TdApi.MessageAudio -> "🎵 Аудио"
   else -> "Сообщение"
  }
- fun openChat(id:Long) { activeChat=id; _messages.value=emptyList(); send(TdApi.GetChatHistory(id,0,0,50,false)) { r -> if(r is TdApi.Messages) _messages.value=r.messages.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing,it.date)}.sortedBy{it.date} } }
+ fun openChat(id:Long) {
+  activeChat=id
+  _messages.value=emptyList()
+  send(TdApi.GetChat(id)) { result ->
+   if(result is TdApi.Chat) {
+    _chats.value=_chats.value.map { if(it.id==id) it.copy(lastReadOutboxMessageId=result.lastReadOutboxMessageId,unreadCount=result.unreadCount) else it }
+   }
+  }
+  send(TdApi.GetChatHistory(id,0,0,50,false)) { r ->
+   if(r is TdApi.Messages) {
+    val loaded=r.messages
+    val readMarker=_chats.value.firstOrNull{it.id==id}?.lastReadOutboxMessageId ?: 0L
+    _messages.value=loaded.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing,it.date,it.isOutgoing && it.id<=readMarker)}.sortedBy{it.date}
+    val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
+    if(incomingIds.isNotEmpty()) send(TdApi.ViewMessages(id,incomingIds,null,true))
+   }
+  }
+ }
+ private fun updateOutboxRead(chatId:Long,lastReadId:Long) {
+  _chats.value=_chats.value.map { if(it.id==chatId) it.copy(lastReadOutboxMessageId=lastReadId) else it }
+  if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
+ }
  fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun sendAnimated(id:Long,text:String) {
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
