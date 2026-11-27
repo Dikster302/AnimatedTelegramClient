@@ -386,7 +386,13 @@ class TdLibClient(context:Context) {
  fun setMyProfilePhoto(path:String) {
   send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),false)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
  }
-fun reportOperationError(text:String) { _operationError.value=text }
+fun reportOperationError(text:String) {
+  FirebaseCrashlytics.getInstance().apply {
+   setCustomKey("operation_error_source", "local_ui_or_media")
+   recordException(IllegalStateException("Local media or UI operation failed"))
+  }
+  _operationError.value=text
+ }
  fun sendVideo(chatId:Long,path:String,shape:String) {
   clearOperationError()
   val video=TdApi.InputVideo()
