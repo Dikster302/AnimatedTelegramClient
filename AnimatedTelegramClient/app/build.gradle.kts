@@ -5,10 +5,10 @@ plugins {
 }
 
 android {
-    namespace = "com.dikster.animatedtelegram"
+    namespace = "com.dikster.specialgram"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.dikster.animatedtelegram"
+        applicationId = "com.dikster.specialgram"
         minSdk = 24
         targetSdk = 35
         versionCode = 2
