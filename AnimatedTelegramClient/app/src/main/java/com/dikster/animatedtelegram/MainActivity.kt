@@ -793,7 +793,7 @@ private fun ConversationScreen(
 @Composable
 private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Unit, onReact: () -> Unit) {
     val bitmap = remember(story.path, story.isVideo) {
-        if (!story.isVideo && story.path.isNotBlank()) runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
+        if (!story.isVideo && story.path.isNotBlank() && story.path != "unsupported") runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
     }
     Dialog(onDismissRequest = onDismiss) {
         Surface(Modifier.fillMaxWidth().height(620.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
@@ -804,6 +804,7 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Uni
                 }
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (story.path.isBlank()) CircularProgressIndicator(color = Color.White)
+                    else if (story.path == "unsupported") Text("Этот тип истории пока не поддерживается", color = Color.White)
                     else if (story.isVideo) {
                         AndroidView(factory = { ctx -> VideoView(ctx).apply {
                             setVideoPath(story.path)
