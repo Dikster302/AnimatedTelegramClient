@@ -399,7 +399,7 @@ class TdLibClient(context:Context) {
  }
  fun loadOlderMessages(chatId:Long) {
   if(activeChat!=chatId || chatId in historyLoadingChats || chatId in historyExhaustedChats) return
-  val oldest=_messages.value.minByOrNull { it.date } ?: return
+  val oldest=_messages.value.minByOrNull { it.id } ?: return
   historyLoadingChats.add(chatId)
   send(TdApi.GetChatHistory(chatId,oldest.id,0,50,false)) { result ->
    historyLoadingChats.remove(chatId)
