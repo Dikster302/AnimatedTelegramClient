@@ -131,7 +131,7 @@ private fun TelegramApp(td: TdLibClient) {
     }
     val chatPhotoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         val chatId = selectedChat?.id
-        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_photo", 20L * 1024L * 1024L) }
+        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_photo", 10L * 1024L * 1024L) }
             .onSuccess { td.sendPhoto(chatId, it.absolutePath) }
             .onFailure { td.reportOperationError("Не удалось отправить фото: ${it.message ?: "ошибка файла"}") }
     }
