@@ -1,7 +1,6 @@
 name: Build Android APK
 on:
-  push:
-    branches: [main]
+  # APK builds are manual only; pushes no longer trigger expensive builds.
   workflow_dispatch:
 permissions:
   contents: read
