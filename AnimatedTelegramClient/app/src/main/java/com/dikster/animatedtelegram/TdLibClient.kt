@@ -40,6 +40,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
+  is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) } } }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) { _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date,m.isOutgoing && m.id<=(_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L))).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
@@ -174,6 +175,14 @@ class TdLibClient(context:Context) {
  private fun updateOutboxRead(chatId:Long,lastReadId:Long) {
   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(lastReadOutboxMessageId=lastReadId) else it }
   if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
+ }
+ fun deleteMessage(chatId:Long,messageId:Long) {
+  send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),true)) { _messages.value=_messages.value.filterNot { it.id==messageId } }
+ }
+ fun editMessage(chatId:Long,messageId:Long,text:String) {
+  val value=text.trim()
+  if(value.isEmpty()) return
+  send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
  }
  fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun sendAnimated(id:Long,text:String) {
