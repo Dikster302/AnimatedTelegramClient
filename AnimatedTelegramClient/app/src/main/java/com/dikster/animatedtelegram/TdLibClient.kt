@@ -206,6 +206,20 @@ class TdLibClient(context:Context) {
    }
   }
  }
+ fun postVideoStory(path:String,duration:Double) {
+  clearOperationError()
+  val userId=myUserId
+  if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
+  if(duration<=0.0 || duration>60.0) { reportOperationError("Длительность видеоистории должна быть от 1 до 60 секунд"); return }
+  val content=TdApi.InputStoryContentVideo(TdApi.InputFileLocal(path),intArrayOf(),duration,0.0,false)
+  val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
+  send(TdApi.PostStory(userId,content,null,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
+   if(result is TdApi.Story) {
+    updateStory(result,false)
+    _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
+   }
+  }
+ }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
