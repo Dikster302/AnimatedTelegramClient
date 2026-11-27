@@ -14,7 +14,7 @@ data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList())
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
-data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false,val bio:String="",val avatarPath:String="")
+data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false,val bio:String="",val avatarPath:String="",val firstName:String="",val lastName:String="")
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
@@ -114,7 +114,7 @@ class TdLibClient(context:Context) {
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.isVerified)
+  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.isVerified,firstName=user.firstName,lastName=user.lastName)
   send(TdApi.GetUserFullInfo(user.id)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
   val photoId=user.profilePhoto?.small?.id ?: 0
   myPhotoFileId=photoId.takeIf { it>0 }
@@ -356,14 +356,14 @@ class TdLibClient(context:Context) {
  }
  fun clearOperationError() { _operationError.value=null }
   fun updateMyProfile(firstName:String,lastName:String,bio:String) {
-  val first=firstName.trim(); val last=lastName.trim(); val about=bio.trim().replace("\\n"," ")
+  val first=firstName.trim(); val last=lastName.trim(); val about=bio.trim().replace("\n"," ")
   if(first.isBlank()) { _operationError.value="Имя не может быть пустым"; return }
   if(first.length>64 || last.length>64) { _operationError.value="Имя и фамилия должны быть не длиннее 64 символов"; return }
   send(TdApi.SetName(first,last)) { result -> if(result is TdApi.Ok) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   send(TdApi.SetBio(about)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetUserFullInfo(myUserId!!)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") } }
  }
  fun setMyProfilePhoto(path:String) {
-  send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),true)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),false)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
  }
 fun reportOperationError(text:String) { _operationError.value=text }
  fun sendVideo(chatId:Long,path:String,shape:String) {
