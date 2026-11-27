@@ -317,8 +317,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 val next = sameChat.firstOrNull { it.storyId > activeStory.storyId }
                 if (next != null) { onCloseStory(activeStory); viewingStory = next.chatId to next.storyId; onOpenStory(next) }
                 else { onCloseStory(activeStory); viewingStory = null }
-            }
-            ,onReact = { onReactToStory(activeStory) }
+            },
+            onReact = { onReactToStory(activeStory) }
         )
         NavigationBar(containerColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), contentColor = LocalAppearance.current.accent, tonalElevation = 0.dp) {
             NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
