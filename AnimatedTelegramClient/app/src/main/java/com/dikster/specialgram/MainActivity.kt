@@ -762,10 +762,24 @@ private fun ConversationScreen(
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
     var forwardingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var showVideoShapePicker by remember { mutableStateOf(false) }
+    var messageSearchOpen by remember { mutableStateOf(false) }
+    var messageSearchQuery by remember { mutableStateOf("") }
+    var messageSearchIndex by remember { mutableIntStateOf(0) }
+    val orderedMessages = remember(messages) { messages.sortedBy { it.date } }
+    val messageSearchMatches = remember(orderedMessages, messageSearchQuery) {
+        if (messageSearchQuery.isBlank()) emptyList() else orderedMessages.indices.filter { orderedMessages[it].text.contains(messageSearchQuery.trim(), ignoreCase = true) }
+    }
+    val visibleMessages = if (messageSearchOpen && messageSearchQuery.isNotBlank()) messageSearchMatches.map { orderedMessages[it] } else orderedMessages
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
-    LaunchedEffect(messages.lastOrNull()?.id) {
-        if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
+    LaunchedEffect(orderedMessages.lastOrNull()?.id, messageSearchOpen, messageSearchQuery) {
+        if (!messageSearchOpen && orderedMessages.isNotEmpty()) listState.animateScrollToItem(orderedMessages.lastIndex)
+    }
+    LaunchedEffect(messageSearchMatches, messageSearchIndex, messageSearchOpen) {
+        if (messageSearchOpen && messageSearchMatches.isNotEmpty()) {
+            messageSearchIndex = messageSearchIndex.coerceIn(0, messageSearchMatches.lastIndex)
+            listState.animateScrollToItem(messageSearchIndex)
+        }
     }
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
         if (showVideoShapePicker) AlertDialog(
@@ -914,6 +928,10 @@ private fun ConversationScreen(
                 IconButton(onClick = { chatMenuOpen = true }) { Text("⋮", color = LocalAppearance.current.text, fontSize = 24.sp) }
                 DropdownMenu(expanded = chatMenuOpen, onDismissRequest = { chatMenuOpen = false }) {
                     DropdownMenuItem(
+                        text = { Text("Поиск") },
+                        onClick = { chatMenuOpen = false; messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
+                    )
+                    DropdownMenuItem(
                         text = { Text("Очистить переписку") },
                         onClick = { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
                     )
@@ -925,30 +943,44 @@ private fun ConversationScreen(
             }
         }
 
-        if (messages.isEmpty()) {
+        if (messageSearchOpen) {
+            Row(Modifier.fillMaxWidth().background(LocalAppearance.current.panel).padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = messageSearchQuery, onValueChange = { messageSearchQuery = it; messageSearchIndex = 0 },
+                    modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("Поиск в переписке") },
+                    shape = RoundedCornerShape(18.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text, cursorColor = LocalAppearance.current.accent)
+                )
+                Text(if (messageSearchQuery.isBlank()) " " else "${if (messageSearchMatches.isEmpty()) 0 else messageSearchIndex + 1}/${messageSearchMatches.size}", color = LocalAppearance.current.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp))
+                IconButton(enabled = messageSearchMatches.isNotEmpty(), onClick = { messageSearchIndex = if (messageSearchIndex <= 0) messageSearchMatches.lastIndex else messageSearchIndex - 1 }) { Text("↑", color = LocalAppearance.current.text) }
+                IconButton(enabled = messageSearchMatches.isNotEmpty(), onClick = { messageSearchIndex = (messageSearchIndex + 1) % messageSearchMatches.size }) { Text("↓", color = LocalAppearance.current.text) }
+                IconButton(onClick = { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }) { Text("✕", color = LocalAppearance.current.text) }
+            }
+        }
+        if (orderedMessages.isEmpty() || visibleMessages.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("✉", color = LocalAppearance.current.muted, fontSize = 34.sp)
-                    Text("Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
-                    Text("Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
+                    Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "⌕" else "✉", color = LocalAppearance.current.muted, fontSize = 34.sp)
+                    Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "Ничего не найдено" else "Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
+                    Text(if (messageSearchOpen) "Поиск выполняется по загруженным сообщениям" else "Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
                 }
             }
         } else {
             LazyColumn(
                 state = listState, modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(5.dp)
+                verticalArrangement = Arrangement.spacedBy(0.dp)
             ) {
-                val orderedMessages = messages.sortedBy { it.date }
-                itemsIndexed(orderedMessages, key = { _, message -> message.id }) { index, message ->
-                    val previous = orderedMessages.getOrNull(index - 1)
-                    val next = orderedMessages.getOrNull(index + 1)
-                    val startsDay = previous == null || !isSameMessageDay(previous.date, message.date)
+                itemsIndexed(visibleMessages, key = { _, message -> message.id }) { index, message ->
+                    val previous = visibleMessages.getOrNull(index - 1)
+                    val next = visibleMessages.getOrNull(index + 1)
+                    val startsDay = !messageSearchOpen && (previous == null || !isSameMessageDay(previous.date, message.date))
                     val continuesGroup = previous != null && previous.outgoing == message.outgoing &&
                         isSameMessageDay(previous.date, message.date) && message.date - previous.date < 300
                     val continuesAfter = next != null && next.outgoing == message.outgoing &&
                         isSameMessageDay(next.date, message.date) && next.date - message.date < 300
                     if (startsDay) MessageDateDivider(message.date)
+                    Spacer(Modifier.height(if (continuesGroup) 2.dp else 6.dp))
                     AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 })) {
                         MessageBubble(
                             message,
