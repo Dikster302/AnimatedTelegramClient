@@ -493,10 +493,10 @@ private fun ConversationScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         if (target.outgoing) Text("Выберите действие для своего сообщения", color = LocalAppearance.current.muted)
-                        else Text("Можно удалить это сообщение только у себя или попробовать удалить у всех.", color = LocalAppearance.current.muted)
+                        else Text("Выберите, удалить сообщение только у себя или у всех участников чата.", color = LocalAppearance.current.muted)
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = deleteForBoth, onCheckedChange = { deleteForBoth = it })
-                            Text("Удалить также у собеседника", color = LocalAppearance.current.text, fontSize = 13.sp)
+                            Text("Удалить у всех", color = LocalAppearance.current.text, fontSize = 13.sp)
                         }
                     }
                 },
@@ -527,10 +527,10 @@ private fun ConversationScreen(
             title = { Text("Очистить переписку?", color = LocalAppearance.current.text) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("История сообщений будет удалена.", color = LocalAppearance.current.muted)
+                    Text("История будет удалена у вас. Отметьте галочку, чтобы удалить её у всех участников чата.", color = LocalAppearance.current.muted)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(checked = clearForBoth, onCheckedChange = { clearForBoth = it })
-                        Text("Удалить также у собеседника", color = LocalAppearance.current.text, fontSize = 13.sp)
+                        Text("Удалить у всех", color = LocalAppearance.current.text, fontSize = 13.sp)
                     }
                 }
             },
