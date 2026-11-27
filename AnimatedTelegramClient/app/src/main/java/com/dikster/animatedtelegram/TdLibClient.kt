@@ -329,6 +329,14 @@ class TdLibClient(context:Context) {
   send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
  }
  fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
+ fun replyToStory(chatId:Long,storyId:Int,text:String) {
+  val value=text.trim()
+  if(value.isEmpty()) return
+  clearOperationError()
+  val reply=TdApi.InputMessageReplyToStory(chatId,storyId)
+  val content=TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)
+  send(TdApi.SendMessage(chatId,null,reply,null,null,content))
+ }
  fun sendAnimated(id:Long,text:String) {
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
   if(chars.isEmpty())return
