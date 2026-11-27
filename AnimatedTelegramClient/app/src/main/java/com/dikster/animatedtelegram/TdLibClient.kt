@@ -59,6 +59,7 @@ class TdLibClient(context:Context) {
   else send(TdApi.AddChatToList(id,TdApi.ChatListMain())) { loadChats() }
  }
  fun openProfile(chatId:Long) {
+  activeProfileUserId=null
   send(TdApi.GetChat(chatId)) { result ->
    if(result is TdApi.Chat) {
     val chat=result
@@ -66,6 +67,7 @@ class TdLibClient(context:Context) {
     _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
+     activeProfileUserId=userId
      userToChat[userId]=chatId
      send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) { updateUserProfile(u); updateChatUser(u) } }
      send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount) }
