@@ -158,9 +158,11 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            SettingsPanel()
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel() }
         } else if (selectedTab == 1) {
-            ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
+            }
         } else {
             OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
                 placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) }, shape = RoundedCornerShape(24.dp),
