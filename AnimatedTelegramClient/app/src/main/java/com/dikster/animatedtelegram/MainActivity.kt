@@ -290,7 +290,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                             val first = stories.filter { it.chatId == story.chatId }.let { items -> items.firstOrNull { !it.isViewed } ?: items.firstOrNull() }
                             if (first != null) { viewingStory = first.chatId to first.storyId; onOpenStory(first) }
                         }, horizontalAlignment = Alignment.CenterHorizontally) {
-                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 58, hasStory = true)
+                            val groupStories = stories.filter { it.chatId == story.chatId }
+                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 58, hasStory = true, storyViewed = groupStories.all { it.isViewed })
                             Text(owner?.title ?: story.ownerName, color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }
@@ -539,7 +540,7 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
         } catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = if (compact) 5.dp else 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline, hasStory = chat.hasStory)
+        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline, hasStory = chat.hasStory, storyViewed = !chat.hasUnviewedStory)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -568,9 +569,9 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
 }
 
 @Composable
-private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false) {
+private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false, storyViewed: Boolean = false) {
     val bitmap = remember(path) { if (path.isNotBlank()) runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() else null }
-    val storyRing = Brush.sweepGradient(listOf(Color(0xFF42C7FF), Color(0xFF6575FF), Color(0xFFB34DFF), Color(0xFF6575FF), Color(0xFF42C7FF)))
+    val storyRing = if (storyViewed) Brush.sweepGradient(listOf(Color(0xFF78828D), Color(0xFF78828D))) else Brush.sweepGradient(listOf(Color(0xFF42C7FF), Color(0xFF6575FF), Color(0xFFB34DFF), Color(0xFF6575FF), Color(0xFF42C7FF)))
     val ringModifier = if (hasStory) Modifier.border(2.8.dp, storyRing, CircleShape).padding(3.dp) else Modifier
     Box(Modifier.size(size.dp).then(ringModifier).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
         if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Аватар", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
