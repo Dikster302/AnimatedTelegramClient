@@ -222,6 +222,7 @@ private fun TelegramApp(td: TdLibClient) {
                     } else {
                         ConversationScreen(
                             chat = selectedChat!!,
+                            chats = chats,
                             messages = messages,
                             profile = profile,
                             onOpenProfile = { td.openProfile(selectedChat!!.id) },
@@ -235,6 +236,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
                             onReactToMessage = { message, emoji -> td.reactToMessage(selectedChat!!.id, message.id, emoji) },
+                            onForwardMessage = { message, destination -> td.forwardMessage(selectedChat!!.id, destination.id, message.id) },
                             videoNoteShape = videoNoteShape,
                             onVideoNoteShape = { videoNoteShape = it },
                             onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
@@ -627,12 +629,13 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: 
 
 @Composable
 private fun ConversationScreen(
-    chat: TgChat, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
+    chat: TgChat, chats: List<TgChat>, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
     onSend: (String, Boolean, Long?) -> Unit,
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
     onEditMessage: (TgMessage, String) -> Unit,
     onReactToMessage: (TgMessage, String) -> Unit,
+    onForwardMessage: (TgMessage, TgChat) -> Unit,
     videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
     operationError: String?, onDismissOperationError: () -> Unit
 ) {
@@ -647,6 +650,7 @@ private fun ConversationScreen(
     var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var editDraft by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
+    var forwardingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var showVideoShapePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -701,6 +705,7 @@ private fun ConversationScreen(
                 confirmButton = {
                     Row {
                         TextButton(onClick = { replyingTo = target; selectedMessage = null; deleteForBoth = false }) { Text("Ответить") }
+                        TextButton(onClick = { forwardingMessage = target; selectedMessage = null; deleteForBoth = false }) { Text("Переслать") }
                         if (target.outgoing) {
                             TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
                         }
@@ -708,6 +713,31 @@ private fun ConversationScreen(
                         TextButton(onClick = { selectedMessage = null; deleteForBoth = false }) { Text("Отмена") }
                     }
                 }
+            )
+        }
+        forwardingMessage?.let { target ->
+            AlertDialog(
+                onDismissRequest = { forwardingMessage = null },
+                title = { Text("Переслать сообщение", color = LocalAppearance.current.text) },
+                text = {
+                    Column(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+                        Text(target.text, color = LocalAppearance.current.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(8.dp))
+                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 340.dp)) {
+                            items(chats.filter { it.id != chat.id }, key = { it.id }) { destination ->
+                                Row(Modifier.fillMaxWidth().clickable { onForwardMessage(target, destination); forwardingMessage = null }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Avatar(path = destination.avatarPath, fallback = destination.title.take(1).uppercase(), id = destination.id, size = 38)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text(destination.title, color = LocalAppearance.current.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(destination.kind, color = LocalAppearance.current.muted, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { forwardingMessage = null }) { Text("Отмена") } }
             )
         }
         editingMessage?.let { target ->
