@@ -10,7 +10,8 @@ import java.text.SimpleDateFormat
 
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false)
 data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
-data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="")
+data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
+data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList())
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
@@ -58,6 +59,7 @@ class TdLibClient(context:Context) {
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=messageDisplayText(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
+   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
@@ -222,11 +224,19 @@ class TdLibClient(context:Context) {
    }
   }
  }
- private fun updateChatPreview(id:Long,message:TdApi.Message?) {
+ private fun toTgReactions(info:TdApi.MessageInteractionInfo?):List<TgReaction> {
+   val items=info?.reactions?.reactions ?: return emptyList()
+   return items.mapNotNull { item ->
+    val emoji=(item.type as? TdApi.ReactionTypeEmoji)?.emoji ?: return@mapNotNull null
+    TgReaction(emoji,item.totalCount,item.isChosen)
+   }
+  }
+  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
  private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage {
   val content=message.content
+   val reactions=toTgReactions(message.interactionInfo)
   val reply=message.replyTo as? TdApi.MessageReplyToMessage
   val replyText=reply?.let { r -> _messages.value.firstOrNull { it.id==r.messageId }?.text ?: ((r.content as? TdApi.MessageText)?.text?.text ?: "") } ?: ""
   val replyId=reply?.messageId ?: 0L
@@ -235,15 +245,15 @@ class TdLibClient(context:Context) {
    val shape=decodeVideoShape((content.caption?.text ?: ""))
    val path=file.local.path
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
-   return TgMessage(message.id,"🎥 Видео · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path,replyId,replyText)
+   return TgMessage(message.id,"🎥 Видео · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path,replyId,replyText,reactions)
   }
   if(content is TdApi.MessageVideoNote) {
    val file=content.videoNote.video
    val path=file.local.path
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
-   return TgMessage(message.id,"🎥 Видеокружок",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,"circle",path,replyId,replyText)
+   return TgMessage(message.id,"🎥 Видеокружок",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,"circle",path,replyId,replyText,reactions)
   }
-  return TgMessage(message.id,messageDisplayText(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText)
+  return TgMessage(message.id,messageDisplayText(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions)
  }
  private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
@@ -318,7 +328,9 @@ class TdLibClient(context:Context) {
  }
  fun reactToMessage(chatId:Long,messageId:Long,emoji:String) {
   clearOperationError()
-  send(TdApi.AddMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji),false,true))
+  val chosen=_messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
+  if(chosen) send(TdApi.RemoveMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji)))
+  else send(TdApi.AddMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji),false,true))
  }
  fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) {
   clearOperationError()
