@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
@@ -101,6 +103,7 @@ private fun TelegramApp(td: TdLibClient) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
             "Aurora" -> listOf(Color(0xFF071A20), Color(0xFF102B32), Color(0xFF193B43), Color(0xFF45D6C5), Color(0xFF236D69), Color(0xFF153039))
             "Rose" -> listOf(Color(0xFF1C101B), Color(0xFF2B1929), Color(0xFF3A2237), Color(0xFFFF78B7), Color(0xFF75405F), Color(0xFF382334))
+            "Космос" -> listOf(Color(0xFF080B19), Color(0xFF17152D), Color(0xFF282047), Color(0xFF9B7BFF), Color(0xFF5142A0), Color(0xFF17162D))
             else -> listOf(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE), Color(0xFF2B5278), Color(0xFF182533))
         }
         val chatBackground = when(wallpaperName) { "Глубокая ночь" -> Color(0xFF080F1A); "Океан" -> Color(0xFF0A2028); "Сумерки" -> Color(0xFF211629); else -> colors[0] }
@@ -152,6 +155,7 @@ private fun TelegramApp(td: TdLibClient) {
                             headerWallpaper = headerWallpaper,
                             onPickHeaderWallpaper = { imagePicker.launch(arrayOf("image/*")) },
                             onClearHeaderWallpaper = { headerWallpaper = null },
+                            onSelectCosmicCover = { headerWallpaper = "preset:cosmic" },
                             onOpen = { selectedChat = it; td.openChat(it.id) },
                             onOpenContact = { contact -> td.openContact(contact.id) { selectedChat = it; td.openChat(it.id) } },
                             onArchive = { td.archiveChat(it.id, !it.archived) }
@@ -259,7 +263,17 @@ private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
             context.contentResolver.openInputStream(Uri.parse(uri))?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
         }.getOrNull()
     }
-    if (bitmap != null) {
+    if (uri == "preset:cosmic") {
+        Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF080B19), Color(0xFF29204D), Color(0xFF10152C))))) {
+            Canvas(Modifier.matchParentSize()) {
+                val stars = listOf(0.08f to 0.22f, 0.17f to 0.71f, 0.29f to 0.36f, 0.38f to 0.82f, 0.49f to 0.18f, 0.57f to 0.56f, 0.68f to 0.28f, 0.76f to 0.76f, 0.88f to 0.39f, 0.94f to 0.15f, 0.23f to 0.12f, 0.83f to 0.9f)
+                stars.forEachIndexed { index, point ->
+                    drawCircle(color = if (index % 3 == 0) Color(0xFFB9A8FF).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.72f), radius = if (index % 4 == 0) 2.2.dp.toPx() else 1.1.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * point.first, size.height * point.second))
+                }
+            }
+            Box(Modifier.matchParentSize().background(Color(0x33000000)))
+        }
+    } else if (bitmap != null) {
         Image(bitmap = bitmap, contentDescription = "Фон верхней панели", modifier = modifier, contentScale = ContentScale.Crop)
         Box(modifier.background(Color(0x99000000)))
     } else {
@@ -309,7 +323,7 @@ private fun SettingsPanel(
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
     accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
     wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit,
-    headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit
+    headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -326,7 +340,7 @@ private fun SettingsPanel(
         Text("SPECIALGRAM · ВНЕШНИЙ ВИД", color = LocalAppearance.current.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
         Text("Цветовая тема", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Telegram", "Midnight", "Aurora", "Rose").forEach { name ->
+            listOf("Telegram", "Midnight", "Aurora", "Rose", "Космос").forEach { name ->
                 FilterChip(selected = themeName == name, onClick = { onTheme(name) }, label = { Text(name) })
             }
         }
@@ -362,9 +376,10 @@ private fun SettingsPanel(
         }
         Text("Обложка Specialgram", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
         Text("От верхнего края до вкладок чатов. Истории и список останутся на обычном фоне.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp)
-        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Button(onClick = onPickHeaderWallpaper) { Text(if (headerWallpaper == null) "Выбрать фото" else "Изменить фото") }
-            if (headerWallpaper != null) TextButton(onClick = onClearHeaderWallpaper) { Text("Убрать") }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            FilterChip(selected = headerWallpaper == null, onClick = onClearHeaderWallpaper, label = { Text("Стандартная") })
+            FilterChip(selected = headerWallpaper == "preset:cosmic", onClick = onSelectCosmicCover, label = { Text("Космос") })
+            FilterChip(selected = headerWallpaper != null && headerWallpaper != "preset:cosmic", onClick = onPickHeaderWallpaper, label = { Text("Моя фотография") })
         }
         Text("Фон переписки", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 9.dp))
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
