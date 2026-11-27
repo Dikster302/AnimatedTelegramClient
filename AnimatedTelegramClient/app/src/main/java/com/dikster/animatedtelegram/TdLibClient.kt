@@ -158,6 +158,7 @@ class TdLibClient(context:Context) {
   send(TdApi.GetChat(id)) { result ->
    if(result is TdApi.Chat) {
     _chats.value=_chats.value.map { if(it.id==id) it.copy(lastReadOutboxMessageId=result.lastReadOutboxMessageId,unreadCount=result.unreadCount) else it }
+    if(activeChat==id) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
    }
   }
   send(TdApi.GetChatHistory(id,0,0,50,false)) { r ->
