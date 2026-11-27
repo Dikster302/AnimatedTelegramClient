@@ -953,6 +953,9 @@ private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit) {
                 )
             ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
         ) {
+            if (message.replyToMessageId != 0L) {
+                Text("↪ ${message.replyToText.ifBlank { "Сообщение" }}", color = LocalAppearance.current.accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
             if (message.videoPath.isNotBlank()) {
                 AndroidView(
                     factory = { viewContext -> VideoView(viewContext).apply {
