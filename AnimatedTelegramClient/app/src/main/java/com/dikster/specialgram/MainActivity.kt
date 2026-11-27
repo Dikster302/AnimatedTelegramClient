@@ -82,7 +82,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.rgb(23, 33, 43)
         window.navigationBarColor = android.graphics.Color.rgb(14, 22, 33)
-        td = TdLibClient(this)
+        td = (application as SpecialgramApp).td
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(
                 primary = Color(0xFF2AABEE), background = Color(0xFF0E1621), surface = Color(0xFF17212B),
