@@ -11,7 +11,8 @@ import java.text.SimpleDateFormat
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
-data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)\ndata class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
+data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
+data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
@@ -19,8 +20,10 @@ class TdLibClient(context:Context) {
  private val _chats=MutableStateFlow<List<TgChat>>(emptyList()); val chats=_chats.asStateFlow()
  private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
  private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
- private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()\n private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
- private var activeChat:Long?=null\n private var myUserId:Long?=null
+ private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
+ private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
+ private var activeChat:Long?=null
+ private var myUserId:Long?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
@@ -77,7 +80,12 @@ class TdLibClient(context:Context) {
    }
   }
  }
- private fun updateAccount(user:TdApi.User) {\n  myUserId=user.id\n  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")\n  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)\n }\n private fun updateUserProfile(user:TdApi.User) {
+ private fun updateAccount(user:TdApi.User) {
+  myUserId=user.id
+  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
+  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)
+ }
+ private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
   _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.usernames?.activeUsernames?.firstOrNull() ?: "",status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
