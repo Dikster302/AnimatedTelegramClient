@@ -80,6 +80,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var td: TdLibClient
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {\n            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1001)\n        }
         window.statusBarColor = android.graphics.Color.rgb(23, 33, 43)
         window.navigationBarColor = android.graphics.Color.rgb(14, 22, 33)
         td = (application as SpecialgramApp).td
