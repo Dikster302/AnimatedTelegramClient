@@ -183,6 +183,7 @@ private fun TelegramApp(td: TdLibClient) {
                             stories = stories,
                             onOpenStory = { td.openStory(it.chatId,it.storyId) },
                             onCloseStory = { td.closeStory(it.chatId,it.storyId) },
+                            onReactToStory = { td.reactToStory(it.chatId,it.storyId) },
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
@@ -232,7 +233,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
     val activeStory = stories.firstOrNull { viewingStory == (it.chatId to it.storyId) }
@@ -317,6 +318,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 if (next != null) { onCloseStory(activeStory); viewingStory = next.chatId to next.storyId; onOpenStory(next) }
                 else { onCloseStory(activeStory); viewingStory = null }
             }
+            ,onReact = { onReactToStory(activeStory) }
         )
         NavigationBar(containerColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), contentColor = LocalAppearance.current.accent, tonalElevation = 0.dp) {
             NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
@@ -788,7 +790,7 @@ private fun ConversationScreen(
 }
 
 @Composable
-private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Unit) {
+private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Unit, onReact: () -> Unit) {
     val bitmap = remember(story.path, story.isVideo) {
         if (!story.isVideo && story.path.isNotBlank()) runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
     }
@@ -811,7 +813,9 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Uni
                     } else Text("Не удалось загрузить историю", color = Color.White)
                 }
                 if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.End) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = onReact) { Text("❤️", fontSize = 22.sp) }
+                    Spacer(Modifier.weight(1f))
                     TextButton(onClick = onNext) { Text("Далее", color = Color.White) }
                 }
             }
