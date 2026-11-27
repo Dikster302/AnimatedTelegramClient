@@ -78,7 +78,7 @@ class TdLibClient(context:Context) {
  private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.username,status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
+  _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.usernames?.activeUsernames?.firstOrNull() ?: "",status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.isVerified)
  }
  private fun refreshUserStatus(userId:Long,status:TdApi.UserStatus) {
   val chatId=userToChat[userId]
