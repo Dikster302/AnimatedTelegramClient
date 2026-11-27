@@ -176,8 +176,16 @@ class TdLibClient(context:Context) {
   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(lastReadOutboxMessageId=lastReadId) else it }
   if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
  }
- fun deleteMessage(chatId:Long,messageId:Long) {
-  send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),true)) { _messages.value=_messages.value.filterNot { it.id==messageId } }
+ fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
+  send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
+   _messages.value=_messages.value.filterNot { it.id==messageId }
+  }
+ }
+ fun clearHistory(chatId:Long,revoke:Boolean) {
+  send(TdApi.DeleteChatHistory(chatId,false,revoke)) {
+   if(activeChat==chatId) _messages.value=emptyList()
+   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(preview="",lastDate=0,unreadCount=0) else it }
+  }
  }
  fun editMessage(chatId:Long,messageId:Long,text:String) {
   val value=text.trim()
