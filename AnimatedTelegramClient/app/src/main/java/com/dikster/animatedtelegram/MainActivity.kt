@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -138,7 +139,7 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
         Row(Modifier.fillMaxWidth().background(tgPanel).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(38.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) { Text("✈", color = Color.White, fontSize = 21.sp) }
+            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(42.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Telegram", color = tgText, fontSize = 20.sp, fontWeight = FontWeight.Bold)
@@ -187,7 +188,7 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
 private fun SettingsPanel() {
     Column(Modifier.fillMaxSize().background(tgBackground).padding(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 18.dp)) {
-            Box(Modifier.size(68.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) { Text("✈", color = Color.White, fontSize = 31.sp) }
+            Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(68.dp))
             Spacer(Modifier.width(16.dp))
             Column { Text("Мой аккаунт Telegram", color = tgText, fontSize = 18.sp, fontWeight = FontWeight.SemiBold); Text("Подключён через TDLib", color = tgMuted, fontSize = 13.sp) }
         }
@@ -411,9 +412,7 @@ private fun AuthScreen(
         Modifier.fillMaxSize().background(tgBackground).padding(horizontal = 26.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.size(82.dp).clip(CircleShape).background(tgBlue), contentAlignment = Alignment.Center) {
-            Text("✈", color = Color.White, fontSize = 40.sp)
-        }
+        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(92.dp))
         Spacer(Modifier.height(25.dp))
         Text(title, color = tgText, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
