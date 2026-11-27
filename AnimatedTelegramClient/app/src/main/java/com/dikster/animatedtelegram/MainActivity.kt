@@ -48,11 +48,11 @@ import java.util.Locale
 
 private data class UiAppearance(
     val background: Color, val panel: Color, val panelLight: Color, val accent: Color,
-    val outgoing: Color, val incoming: Color, val text: Color, val muted: Color, val glass: Float
+    val outgoing: Color, val incoming: Color, val text: Color, val muted: Color, val glass: Float, val bubbleRadius: Float
 )
 private val LocalAppearance = staticCompositionLocalOf {
     UiAppearance(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE),
-        Color(0xFF2B5278), Color(0xFF182533), Color(0xFFEAF2F8), Color(0xFF8A9AA9), 0f)
+        Color(0xFF2B5278), Color(0xFF182533), Color(0xFFEAF2F8), Color(0xFF8A9AA9), 0f, 18f)
 }
 
 
@@ -83,18 +83,21 @@ private fun TelegramApp(td: TdLibClient) {
     var themeName by remember { mutableStateOf(prefs.getString("theme", "Telegram") ?: "Telegram") }
     var glass by remember { mutableFloatStateOf(prefs.getFloat("glass", 0.35f)) }
     var fontScale by remember { mutableFloatStateOf(prefs.getFloat("fontScale", 1f)) }
-    val appearance = remember(themeName, glass) {
+    var accentName by remember { mutableStateOf(prefs.getString("accent", "По теме") ?: "По теме") }
+    var bubbleRadius by remember { mutableFloatStateOf(prefs.getFloat("bubbleRadius", 18f)) }
+    val appearance = remember(themeName, glass, accentName, bubbleRadius) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
             "Aurora" -> listOf(Color(0xFF071A20), Color(0xFF102B32), Color(0xFF193B43), Color(0xFF45D6C5), Color(0xFF236D69), Color(0xFF153039))
             "Rose" -> listOf(Color(0xFF1C101B), Color(0xFF2B1929), Color(0xFF3A2237), Color(0xFFFF78B7), Color(0xFF75405F), Color(0xFF382334))
             else -> listOf(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE), Color(0xFF2B5278), Color(0xFF182533))
         }
-        UiAppearance(colors[0], colors[1], colors[2], colors[3], colors[4], colors[5],
-            Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass)
+        val accent = when(accentName) { "Синий" -> Color(0xFF2AABEE); "Фиолетовый" -> Color(0xFF9B82FF); "Мятный" -> Color(0xFF42D6B5); "Розовый" -> Color(0xFFFF78B7); else -> colors[3] }
+        UiAppearance(colors[0], colors[1], colors[2], accent, colors[4], colors[5],
+            Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass, bubbleRadius)
     }
-    LaunchedEffect(themeName, glass, fontScale) {
-        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).apply()
+    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius) {
+        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).apply()
     }
     CompositionLocalProvider(LocalAppearance provides appearance,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
@@ -181,7 +184,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -253,7 +256,8 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
 @Composable
 private fun SettingsPanel(
     account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
-    glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit
+    glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
+    accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -273,6 +277,10 @@ private fun SettingsPanel(
             listOf("Telegram", "Midnight", "Aurora", "Rose").forEach { name ->
                 FilterChip(selected = themeName == name, onClick = { onTheme(name) }, label = { Text(name) })
             }
+        }
+        Text("Акцентный цвет", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 5.dp))
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("По теме", "Синий", "Фиолетовый", "Мятный", "Розовый").forEach { name -> FilterChip(selected = accentName == name, onClick = { onAccent(name) }, label = { Text(name) }) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -300,6 +308,14 @@ private fun SettingsPanel(
                 }
             }
         }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Скругление сообщений", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Форма пузырей в переписке", color = LocalAppearance.current.muted, fontSize = 12.sp)
+            }
+            Text("${bubbleRadius.toInt()} dp", color = LocalAppearance.current.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+        Slider(value = bubbleRadius, onValueChange = onBubbleRadius, valueRange = 8f..28f)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Размер текста", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -505,9 +521,9 @@ private fun MessageBubble(message: TgMessage) {
         Column(
             Modifier.widthIn(max = 310.dp).clip(
                 RoundedCornerShape(
-                    topStart = 16.dp, topEnd = 16.dp,
-                    bottomStart = if (message.outgoing) 16.dp else 4.dp,
-                    bottomEnd = if (message.outgoing) 4.dp else 16.dp
+                    topStart = LocalAppearance.current.bubbleRadius.dp, topEnd = LocalAppearance.current.bubbleRadius.dp,
+                    bottomStart = if (message.outgoing) LocalAppearance.current.bubbleRadius.dp else 4.dp,
+                    bottomEnd = if (message.outgoing) 4.dp else LocalAppearance.current.bubbleRadius.dp
                 )
             ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
         ) {
