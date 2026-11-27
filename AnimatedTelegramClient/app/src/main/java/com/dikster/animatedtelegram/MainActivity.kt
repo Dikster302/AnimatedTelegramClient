@@ -575,7 +575,7 @@ private fun SettingsPanel(
                 OutlinedButton(onClick = onPickProfilePhoto, modifier = Modifier.fillMaxWidth()) { Text("Изменить фотографию профиля") }
                 OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Имя") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Фамилия") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("\\n", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
+                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("\n", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
                 Button(onClick = { onSaveMyProfile(firstName, lastName, bio) }, enabled = firstName.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Сохранить изменения") }
                 Text("Телефон: ${account?.phone?.ifBlank { "не указан" } ?: "Загружаем…"}", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
                 Text("Изменения отправляются непосредственно в Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
@@ -1199,7 +1199,16 @@ private fun prepareStoryVideo(context: android.content.Context, uri: Uri): Pair<
 }
 
 private fun prepareProfilePhoto(context: android.content.Context, uri: Uri): File {
-    val decoded = context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } ?: error("Не удалось открыть фотографию")
+    val resolver = context.contentResolver
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+        ?: error("Не удалось открыть фотографию")
+    require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Некорректное изображение" }
+    var sample = 1
+    while (bounds.outWidth / sample > 2048 || bounds.outHeight / sample > 2048) sample *= 2
+    val options = BitmapFactory.Options().apply { inSampleSize = sample }
+    val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
+        ?: error("Не удалось прочитать фотографию")
     val side = minOf(decoded.width, decoded.height)
     val cropped = Bitmap.createBitmap(decoded, (decoded.width - side) / 2, (decoded.height - side) / 2, side, side)
     val scaled = Bitmap.createScaledBitmap(cropped, 640, 640, true)
@@ -1211,7 +1220,6 @@ private fun prepareProfilePhoto(context: android.content.Context, uri: Uri): Fil
     require(target.length() <= 10L * 1024L * 1024L) { "Фото профиля превышает 10 МБ" }
     return target
 }
-
 private fun prepareStoryPhoto(context: android.content.Context, uri: Uri): File {
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
