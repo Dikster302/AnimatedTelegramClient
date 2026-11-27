@@ -514,7 +514,7 @@ private fun MessageBubble(message: TgMessage) {
             Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Text(time, color = Color(0xFFB5C9D8), fontSize = 10.sp)
-                if (message.outgoing) Text("  ✓✓", color = Color(0xFF79C6F5), fontSize = 10.sp)
+                if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) Color(0xFF79C6F5) else Color(0xFFB5C9D8), fontSize = 10.sp)
             }
         }
     }
