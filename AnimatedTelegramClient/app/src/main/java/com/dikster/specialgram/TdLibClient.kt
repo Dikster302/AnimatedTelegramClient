@@ -116,7 +116,7 @@ class TdLibClient(context:Context) {
   send(TdApi.GetChat(chatId)) { result ->
    if(result is TdApi.Chat) {
     val chat=result
-    val kind=when(chat.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
+    val kind=when(chat.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((chat.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
     _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
@@ -217,7 +217,7 @@ class TdLibClient(context:Context) {
   val last=c.lastMessage
   val preview=last?.let { messagePreview(it.content) } ?: ""
   val photoId=c.photo?.small?.id ?: 0
-  val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
+  val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((c.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
   val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
