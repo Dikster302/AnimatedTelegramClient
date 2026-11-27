@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false)
 data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="")
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
@@ -141,7 +141,7 @@ class TdLibClient(context:Context) {
   val photoId=c.photo?.small?.id ?: 0
   val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> "Канал или группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false)
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
   send(TdApi.GetChatActiveStories(c.id)) { result -> if(result is TdApi.ChatActiveStories) updateChatStories(result) }
   if(c.type is TdApi.ChatTypePrivate) {
@@ -153,7 +153,8 @@ class TdLibClient(context:Context) {
  }
  private fun updateChatStories(stories:TdApi.ChatActiveStories) {
   val hasStory=stories.stories.isNotEmpty()
-  _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory) else it }
+  val hasUnviewed=stories.stories.any { it.storyId>stories.maxReadStoryId }
+  _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory,hasUnviewedStory=hasUnviewed) else it }
   if(!hasStory) _stories.value=_stories.value.filterNot { it.chatId==stories.chatId }
   else stories.stories.forEach { info -> loadStory(stories.chatId,info.storyId,info.storyId<=stories.maxReadStoryId) }
  }
@@ -180,6 +181,8 @@ class TdLibClient(context:Context) {
  fun openStory(chatId:Long,storyId:Int) {
   send(TdApi.OpenStory(chatId,storyId))
   _stories.value=_stories.value.map { if(it.chatId==chatId && it.storyId==storyId) it.copy(isViewed=true) else it }
+  val hasUnviewed=_stories.value.any { it.chatId==chatId && !it.isViewed }
+  _chats.value=_chats.value.map { if(it.id==chatId) it.copy(hasUnviewedStory=hasUnviewed) else it }
  }
  fun closeStory(chatId:Long,storyId:Int) { send(TdApi.CloseStory(chatId,storyId)) }
  fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") {
