@@ -360,7 +360,7 @@ class TdLibClient(context:Context) {
   if(first.isBlank()) { _operationError.value="Имя не может быть пустым"; return }
   if(first.length>64 || last.length>64) { _operationError.value="Имя и фамилия должны быть не длиннее 64 символов"; return }
   send(TdApi.SetName(first,last)) { result -> if(result is TdApi.Ok) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
-  send(TdApi.SetBio(about)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetUserFullInfo(myUserId!!)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
+  send(TdApi.SetBio(about)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetUserFullInfo(myUserId!!)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") } }
  }
  fun setMyProfilePhoto(path:String) {
   send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),true)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
