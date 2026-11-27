@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,6 +43,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.viewinterop.AndroidView
+import android.widget.VideoView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -770,11 +779,52 @@ private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit) {
                 )
             ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
         ) {
-            Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
+            if (message.videoPath.isNotBlank()) {
+                AndroidView(
+                    factory = { viewContext -> VideoView(viewContext).apply {
+                        setVideoPath(message.videoPath)
+                        setOnPreparedListener { player -> player.isLooping = true; start() }
+                    } },
+                    modifier = Modifier.width(224.dp).height(224.dp).clip(messageVideoShape(message.videoShape))
+                )
+                Text(message.text, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 16.sp)
+            } else Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Text(time, color = Color(0xFFB5C9D8), fontSize = 10.sp)
                 if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) Color(0xFF79C6F5) else Color(0xFFB5C9D8), fontSize = 10.sp)
             }
+        }
+    }
+}
+
+private fun messageVideoShape(name:String): Shape = when(name) {
+    "circle" -> CircleShape
+    "square" -> RectangleShape
+    "rounded" -> RoundedCornerShape(22.dp)
+    else -> object : Shape {
+        override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+            val w=size.width; val h=size.height; val path=Path()
+            when(name) {
+                "heart" -> {
+                    path.moveTo(w*0.5f,h*0.92f)
+                    path.cubicTo(w*0.08f,h*0.62f,-w*0.04f,h*0.30f,w*0.22f,h*0.16f)
+                    path.cubicTo(w*0.38f,h*0.06f,w*0.5f,h*0.22f,w*0.5f,h*0.29f)
+                    path.cubicTo(w*0.5f,h*0.22f,w*0.62f,h*0.06f,w*0.78f,h*0.16f)
+                    path.cubicTo(w*1.04f,h*0.30f,w*0.92f,h*0.62f,w*0.5f,h*0.92f)
+                }
+                "star" -> for(i in 0 until 10) {
+                    val radius=if(i%2==0) minOf(w,h)*0.49f else minOf(w,h)*0.22f
+                    val angle=(-Math.PI/2.0)+(Math.PI/5.0*i)
+                    val x=w/2f+(kotlin.math.cos(angle)*radius).toFloat(); val y=h/2f+(kotlin.math.sin(angle)*radius).toFloat()
+                    if(i==0) path.moveTo(x,y) else path.lineTo(x,y)
+                }
+                else -> for(i in 0 until 6) {
+                    val angle=(-Math.PI/2.0)+(Math.PI/3.0*i); val radius=minOf(w,h)*0.49f
+                    val x=w/2f+(kotlin.math.cos(angle)*radius).toFloat(); val y=h/2f+(kotlin.math.sin(angle)*radius).toFloat()
+                    if(i==0) path.moveTo(x,y) else path.lineTo(x,y)
+                }
+            }
+            path.close(); return Outline.Generic(path)
         }
     }
 }
