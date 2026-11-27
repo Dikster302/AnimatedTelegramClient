@@ -1206,7 +1206,21 @@ private fun MessageBubble(
             if (message.replyToMessageId != 0L) {
                 Text("↪ ${message.replyToText.ifBlank { "Сообщение" }}", color = LocalAppearance.current.accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (message.videoPath.isNotBlank()) {
+            val photoBitmap = remember(message.photoPath) {
+                if (message.photoPath.isNotBlank()) runCatching { BitmapFactory.decodeFile(message.photoPath)?.asImageBitmap() }.getOrNull() else null
+            }
+            if (photoBitmap != null) {
+                Image(
+                    bitmap = photoBitmap,
+                    contentDescription = "Фото",
+                    modifier = Modifier.width(240.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp)),
+                    contentScale = ContentScale.Crop
+                )
+                if (message.text.isNotBlank() && message.text != "📷 Фото") {
+                    Spacer(Modifier.height(4.dp))
+                    Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
+                }
+            } else if (message.videoPath.isNotBlank()) {
                 AndroidView(
                     factory = { viewContext -> VideoView(viewContext).apply {
                         setVideoPath(message.videoPath)

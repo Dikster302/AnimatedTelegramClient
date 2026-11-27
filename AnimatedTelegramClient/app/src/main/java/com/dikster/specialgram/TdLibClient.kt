@@ -12,7 +12,7 @@ import java.text.SimpleDateFormat
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false)
 data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
 data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
-data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList())
+data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList(),val photoPath:String="")
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false,val bio:String="",val avatarPath:String="",val firstName:String="",val lastName:String="")
@@ -41,6 +41,7 @@ class TdLibClient(context:Context) {
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
  private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Long>()
+  private val photoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Long>()
  private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Int>>()
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
@@ -85,7 +86,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
-  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val photoMessageId=photoFileToMessage[file.id]; if(photoMessageId!=null) _messages.value=_messages.value.map { if(it.id==photoMessageId) it.copy(photoPath=file.local.path) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
@@ -314,6 +315,16 @@ class TdLibClient(context:Context) {
   val reply=message.replyTo as? TdApi.MessageReplyToMessage
   val replyText=reply?.let { r -> _messages.value.firstOrNull { it.id==r.messageId }?.text ?: ((r.content as? TdApi.MessageText)?.text?.text ?: "") } ?: ""
   val replyId=reply?.messageId ?: 0L
+   if(content is TdApi.MessagePhoto) {
+    val photo=content.photo.sizes.lastOrNull()?.photo
+    val path=photo?.local?.path ?: ""
+    if(photo!=null && !photo.local.isDownloadingCompleted) {
+     photoFileToMessage[photo.id]=message.id
+     send(TdApi.DownloadFile(photo.id,32,0,0,false))
+    }
+    val caption=content.caption?.text ?: ""
+    return TgMessage(message.id,caption.ifBlank { "📷 Фото" },message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,photoPath=path)
+   }
   if(content is TdApi.MessageVideo) {
    val file=content.video.video
    val shape=decodeVideoShape((content.caption?.text ?: ""))
