@@ -191,10 +191,10 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             HeaderWallpaper(uri = if (selectedTab == 0) headerWallpaper else null, modifier = Modifier.matchParentSize())
             Column(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Animated Telegram", modifier = Modifier.size(42.dp))
+                    Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Specialgram", modifier = Modifier.size(42.dp))
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Telegram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Specialgram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                         Text("${chats.size} чатов", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
                     }
                     if (selectedTab != 2) Box {
@@ -316,7 +316,7 @@ private fun SettingsPanel(
             }
         }
         HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.18f))
-        Text("ВНЕШНИЙ ВИД", color = LocalAppearance.current.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
+        Text("SPECIALGRAM · ВНЕШНИЙ ВИД", color = LocalAppearance.current.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
         Text("Цветовая тема", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf("Telegram", "Midnight", "Aurora", "Rose").forEach { name ->
@@ -337,7 +337,7 @@ private fun SettingsPanel(
         Slider(value = glass, onValueChange = onGlass, valueRange = 0f..1f)
         Surface(color = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
             Column(Modifier.padding(14.dp)) {
-                Text("Предпросмотр стекла", color = LocalAppearance.current.text, fontWeight = FontWeight.SemiBold)
+                Text("Предпросмотр Specialgram", color = LocalAppearance.current.text, fontWeight = FontWeight.SemiBold)
                 Text("Так будут выглядеть панели приложения", color = LocalAppearance.current.muted, fontSize = 12.sp)
                 Spacer(Modifier.height(10.dp))
                 Surface(color = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
@@ -345,7 +345,7 @@ private fun SettingsPanel(
                         Box(Modifier.size(34.dp).clip(CircleShape).background(LocalAppearance.current.accent), contentAlignment = Alignment.Center) { Text("A", color = Color.White, fontWeight = FontWeight.Bold) }
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("Animated Telegram", color = LocalAppearance.current.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Text("Specialgram", color = LocalAppearance.current.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                             Text("Пример полупрозрачной карточки", color = LocalAppearance.current.muted, fontSize = 11.sp)
                         }
                         Text("✓✓", color = LocalAppearance.current.accent, fontSize = 12.sp)
@@ -353,7 +353,7 @@ private fun SettingsPanel(
                 }
             }
         }
-        Text("Обложка верхней панели", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
+        Text("Обложка Specialgram", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 12.dp))
         Text("От верхнего края до вкладок чатов. Истории и список останутся на обычном фоне.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp)
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Button(onClick = onPickHeaderWallpaper) { Text(if (headerWallpaper == null) "Выбрать фото" else "Изменить фото") }
@@ -393,7 +393,7 @@ private fun SettingsPanel(
         SettingsLine("Уведомления", "Параметры уведомлений Telegram")
         SettingsLine("Конфиденциальность", "Настройки приватности аккаунта")
         SettingsLine("Данные и память", "Использование сети и хранилища")
-        SettingsLine("О приложении", "Animated Telegram · 0.3")
+        SettingsLine("О приложении", "Specialgram · 0.3")
         Text("Авторская функция", color = LocalAppearance.current.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
         Text("Постепенная отправка текста доступна в каждом чате — включай или выключай её переключателем.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
     }
