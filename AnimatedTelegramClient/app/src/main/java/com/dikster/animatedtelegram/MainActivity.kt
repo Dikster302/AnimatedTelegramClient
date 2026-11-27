@@ -796,7 +796,7 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Uni
         if (!story.isVideo && story.path.isNotBlank()) runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
     }
     Dialog(onDismissRequest = onDismiss) {
-        Surface(Modifier.fillMaxWidth().heightIn(min = 420.dp, max = 720.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
+        Surface(Modifier.fillMaxWidth().height(620.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
             Column(Modifier.fillMaxWidth()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(story.ownerName, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
