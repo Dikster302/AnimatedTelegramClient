@@ -1,6 +1,10 @@
 name: Build Android APK
 on:
-  # APK builds are manual only; pushes no longer trigger expensive builds.
+  # Build an APK automatically whenever either maintained branch is updated.
+  push:
+    branches:
+      - main
+      - feature/profile-editor
   workflow_dispatch:
 permissions:
   contents: read
