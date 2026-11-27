@@ -1,6 +1,7 @@
 package com.dikster.animatedtelegram
 
 import android.os.Bundle
+import android.graphics.BitmapFactory
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
@@ -14,6 +15,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -27,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -95,7 +100,8 @@ private fun TelegramApp(td: TdLibClient) {
                             onQuery = { query = it },
                             sortNewest = sortNewest,
                             onSort = { sortNewest = it },
-                            onOpen = { selectedChat = it; td.openChat(it.id) }
+                            onOpen = { selectedChat = it; td.openChat(it.id) },
+                            onArchive = { td.archiveChat(it.id, !it.archived) }
                         )
                     } else {
                         ConversationScreen(
@@ -116,12 +122,13 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var unreadOnly by remember { mutableStateOf(false) }
-    val filtered = remember(chats, query, sortNewest, unreadOnly) {
-        val found = chats.filter { it.title.contains(query, ignoreCase = true) && (!unreadOnly || it.unreadCount > 0) }
+    var folder by remember { mutableStateOf("Все") }
+    val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
+        val found = chats.filter { chat -> chat.title.contains(query, ignoreCase = true) && (!unreadOnly || chat.unreadCount > 0) && when(folder) { "Архив" -> chat.archived; "Личные" -> !chat.archived && chat.kind == "Личный чат"; "Группы" -> !chat.archived && chat.kind.contains("Группа"); "Каналы" -> !chat.archived && chat.kind == "Канал или группа"; else -> !chat.archived } }
         if (sortNewest) found.sortedByDescending { it.lastDate } else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
@@ -147,6 +154,9 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
             OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp), singleLine = true,
                 placeholder = { Text("Поиск") }, leadingIcon = { Text("⌕", fontSize = 24.sp, color = tgMuted) }, shape = RoundedCornerShape(24.dp),
                 colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = tgPanelLight, unfocusedContainerColor = tgPanelLight, focusedBorderColor = tgBlue, unfocusedBorderColor = Color.Transparent, focusedTextColor = tgText, unfocusedTextColor = tgText))
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 3.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item -> FilterChip(selected = folder == item, onClick = { folder = item }, label = { Text(item) }) }
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (selectedTab == 1) "Все контакты" else "Все чаты", color = tgBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
@@ -155,7 +165,7 @@ private fun ChatsScreen(chats: List<TgChat>, query: String, onQuery: (String) ->
             if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = tgMuted) }
             else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
                 items(filtered, key = { it.id }) { chat ->
-                    ChatRow(chat) { onOpen(chat) }
+                    ChatRow(chat, onArchive = { onArchive(chat) }) { onOpen(chat) }
                     HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
                 }
             }
@@ -198,7 +208,7 @@ private fun SettingsLine(title: String, subtitle: String) {
 }
 
 @Composable
-private fun ChatRow(chat: TgChat, onClick: () -> Unit) {
+private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
     val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
     val time = remember(chat.lastDate) {
         if (chat.lastDate <= 0) "" else try {
@@ -209,9 +219,7 @@ private fun ChatRow(chat: TgChat, onClick: () -> Unit) {
         } catch (_: Exception) { "" }
     }
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(56.dp).clip(CircleShape).background(avatarColor(chat.id)), contentAlignment = Alignment.Center) {
-            Text(initials.ifBlank { "T" }, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-        }
+        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -239,20 +247,20 @@ private fun ConversationScreen(
 ) {
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
+    var showProfile by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
     Column(Modifier.fillMaxSize().background(tgBackground)) {
+        if (showProfile) AlertDialog(onDismissRequest = { showProfile = false }, title = { Text(chat.title) }, text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { Avatar(path = chat.avatarPath, fallback = chat.title.take(1).uppercase(), id = chat.id, size = 88); Text(chat.kind, color = tgMuted); Text("ID: " + chat.id, color = tgMuted); Text(chat.preview.ifBlank { "Нет последних сообщений" }, color = tgText) } }, confirmButton = { TextButton(onClick = { showProfile = false }) { Text("Закрыть") } })
         Row(
-            Modifier.fillMaxWidth().background(tgPanel).clickable { }.padding(horizontal = 8.dp, vertical = 9.dp),
+            Modifier.fillMaxWidth().background(tgPanel).clickable { showProfile = true }.padding(horizontal = 8.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("‹", color = tgBlue, fontSize = 34.sp, modifier = Modifier.clickable(onClick = onBack).padding(horizontal = 9.dp))
-            Box(Modifier.size(42.dp).clip(CircleShape).background(avatarColor(chat.id)), contentAlignment = Alignment.Center) {
-                Text(chat.title.take(1).uppercase(), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
+            Avatar(path = chat.avatarPath, fallback = chat.title.take(1).uppercase(), id = chat.id, size = 42)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(chat.title, color = tgText, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
