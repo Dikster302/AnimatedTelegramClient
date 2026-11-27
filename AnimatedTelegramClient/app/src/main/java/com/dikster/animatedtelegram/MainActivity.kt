@@ -47,7 +47,7 @@ import java.util.Date
 import java.util.Locale
 
 private data class UiAppearance(
-    val background: Color, val panel: Color, val panelLight: Color, val accent: Color,
+    val background: Color, val panel: Color, val panelLight: Color, val chatBackground: Color, val accent: Color,
     val outgoing: Color, val incoming: Color, val text: Color, val muted: Color, val glass: Float, val bubbleRadius: Float
 )
 private val LocalAppearance = staticCompositionLocalOf {
@@ -85,19 +85,21 @@ private fun TelegramApp(td: TdLibClient) {
     var fontScale by remember { mutableFloatStateOf(prefs.getFloat("fontScale", 1f)) }
     var accentName by remember { mutableStateOf(prefs.getString("accent", "По теме") ?: "По теме") }
     var bubbleRadius by remember { mutableFloatStateOf(prefs.getFloat("bubbleRadius", 18f)) }
-    val appearance = remember(themeName, glass, accentName, bubbleRadius) {
+    var wallpaperName by remember { mutableStateOf(prefs.getString("wallpaper", "По теме") ?: "По теме") }
+    val appearance = remember(themeName, glass, accentName, bubbleRadius, wallpaperName) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
             "Aurora" -> listOf(Color(0xFF071A20), Color(0xFF102B32), Color(0xFF193B43), Color(0xFF45D6C5), Color(0xFF236D69), Color(0xFF153039))
             "Rose" -> listOf(Color(0xFF1C101B), Color(0xFF2B1929), Color(0xFF3A2237), Color(0xFFFF78B7), Color(0xFF75405F), Color(0xFF382334))
             else -> listOf(Color(0xFF0E1621), Color(0xFF17212B), Color(0xFF202B36), Color(0xFF2AABEE), Color(0xFF2B5278), Color(0xFF182533))
         }
+        val chatBackground = when(wallpaperName) { "Глубокая ночь" -> Color(0xFF080F1A); "Океан" -> Color(0xFF0A2028); "Сумерки" -> Color(0xFF211629); else -> colors[0] }
         val accent = when(accentName) { "Синий" -> Color(0xFF2AABEE); "Фиолетовый" -> Color(0xFF9B82FF); "Мятный" -> Color(0xFF42D6B5); "Розовый" -> Color(0xFFFF78B7); else -> colors[3] }
-        UiAppearance(colors[0], colors[1], colors[2], accent, colors[4], colors[5],
+        UiAppearance(colors[0], colors[1], colors[2], chatBackground, accent, colors[4], colors[5],
             Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass, bubbleRadius)
     }
-    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius) {
-        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).apply()
+    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName) {
+        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).apply()
     }
     CompositionLocalProvider(LocalAppearance provides appearance,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
@@ -184,7 +186,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -257,7 +259,8 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
 private fun SettingsPanel(
     account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
-    accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit
+    accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
+    wallpaperName: String, onWallpaper: (String) -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -307,6 +310,10 @@ private fun SettingsPanel(
                     }
                 }
             }
+        }
+        Text("Фон переписки", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 9.dp))
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("По теме", "Глубокая ночь", "Океан", "Сумерки").forEach { name -> FilterChip(selected = wallpaperName == name, onClick = { onWallpaper(name) }, label = { Text(name) }) }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -409,7 +416,7 @@ private fun ConversationScreen(
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) listState.animateScrollToItem(messages.lastIndex)
     }
-    Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
+    Column(Modifier.fillMaxSize().background(LocalAppearance.current.chatBackground)) {
         if (showProfile) AlertDialog(
             onDismissRequest = { showProfile = false; onCloseProfile() },
             title = { Text(profile?.name ?: chat.title, color = LocalAppearance.current.text) },
