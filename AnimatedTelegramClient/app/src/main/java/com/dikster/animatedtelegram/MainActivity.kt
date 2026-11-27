@@ -81,7 +81,8 @@ private fun TelegramApp(td: TdLibClient) {
     val chats by td.chats.collectAsState()
     val contacts by td.contacts.collectAsState()
     val messages by td.messages.collectAsState()
-    val profile by td.profile.collectAsState()\n    val account by td.account.collectAsState()
+    val profile by td.profile.collectAsState()
+    val account by td.account.collectAsState()
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
