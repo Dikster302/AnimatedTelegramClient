@@ -146,7 +146,7 @@ class TdLibClient(context:Context) {
   if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
  }
  private fun updateChatStories(stories:TdApi.ChatActiveStories) {
-  val hasStory=stories.hasUnexpiredStories || stories.stories.isNotEmpty()
+  val hasStory=stories.stories.isNotEmpty()
   _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory) else it }
  }
  private fun updateChatPreview(id:Long,message:TdApi.Message?) {
