@@ -14,7 +14,7 @@ data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList())
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
-data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
+data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false,val bio:String="",val avatarPath:String="")
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
@@ -30,6 +30,7 @@ class TdLibClient(context:Context) {
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
  private var myUserId:Long?=null
+ private var myPhotoFileId:Int?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
@@ -62,7 +63,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
-  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it } } }
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
@@ -113,7 +114,11 @@ class TdLibClient(context:Context) {
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
   val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _account.value=TgAccount(name.ifBlank{"Мой аккаунт"},user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,user.isPremium,user.isVerified)
+  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.isVerified)
+  send(TdApi.GetUserFullInfo(user.id)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
+  val photoId=user.profilePhoto?.small?.id ?: 0
+  myPhotoFileId=photoId.takeIf { it>0 }
+  if(photoId>0) send(TdApi.DownloadFile(photoId,32,0,0,false)) else _account.value=_account.value?.copy(avatarPath="")
  }
  private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
@@ -350,7 +355,17 @@ class TdLibClient(context:Context) {
   if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
  }
  fun clearOperationError() { _operationError.value=null }
- fun reportOperationError(text:String) { _operationError.value=text }
+  fun updateMyProfile(firstName:String,lastName:String,bio:String) {
+  val first=firstName.trim(); val last=lastName.trim(); val about=bio.trim().replace("\\n"," ")
+  if(first.isBlank()) { _operationError.value="Имя не может быть пустым"; return }
+  if(first.length>64 || last.length>64) { _operationError.value="Имя и фамилия должны быть не длиннее 64 символов"; return }
+  send(TdApi.SetName(first,last)) { result -> if(result is TdApi.Ok) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  send(TdApi.SetBio(about)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetUserFullInfo(myUserId!!)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
+ }
+ fun setMyProfilePhoto(path:String) {
+  send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),true)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+ }
+fun reportOperationError(text:String) { _operationError.value=text }
  fun sendVideo(chatId:Long,path:String,shape:String) {
   clearOperationError()
   val content=TdApi.InputMessageVideo()
