@@ -51,7 +51,7 @@ class TdLibClient(context:Context) {
  }
  fun archiveChat(id:Long,archived:Boolean) {
   if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
-  else send(TdApi.RemoveChatFromList(id,TdApi.ChatListArchive())) { loadChats() }
+  else send(TdApi.AddChatToList(id,TdApi.ChatListMain())) { loadChats() }
  }
  fun openProfile(chatId:Long) {
   send(TdApi.GetChat(chatId)) { result ->
