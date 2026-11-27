@@ -42,7 +42,11 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateChatActiveStories -> updateChatStories(o.chatActiveStories)
   is TdApi.UpdateStory -> updateStory(o.story)
-  is TdApi.UpdateStoryDeleted -> _stories.value=_stories.value.filterNot { it.chatId==o.storyPosterChatId && it.storyId==o.storyId }
+  is TdApi.UpdateStoryDeleted -> {
+   _stories.value=_stories.value.filterNot { it.chatId==o.storyPosterChatId && it.storyId==o.storyId }
+   val remaining=_stories.value.filter { it.chatId==o.storyPosterChatId }
+   _chats.value=_chats.value.map { if(it.id==o.storyPosterChatId) it.copy(hasStory=remaining.isNotEmpty(),hasUnviewedStory=remaining.any { story -> !story.isViewed }) else it }
+  }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
