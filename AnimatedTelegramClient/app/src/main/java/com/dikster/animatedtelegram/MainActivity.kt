@@ -823,7 +823,7 @@ private fun ConversationScreen(
             ) {
                 items(messages.sortedBy { it.date }, key = { it.id }) { message ->
                     AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 })) {
-                        MessageBubble(message, onLongPress = { selectedMessage = message })
+                        MessageBubble(message, onLongPress = { selectedMessage = message }, onReaction = { emoji -> onReactToMessage(message, emoji) })
                     }
                 }
             }
@@ -968,7 +968,7 @@ private fun ProfileInfoLine(label: String, value: String) {
 }
 
 @Composable
-private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit) {
+private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit, onReaction: (String) -> Unit) {
     val time = remember(message.date) {
         try { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.date.toLong() * 1000L)) }
         catch (_: Exception) { "" }
@@ -999,6 +999,21 @@ private fun MessageBubble(message: TgMessage, onLongPress: () -> Unit) {
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Text(time, color = Color(0xFFB5C9D8), fontSize = 10.sp)
                 if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) Color(0xFF79C6F5) else Color(0xFFB5C9D8), fontSize = 10.sp)
+            }
+            if (message.reactions.isNotEmpty()) {
+                Spacer(Modifier.height(5.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    message.reactions.forEach { reaction ->
+                        Row(
+                            Modifier.clip(RoundedCornerShape(50)).background(if (reaction.chosen) LocalAppearance.current.accent.copy(alpha = 0.28f) else LocalAppearance.current.panelLight.copy(alpha = 0.8f)).clickable { onReaction(reaction.emoji) }.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(reaction.emoji, fontSize = 14.sp)
+                            Spacer(Modifier.width(4.dp))
+                            Text(reaction.count.toString(), color = if (reaction.chosen) LocalAppearance.current.accent else LocalAppearance.current.text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
             }
         }
     }
