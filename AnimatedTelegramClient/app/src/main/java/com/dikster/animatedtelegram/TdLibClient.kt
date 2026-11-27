@@ -9,7 +9,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false)
-data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false)
+data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle")
 data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
 data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
 data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false)
@@ -155,7 +155,7 @@ class TdLibClient(context:Context) {
  private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
-  is TdApi.MessageVideo -> "🎥 Видео"
+  is TdApi.MessageVideo -> "🎥 Видеосообщение · ${videoShapeTitle(decodeVideoShape(content.caption.text))}"
   is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
   is TdApi.MessageSticker -> "Стикер"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
@@ -163,6 +163,7 @@ class TdLibClient(context:Context) {
   is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
   else -> "Сообщение"
  }
+ private fun videoShapeTitle(shape:String):String = when(shape) { "square" -> "Квадрат"; "rounded" -> "Скруглённый квадрат"; "heart" -> "Сердце"; "star" -> "Звезда"; "hexagon" -> "Шестиугольник"; else -> "Круг" }
  private fun messagePreview(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
@@ -198,6 +199,26 @@ class TdLibClient(context:Context) {
   if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
  }
  fun clearOperationError() { _operationError.value=null }
+ fun reportOperationError(text:String) { _operationError.value=text }
+ fun sendVideo(chatId:Long,path:String,shape:String) {
+  clearOperationError()
+  val content=TdApi.InputMessageVideo()
+  content.video=TdApi.InputFileLocal(path)
+  content.caption=TdApi.FormattedText(encodeVideoShape(shape),null)
+  content.supportsStreaming=true
+  send(TdApi.SendMessage(chatId,null,null,null,null,content))
+ }
+ private fun encodeVideoShape(shape:String):String {
+  val names=listOf("circle","square","rounded","heart","star","hexagon")
+  val bits=names.indexOf(shape).coerceAtLeast(0).toString(2).padStart(3,'0')
+  return "\u2063"+bits.map { if(it=='1') '\u200c' else '\u200b' }.joinToString("")+"\u2063"
+ }
+ private fun decodeVideoShape(caption:String):String {
+  val start=caption.indexOf('\u2063'); val end=if(start>=0) caption.indexOf('\u2063',start+1) else -1
+  if(start<0 || end<0) return "circle"
+  val bits=caption.substring(start+1,end).map { when(it) { '\u200c' -> '1'; '\u200b' -> '0'; else -> return "circle" } }.joinToString("")
+  return listOf("circle","square","rounded","heart","star","hexagon").getOrElse(bits.toIntOrNull(2) ?: 0) { "circle" }
+ }
  fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
   clearOperationError()
   send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
