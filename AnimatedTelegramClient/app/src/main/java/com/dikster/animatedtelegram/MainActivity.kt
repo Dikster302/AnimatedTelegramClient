@@ -241,6 +241,15 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
 }
 
 @Composable
+private fun Avatar(path: String, fallback: String, id: Long, size: Int) {
+    val bitmap = remember(path) { if (path.isNotBlank()) runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() else null }
+    Box(Modifier.size(size.dp).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
+        if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Аватар", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        else Text(fallback, color = Color.White, fontSize = (size / 3).sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun ConversationScreen(
     chat: TgChat, messages: List<TgMessage>, onBack: () -> Unit,
     onSend: (String, Boolean) -> Unit
