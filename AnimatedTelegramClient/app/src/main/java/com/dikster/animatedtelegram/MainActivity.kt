@@ -50,6 +50,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
 import android.widget.VideoView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.layout.ContentScale
@@ -135,6 +136,7 @@ private fun TelegramApp(td: TdLibClient) {
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
     val auth by td.auth.collectAsState()
     val chats by td.chats.collectAsState()
+    val stories by td.stories.collectAsState()
     val contacts by td.contacts.collectAsState()
     val messages by td.messages.collectAsState()
     val profile by td.profile.collectAsState()
@@ -178,6 +180,9 @@ private fun TelegramApp(td: TdLibClient) {
                         ChatsScreen(
                             chats = chats,
                             contacts = contacts,
+                            stories = stories,
+                            onOpenStory = { td.openStory(it.chatId,it.storyId) },
+                            onCloseStory = { td.closeStory(it.chatId,it.storyId) },
                             query = query,
                             onQuery = { query = it },
                             sortNewest = sortNewest,
@@ -227,8 +232,10 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
+    var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
+    val activeStory = stories.firstOrNull { viewingStory == (it.chatId to it.storyId) }
     var selectedTab by remember { mutableStateOf(0) }
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -274,6 +281,20 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
             }
         } else {
+            if (stories.isNotEmpty() && folder != "Архив") {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
+                    stories.distinctBy { it.chatId }.forEach { story ->
+                        val owner = chats.firstOrNull { it.id == story.chatId }
+                        Column(Modifier.width(66.dp).clickable {
+                            val first = stories.filter { it.chatId == story.chatId }.let { items -> items.firstOrNull { !it.isViewed } ?: items.firstOrNull() }
+                            if (first != null) { viewingStory = first.chatId to first.storyId; onOpenStory(first) }
+                        }, horizontalAlignment = Alignment.CenterHorizontally) {
+                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 58, hasStory = true)
+                            Text(owner?.title ?: story.ownerName, color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
@@ -287,6 +308,16 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
                 }
             }
         }
+        if (activeStory != null) StoryViewer(
+            story = activeStory,
+            onDismiss = { onCloseStory(activeStory); viewingStory = null },
+            onNext = {
+                val sameChat = stories.filter { it.chatId == activeStory.chatId }.sortedBy { it.date }
+                val next = sameChat.firstOrNull { it.storyId > activeStory.storyId }
+                if (next != null) { onCloseStory(activeStory); viewingStory = next.chatId to next.storyId; onOpenStory(next) }
+                else { onCloseStory(activeStory); viewingStory = null }
+            }
+        )
         NavigationBar(containerColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), contentColor = LocalAppearance.current.accent, tonalElevation = 0.dp) {
             NavigationBarItem(selected = selectedTab == 0, onClick = { selectedTab = 0 }, icon = { Text("☷", fontSize = 20.sp) }, label = { Text("Чаты") })
             NavigationBarItem(selected = selectedTab == 1, onClick = { selectedTab = 1 }, icon = { Text("♙", fontSize = 20.sp) }, label = { Text("Контакты") })
@@ -750,6 +781,38 @@ private fun ConversationScreen(
                     shape = CircleShape
                 ) {
                     Box(contentAlignment = Alignment.Center) { Text("➤", color = Color.White, fontSize = (21f * sendScale).sp) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onNext: () -> Unit) {
+    val bitmap = remember(story.path, story.isVideo) {
+        if (!story.isVideo && story.path.isNotBlank()) runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
+    }
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(Modifier.fillMaxWidth().heightIn(min = 420.dp, max = 720.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(story.ownerName, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    TextButton(onClick = onDismiss) { Text("Закрыть", color = Color.White) }
+                }
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    if (story.path.isBlank()) CircularProgressIndicator(color = Color.White)
+                    else if (story.isVideo) {
+                        AndroidView(factory = { ctx -> VideoView(ctx).apply {
+                            setVideoPath(story.path)
+                            setOnPreparedListener { player -> player.isLooping = true; start() }
+                        } }, modifier = Modifier.fillMaxSize())
+                    } else if (bitmap != null) {
+                        Image(bitmap = bitmap, contentDescription = "История", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+                    } else Text("Не удалось загрузить историю", color = Color.White)
+                }
+                if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                Row(Modifier.fillMaxWidth().padding(10.dp), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onNext) { Text("Далее", color = Color.White) }
                 }
             }
         }
