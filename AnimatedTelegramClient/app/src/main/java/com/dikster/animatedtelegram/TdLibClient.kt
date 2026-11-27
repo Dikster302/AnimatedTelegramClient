@@ -157,7 +157,7 @@ class TdLibClient(context:Context) {
   val content=message.content
   if(content is TdApi.MessageVideo) {
    val file=content.video.video
-   val shape=decodeVideoShape(content.caption.text)
+   val shape=decodeVideoShape((content.caption?.text ?: ""))
    val path=file.local.path
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
    return TgMessage(message.id,"🎥 Видеосообщение · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path)
@@ -167,7 +167,7 @@ class TdLibClient(context:Context) {
  private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
   is TdApi.MessageText -> content.text.text
   is TdApi.MessagePhoto -> "📷 Фото"
-  is TdApi.MessageVideo -> "🎥 Видеосообщение · ${videoShapeTitle(decodeVideoShape(content.caption.text))}"
+  is TdApi.MessageVideo -> "🎥 Видеосообщение · ${videoShapeTitle(decodeVideoShape((content.caption?.text ?: "")))}"
   is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
   is TdApi.MessageSticker -> "Стикер"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
