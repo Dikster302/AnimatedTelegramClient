@@ -309,6 +309,10 @@ class TdLibClient(context:Context) {
   val bits=caption.substring(start+1,end).map { when(it) { '\u200c' -> '1'; '\u200b' -> '0'; else -> return "circle" } }.joinToString("")
   return listOf("circle","square","rounded","heart","star","hexagon").getOrElse(bits.toIntOrNull(2) ?: 0) { "circle" }
  }
+ fun reactToMessage(chatId:Long,messageId:Long,emoji:String) {
+  clearOperationError()
+  send(TdApi.AddMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji),false,true))
+ }
  fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
   clearOperationError()
   send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
