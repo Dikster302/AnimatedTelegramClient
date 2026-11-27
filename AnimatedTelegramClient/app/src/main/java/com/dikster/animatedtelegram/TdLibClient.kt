@@ -332,7 +332,7 @@ class TdLibClient(context:Context) {
   clearOperationError()
   send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
  }
- fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
+ fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null) }; send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun replyToStory(chatId:Long,storyId:Int,text:String) {
   val value=text.trim()
   if(value.isEmpty()) return
@@ -341,11 +341,12 @@ class TdLibClient(context:Context) {
   val content=TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)
   send(TdApi.SendMessage(chatId,null,reply,null,null,content))
  }
- fun sendAnimated(id:Long,text:String) {
+ fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) {
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
   if(chars.isEmpty())return
   clearOperationError()
-  send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
+  val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null) }
+  send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
    if(r is TdApi.Message && chars.size>1) {
     val serverId=confirmedIds[r.id]
     if(serverId!=null) scheduleEdits(id,serverId,chars)
