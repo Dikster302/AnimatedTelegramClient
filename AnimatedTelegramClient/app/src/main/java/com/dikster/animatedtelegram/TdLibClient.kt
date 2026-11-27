@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 
-data class TgChat(val id:Long,val title:String)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int)
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 class TdLibClient(context:Context) {
@@ -24,7 +24,9 @@ class TdLibClient(context:Context) {
  private fun onUpdate(o:TdApi.Object) { when(o) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
   is TdApi.UpdateNewChat -> putChat(o.chat)
-  is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) TgChat(it.id,o.title) else it }
+  is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
+  is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
+  is TdApi.UpdateChatUnreadMessageCount -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
   is TdApi.UpdateNewMessage -> { val m=o.message; val t=(m.content as? TdApi.MessageText)?.text?.text ?: ""; if(m.chatId==activeChat) _messages.value=(_messages.value+TgMessage(m.id,t,m.isOutgoing,m.date)).distinctBy{it.id}.sortedBy{it.date}; }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
@@ -40,7 +42,26 @@ class TdLibClient(context:Context) {
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
  fun loadChats()=send(TdApi.GetChats(TdApi.ChatListMain(),100)) { r -> if(r is TdApi.Chats) r.chatIds.forEach { id -> send(TdApi.GetChat(id)) { c -> if(c is TdApi.Chat) putChat(c) } } }
- private fun putChat(c:TdApi.Chat) { _chats.value=(_chats.value.filterNot{it.id==c.id}+TgChat(c.id,c.title)).sortedBy{it.title.lowercase()} }
+ private fun putChat(c:TdApi.Chat) {
+  val last=c.lastMessage
+  val preview=last?.let { messagePreview(it.content) } ?: ""
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount)
+  _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
+ }
+ private fun updateChatPreview(id:Long,message:TdApi.Message?) {
+  _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
+ }
+ private fun messagePreview(content:TdApi.MessageContent):String = when(content) {
+  is TdApi.MessageText -> content.text.text
+  is TdApi.MessagePhoto -> "📷 Фото"
+  is TdApi.MessageVideo -> "🎥 Видео"
+  is TdApi.MessageDocument -> "📎 Файл"
+  is TdApi.MessageSticker -> "Стикер"
+  is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
+  is TdApi.MessageAnimation -> "GIF"
+  is TdApi.MessageAudio -> "🎵 Аудио"
+  else -> "Сообщение"
+ }
  fun openChat(id:Long) { activeChat=id; _messages.value=emptyList(); send(TdApi.GetChatHistory(id,0,0,50,false)) { r -> if(r is TdApi.Messages) _messages.value=r.messages.map{TgMessage(it.id,(it.content as? TdApi.MessageText)?.text?.text ?: "",it.isOutgoing,it.date)}.sortedBy{it.date} } }
  fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun sendAnimated(id:Long,text:String) {
