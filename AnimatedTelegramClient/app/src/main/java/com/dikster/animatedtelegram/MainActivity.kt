@@ -227,9 +227,9 @@ private fun TelegramApp(td: TdLibClient) {
                             onOpenProfile = { td.openProfile(selectedChat!!.id) },
                             onCloseProfile = { td.closeProfile() },
                             onBack = { selectedChat = null },
-                            onSend = { text, animated ->
-                                if (animated) td.sendAnimated(selectedChat!!.id, text)
-                                else td.sendPlain(selectedChat!!.id, text)
+                            onSend = { text, animated, replyToMessageId ->
+                                if (animated) td.sendAnimated(selectedChat!!.id, text, replyToMessageId)
+                                else td.sendPlain(selectedChat!!.id, text, replyToMessageId)
                             },
                             onDeleteMessage = { message, revoke -> td.deleteMessage(selectedChat!!.id, message.id, revoke) },
                             onClearHistory = { revoke -> td.clearHistory(selectedChat!!.id, revoke) },
@@ -628,7 +628,7 @@ private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: 
 @Composable
 private fun ConversationScreen(
     chat: TgChat, messages: List<TgMessage>, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
-    onSend: (String, Boolean) -> Unit,
+    onSend: (String, Boolean, Long?) -> Unit,
     onDeleteMessage: (TgMessage, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
     onEditMessage: (TgMessage, String) -> Unit,
@@ -646,6 +646,7 @@ private fun ConversationScreen(
     var clearForBoth by remember { mutableStateOf(false) }
     var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var editDraft by remember { mutableStateOf("") }
+    var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
     var showVideoShapePicker by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
@@ -699,6 +700,7 @@ private fun ConversationScreen(
                 },
                 confirmButton = {
                     Row {
+                        TextButton(onClick = { replyingTo = target; selectedMessage = null }) { Text("Ответить") }
                         if (target.outgoing) {
                             TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
                         }
@@ -798,6 +800,16 @@ private fun ConversationScreen(
         }
 
         Column(Modifier.fillMaxWidth().background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)).padding(horizontal = 10.dp, vertical = 7.dp)) {
+            if (replyingTo != null) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(LocalAppearance.current.panelLight).padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Ответ для ${if (replyingTo!!.outgoing) "вас" else chat.title}", color = LocalAppearance.current.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(replyingTo!!.text, color = LocalAppearance.current.text, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    TextButton(onClick = { replyingTo = null }) { Text("✕", color = LocalAppearance.current.muted) }
+                }
+                Spacer(Modifier.height(5.dp))
+            }
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f)).padding(horizontal = 11.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -832,7 +844,9 @@ private fun ConversationScreen(
                     modifier = Modifier.size(49.dp).clip(CircleShape).clickable(enabled = draft.isNotBlank()) {
                         val value = draft.trim()
                         draft = ""
-                        onSend(value, animatedMode)
+                        val replyId = replyingTo?.id
+                        replyingTo = null
+                        onSend(value, animatedMode, replyId)
                     },
                     color = if (draft.isBlank()) LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f) else LocalAppearance.current.accent,
                     shape = CircleShape
