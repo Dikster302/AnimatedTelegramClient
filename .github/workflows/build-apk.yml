@@ -30,7 +30,7 @@ jobs:
 
       - name: Build debug APK
         working-directory: AnimatedTelegramClient
-                env:
+        env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
         run: gradle --no-daemon assembleDebug
