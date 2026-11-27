@@ -193,11 +193,13 @@ class TdLibClient(context:Context) {
  }
  fun clearOperationError() { _operationError.value=null }
  fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
+  clearOperationError()
   send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
    _messages.value=_messages.value.filterNot { it.id==messageId }
   }
  }
  fun clearHistory(chatId:Long,revoke:Boolean) {
+  clearOperationError()
   send(TdApi.DeleteChatHistory(chatId,false,revoke)) {
    if(activeChat==chatId) _messages.value=emptyList()
    _chats.value=_chats.value.map { if(it.id==chatId) it.copy(preview="",lastDate=0,unreadCount=0) else it }
@@ -206,12 +208,14 @@ class TdLibClient(context:Context) {
  fun editMessage(chatId:Long,messageId:Long,text:String) {
   val value=text.trim()
   if(value.isEmpty()) return
+  clearOperationError()
   send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
  }
- fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
+ fun sendPlain(id:Long,text:String) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
  fun sendAnimated(id:Long,text:String) {
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
   if(chars.isEmpty())return
+  clearOperationError()
   send(TdApi.SendMessage(id,null,null,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
    if(r is TdApi.Message && chars.size>1) {
     val serverId=confirmedIds[r.id]
@@ -231,7 +235,7 @@ class TdLibClient(context:Context) {
   }
   scheduler.schedule({scheduler.shutdown()},words.size*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
  }
- private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) { _operationError.value=null; client.send(f,Client.ResultHandler { r -> if(r is TdApi.Error) _operationError.value=r.message else handler?.invoke(r) }) }
+ private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) { client.send(f,Client.ResultHandler { r -> if(r is TdApi.Error) _operationError.value=r.message else handler?.invoke(r) }) }
  fun close(){client.send(TdApi.Close(),null)}
  private fun databaseKey():ByteArray { val alias="animatedtelegram_tdlib_db"; val store=java.security.KeyStore.getInstance("AndroidKeyStore").apply{load(null)}; var secret=store.getKey(alias,null) as? javax.crypto.SecretKey; if(secret==null){val gen=javax.crypto.KeyGenerator.getInstance("AES","AndroidKeyStore");gen.init(android.security.keystore.KeyGenParameterSpec.Builder(alias,3).setBlockModes("GCM").setEncryptionPaddings("NoPadding").build());secret=gen.generateKey()}; val prefs=app.getSharedPreferences("tdlib_secure",Context.MODE_PRIVATE); val saved=prefs.getString("dbkey",null); if(saved!=null){val bytes=android.util.Base64.decode(saved,0);val cipher=javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");cipher.init(2,secret,javax.crypto.spec.GCMParameterSpec(128,bytes.copyOfRange(0,12)));return cipher.doFinal(bytes.copyOfRange(12,bytes.size))}; val raw=ByteArray(32).also{java.security.SecureRandom().nextBytes(it)};val cipher=javax.crypto.Cipher.getInstance("AES/GCM/NoPadding");cipher.init(1,secret);prefs.edit().putString("dbkey",android.util.Base64.encodeToString(cipher.iv+cipher.doFinal(raw),0)).apply();return raw }
 
