@@ -93,10 +93,6 @@ class MainActivity : ComponentActivity() {
             )) { TelegramApp(td) }
         }
     }
-    override fun onDestroy() {
-        if (::td.isInitialized) td.close()
-        super.onDestroy()
-    }
 }
 
 @Composable
