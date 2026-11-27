@@ -700,7 +700,7 @@ private fun ConversationScreen(
                 },
                 confirmButton = {
                     Row {
-                        TextButton(onClick = { replyingTo = target; selectedMessage = null }) { Text("Ответить") }
+                        TextButton(onClick = { replyingTo = target; selectedMessage = null; deleteForBoth = false }) { Text("Ответить") }
                         if (target.outgoing) {
                             TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
                         }
@@ -803,7 +803,7 @@ private fun ConversationScreen(
             if (replyingTo != null) {
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(LocalAppearance.current.panelLight).padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Ответ для ${if (replyingTo!!.outgoing) "вас" else chat.title}", color = LocalAppearance.current.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (replyingTo!!.outgoing) "Ответ на ваше сообщение" else "Ответ на сообщение ${chat.title}", color = LocalAppearance.current.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         Text(replyingTo!!.text, color = LocalAppearance.current.text, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     TextButton(onClick = { replyingTo = null }) { Text("✕", color = LocalAppearance.current.muted) }
