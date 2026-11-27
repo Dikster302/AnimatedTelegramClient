@@ -290,7 +290,7 @@ private fun ConversationScreen(
                     Text(profile?.kind ?: chat.kind, color = tgMuted)
                     if (!profile?.bio.isNullOrBlank()) Text(profile?.bio ?: "", color = tgText)
                     if (!profile?.phone.isNullOrBlank()) ProfileInfoLine("Телефон", profile?.phone ?: "")
-                    if (profile?.commonGroups != null && profile.commonGroups > 0) ProfileInfoLine("Общие группы", profile.commonGroups.toString())
+                    if ((profile?.commonGroups ?: 0) > 0) ProfileInfoLine("Общие группы", (profile?.commonGroups ?: 0).toString())
                     ProfileInfoLine("ID", chat.id.toString())
                 }
             },
