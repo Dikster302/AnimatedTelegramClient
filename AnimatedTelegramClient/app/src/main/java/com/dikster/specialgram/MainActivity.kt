@@ -277,7 +277,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     var unreadOnly by remember { mutableStateOf(false) }
     var folder by remember { mutableStateOf("Все") }
     val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
-        val found = chats.filter { chat -> chat.title.contains(query, ignoreCase = true) && (!unreadOnly || chat.unreadCount > 0) && when(folder) { "Архив" -> chat.archived; "Личные" -> !chat.archived && chat.kind == "Личный чат"; "Группы" -> !chat.archived && chat.kind.contains("Группа"); "Каналы" -> !chat.archived && chat.kind == "Канал или группа"; else -> !chat.archived } }
+        val found = chats.filter { chat -> chat.title.contains(query, ignoreCase = true) && (!unreadOnly || chat.unreadCount > 0) && when(folder) { "Архив" -> chat.archived; "Личные" -> !chat.archived && (chat.kind == "Личный чат" || chat.kind == "Секретный чат"); "Группы" -> !chat.archived && chat.kind == "Группа"; "Каналы" -> !chat.archived && chat.kind == "Канал"; else -> !chat.archived } }
         if (sortNewest) found.sortedByDescending { it.lastDate } else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
