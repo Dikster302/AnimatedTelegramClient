@@ -81,7 +81,7 @@ private fun TelegramApp(td: TdLibClient) {
     val chats by td.chats.collectAsState()
     val contacts by td.contacts.collectAsState()
     val messages by td.messages.collectAsState()
-    val profile by td.profile.collectAsState()
+    val profile by td.profile.collectAsState()\n    val account by td.account.collectAsState()
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -158,7 +158,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel() }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
