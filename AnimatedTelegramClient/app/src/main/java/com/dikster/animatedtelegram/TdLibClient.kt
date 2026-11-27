@@ -173,7 +173,7 @@ class TdLibClient(context:Context) {
    is TdApi.StoryContentPhoto -> file=content.photo.sizes.maxByOrNull { it.width*it.height }?.photo
    is TdApi.StoryContentVideo -> { file=content.video.video; isVideo=true }
   }
-  val path=if(file?.local?.isDownloadingCompleted==true) file.local.path else ""
+  val path=if(file==null) "unsupported" else if(file.local.isDownloadingCompleted) file.local.path else ""
   val viewed=isViewed ?: (_stories.value.firstOrNull { it.chatId==story.posterChatId && it.storyId==story.id }?.isViewed ?: false)
   val item=TgStory(story.posterChatId,story.id,owner,story.date,story.caption?.text ?: "",isVideo,path,viewed)
   _stories.value=(_stories.value.filterNot { it.chatId==item.chatId && it.storyId==item.storyId }+item).sortedBy { it.date }
