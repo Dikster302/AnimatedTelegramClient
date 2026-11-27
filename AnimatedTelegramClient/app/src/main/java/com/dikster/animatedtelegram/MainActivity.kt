@@ -86,6 +86,7 @@ private fun TelegramApp(td: TdLibClient) {
     var accentName by remember { mutableStateOf(prefs.getString("accent", "По теме") ?: "По теме") }
     var bubbleRadius by remember { mutableFloatStateOf(prefs.getFloat("bubbleRadius", 18f)) }
     var wallpaperName by remember { mutableStateOf(prefs.getString("wallpaper", "По теме") ?: "По теме") }
+    var compactChats by remember { mutableStateOf(prefs.getBoolean("compactChats", false)) }
     val appearance = remember(themeName, glass, accentName, bubbleRadius, wallpaperName) {
         val colors = when (themeName) {
             "Midnight" -> listOf(Color(0xFF080B16), Color(0xFF11172A), Color(0xFF1A2340), Color(0xFF8B7CFF), Color(0xFF514A91), Color(0xFF151B30))
@@ -98,8 +99,8 @@ private fun TelegramApp(td: TdLibClient) {
         UiAppearance(colors[0], colors[1], colors[2], chatBackground, accent, colors[4], colors[5],
             Color(0xFFEAF2F8), Color(0xFF8A9AA9), glass, bubbleRadius)
     }
-    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName) {
-        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).apply()
+    LaunchedEffect(themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName, compactChats) {
+        prefs.edit().putString("theme", themeName).putFloat("glass", glass).putFloat("fontScale", fontScale).putString("accent", accentName).putFloat("bubbleRadius", bubbleRadius).putString("wallpaper", wallpaperName).putBoolean("compactChats", compactChats).apply()
     }
     CompositionLocalProvider(LocalAppearance provides appearance,
         androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.platform.LocalDensity.current.copy(fontScale = fontScale)) {
@@ -132,6 +133,8 @@ private fun TelegramApp(td: TdLibClient) {
                             onQuery = { query = it },
                             sortNewest = sortNewest,
                             onSort = { sortNewest = it },
+                            compactChats = compactChats,
+                            onCompactChats = { compactChats = it },
                             onOpen = { selectedChat = it; td.openChat(it.id) },
                             onOpenContact = { contact -> td.openContact(contact.id) { selectedChat = it; td.openChat(it.id) } },
                             onArchive = { td.archiveChat(it.id, !it.archived) }
@@ -159,7 +162,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) }
     var unreadOnly by remember { mutableStateOf(false) }
@@ -186,7 +189,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             }
         }
         if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }) }
+            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, themeName, { themeName = it }, glass, { glass = it }, fontScale, { fontScale = it }, accentName, { accentName = it }, bubbleRadius, { bubbleRadius = it }, wallpaperName, { wallpaperName = it }, compactChats, { compactChats = it }) }
         } else if (selectedTab == 1) {
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 ContactsPanel(contacts.filter { it.name.contains(query, true) || it.username.contains(query, true) || it.phone.contains(query) }, query, onQuery, onOpenContact)
@@ -206,7 +209,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, query: S
             if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = LocalAppearance.current.muted) }
             else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
                 items(filtered, key = { it.id }) { chat ->
-                    ChatRow(chat, onArchive = { onArchive(chat) }) { onOpen(chat) }
+                    ChatRow(chat, compact = compactChats, onArchive = { onArchive(chat) }) { onOpen(chat) }
                     HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
                 }
             }
@@ -260,7 +263,7 @@ private fun SettingsPanel(
     account: TgAccount?, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
     accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
-    wallpaperName: String, onWallpaper: (String) -> Unit
+    wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit
 ) {
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -315,6 +318,13 @@ private fun SettingsPanel(
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             listOf("По теме", "Глубокая ночь", "Океан", "Сумерки").forEach { name -> FilterChip(selected = wallpaperName == name, onClick = { onWallpaper(name) }, label = { Text(name) }) }
         }
+        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Компактный список чатов", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Больше диалогов на экране", color = LocalAppearance.current.muted, fontSize = 12.sp)
+            }
+            Switch(checked = compactChats, onCheckedChange = onCompactChats)
+        }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Скругление сообщений", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -353,7 +363,7 @@ private fun SettingsLine(title: String, subtitle: String) {
 }
 
 @Composable
-private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
+private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
     val time = remember(chat.lastDate) {
@@ -364,7 +374,7 @@ private fun ChatRow(chat: TgChat, onArchive: () -> Unit, onClick: () -> Unit) {
             if (today == day) SimpleDateFormat("HH:mm", Locale.getDefault()).format(d) else SimpleDateFormat("dd.MM", Locale.getDefault()).format(d)
         } catch (_: Exception) { "" }
     }
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = if (compact) 5.dp else 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 56, online = chat.isOnline)
         Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
