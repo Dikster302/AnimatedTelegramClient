@@ -22,6 +22,10 @@ public final class ChatCacheRepository implements AutoCloseable {
     public interface LoadCallback { void onLoaded(List<TgChat> chats); }
     public interface MessagesCallback { void onLoaded(List<TgMessage> messages); }
 
+    // Кэшируем разумный хвост истории каждого чата и ограничиваем общий объём базы.
+    private static final int MAX_MESSAGES_PER_CHAT = 500;
+    private static final int MAX_MESSAGES_TOTAL = 20000;
+
     private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
         @Override public void migrate(SupportSQLiteDatabase db) {
             db.execSQL("CREATE TABLE IF NOT EXISTS cached_messages ("
@@ -97,7 +101,13 @@ public final class ChatCacheRepository implements AutoCloseable {
         execute(() -> database.runInTransaction(() -> {
             database.chatDao().deleteMessages(chatId, Collections.singletonList(oldMessageId));
             database.chatDao().upsertMessages(Collections.singletonList(row));
+            pruneMessageCache(chatId);
         }));
+    }
+
+    private void pruneMessageCache(long chatId) {
+        database.chatDao().pruneMessagesForChat(chatId, MAX_MESSAGES_PER_CHAT);
+        database.chatDao().pruneMessagesGlobally(MAX_MESSAGES_TOTAL);
     }
 
     public void clearMessages(long chatId) {
