@@ -12,7 +12,7 @@ import android.widget.PopupWindow;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-/** Native main-list toolbar and its Telegram-style navigation/sort menu. */
+/** Native main-list toolbar with a Telegram-style side navigation drawer. */
 public final class NativeChatsHeaderView extends LinearLayout {
     public interface Listener {
         void onSelectTab(int tab);
@@ -23,6 +23,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
     private final TextView menuButton, title, subtitle, searchButton;
     private PopupWindow drawer;
     private Listener listener;
+    private TgAccount account;
     private int selectedTab;
     private int chatCount;
     private boolean unreadOnly, newestFirst;
@@ -48,7 +49,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
     }
 
     public void update(int tab,int count,boolean unread,boolean newest,int textColor,TgAccount account,Listener callback) {
-        selectedTab=tab;chatCount=count;unreadOnly=unread;newestFirst=newest;listener=callback;
+        selectedTab=tab;chatCount=count;unreadOnly=unread;newestFirst=newest;this.account=account;listener=callback;
         title.setText(tab==2?"Настройки":tab==1?"Контакты":"Specialgram");
         subtitle.setText(tab==0?count+" диалогов":"Specialgram · Telegram");
         searchButton.setVisibility(tab==0?VISIBLE:GONE);
