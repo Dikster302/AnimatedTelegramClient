@@ -102,6 +102,24 @@ public final class TdClientOperationsController {
         });
     }
 
+    public void openSavedMessages(ContactListener callback) {
+        Long userId = listener.myUserId();
+        if (userId == null) {
+            listener.reportOperationError("Не удалось определить аккаунт Telegram");
+            return;
+        }
+        userActions.createPrivateChat(userId, new TdUserActionsController.Callback() {
+            @Override public void onResult(TdApi.Object result) {
+                if (!(result instanceof TdApi.Chat)) return;
+                TgChat mapped = chatRegistration.putChat((TdApi.Chat) result, false);
+                if (mapped != null && callback != null) callback.onReady(mapped);
+            }
+            @Override public void onError(TdApi.Error error) {
+                listener.reportOperationError(error == null ? "Не удалось открыть Избранное" : error.message);
+            }
+        });
+    }
+
     public void loadPrivacySettings() { privacy.loadAll(); }
     public void setLastSeenPrivacy(String value) { privacy.set(TdPrivacyController.STATUS, value); }
     public void setPhonePrivacy(String value) { privacy.set(TdPrivacyController.PHONE, value); }
