@@ -803,14 +803,10 @@ private fun ConversationScreen(
     var animatedMode by remember { mutableStateOf(true) }
     var showProfile by remember { mutableStateOf(false) }
     var selectedMessage by remember { mutableStateOf<TgMessage?>(null) }
-    var deleteForBoth by remember { mutableStateOf(false) }
     var chatMenuOpen by remember { mutableStateOf(false) }
     var showClearHistoryDialog by remember { mutableStateOf(false) }
     var clearForBoth by remember { mutableStateOf(false) }
-    var editingMessage by remember { mutableStateOf<TgMessage?>(null) }
-    var editDraft by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
-    var forwardingMessage by remember { mutableStateOf<TgMessage?>(null) }
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     var messageSearchOpen by remember { mutableStateOf(false) }
     var messageSearchQuery by remember { mutableStateOf("") }
@@ -847,77 +843,25 @@ private fun ConversationScreen(
             text = { Text(operationError, color = LocalAppearance.current.muted) },
             confirmButton = { TextButton(onClick = onDismissOperationError) { Text("Понятно") } }
         )
-        selectedMessage?.let { target ->
-            AlertDialog(
-                onDismissRequest = { selectedMessage = null },
-                title = { Text("Сообщение", color = LocalAppearance.current.text) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (target.outgoing) Text("Выберите действие для своего сообщения", color = LocalAppearance.current.muted)
-                        else Text("Выберите, удалить сообщение только у себя или у всех участников чата.", color = LocalAppearance.current.muted)
-                        Text("Быстрая реакция", color = LocalAppearance.current.muted, fontSize = 12.sp)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            listOf("👍", "❤️", "😂", "😮", "😢", "🔥").forEach { emoji ->
-                                TextButton(onClick = { onReactToMessage(target, emoji); selectedMessage = null }) {
-                                    Text(emoji, fontSize = 20.sp)
-                                }
-                            }
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = deleteForBoth, onCheckedChange = { deleteForBoth = it })
-                            Text("Удалить у всех", color = LocalAppearance.current.text, fontSize = 13.sp)
-                        }
-                    }
-                },
-                confirmButton = {
-                    Row(Modifier.horizontalScroll(rememberScrollState())) {
-                        TextButton(onClick = { replyingTo = target; selectedMessage = null; deleteForBoth = false }) { Text("Ответить") }
-                        TextButton(onClick = { forwardingMessage = target; selectedMessage = null; deleteForBoth = false }) { Text("Переслать") }
-                        TextButton(onClick = { onPinMessage(target); selectedMessage = null; deleteForBoth = false }) { Text(if (target.isPinned) "Открепить" else "Закрепить") }
-                        if (target.outgoing) {
-                            TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
-                        }
-                        TextButton(onClick = { onDeleteMessage(target, deleteForBoth); selectedMessage = null; deleteForBoth = false }) { Text("Удалить", color = Color(0xFFFF6B6B)) }
-                        TextButton(onClick = { selectedMessage = null; deleteForBoth = false }) { Text("Отмена") }
-                    }
-                }
-            )
+        val dialogAppearance = LocalAppearance.current
+        val messageDialogContext = shapePickerContext
+        val messageActionsListener = remember(chats, chat.id, onReactToMessage, onForwardMessage,
+            onPinMessage, onDeleteMessage, onEditMessage) {
+            object : NativeMessageActionsDialog.Listener {
+                override fun onDismiss() { selectedMessage = null }
+                override fun onReply(message: TgMessage) { replyingTo = message }
+                override fun onReaction(message: TgMessage, emoji: String) { onReactToMessage(message, emoji) }
+                override fun onForward(message: TgMessage, destination: TgChat) { onForwardMessage(message, destination) }
+                override fun onPin(message: TgMessage) { onPinMessage(message) }
+                override fun onEdit(message: TgMessage, text: String) { onEditMessage(message, text) }
+                override fun onDelete(message: TgMessage, forEveryone: Boolean) { onDeleteMessage(message, forEveryone) }
+            }
         }
-        forwardingMessage?.let { target ->
-            AlertDialog(
-                onDismissRequest = { forwardingMessage = null },
-                title = { Text("Переслать сообщение", color = LocalAppearance.current.text) },
-                text = {
-                    Column(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
-                        Text(target.text, color = LocalAppearance.current.muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(8.dp))
-                        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 340.dp)) {
-                            items(chats.filter { it.id != chat.id }, key = { it.id }) { destination ->
-                                Row(Modifier.fillMaxWidth().clickable { onForwardMessage(target, destination); forwardingMessage = null }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Avatar(path = destination.avatarPath, fallback = destination.title.take(1).uppercase(), id = destination.id, size = 38)
-                                    Spacer(Modifier.width(10.dp))
-                                    Column(Modifier.weight(1f)) {
-                                        Text(destination.title, color = LocalAppearance.current.text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        Text(destination.kind, color = LocalAppearance.current.muted, fontSize = 11.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = { TextButton(onClick = { forwardingMessage = null }) { Text("Отмена") } }
-            )
-        }
-        editingMessage?.let { target ->
-            AlertDialog(
-                onDismissRequest = { editingMessage = null },
-                title = { Text("Изменить сообщение", color = LocalAppearance.current.text) },
-                text = { OutlinedTextField(value = editDraft, onValueChange = { editDraft = it }, modifier = Modifier.fillMaxWidth(), maxLines = 5) },
-                confirmButton = {
-                    TextButton(onClick = { onEditMessage(target, editDraft); editingMessage = null }) { Text("Сохранить") }
-                },
-                dismissButton = { TextButton(onClick = { editingMessage = null }) { Text("Отмена") } }
-            )
+        LaunchedEffect(selectedMessage?.id) {
+            val target = selectedMessage ?: return@LaunchedEffect
+            NativeMessageActionsDialog.show(messageDialogContext, target, chats, chat.id,
+                dialogAppearance.text.toArgb(), dialogAppearance.muted.toArgb(),
+                dialogAppearance.accent.toArgb(), messageActionsListener)
         }
         if (showClearHistoryDialog) AlertDialog(
             onDismissRequest = { showClearHistoryDialog = false; clearForBoth = false },
