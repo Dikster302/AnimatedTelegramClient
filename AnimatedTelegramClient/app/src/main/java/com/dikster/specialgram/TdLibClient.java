@@ -285,6 +285,9 @@ public final class TdLibClient implements AutoCloseable {
             @Override public void setAccount(TgAccount value) { account.setValue(value); }
             @Override public void markDownloadCompleted(int fileId) { fileDownloadQueue.markCompleted(fileId); }
             @Override public boolean isMyPhotoFile(int fileId) { return myPhotoFileId != null && myPhotoFileId == fileId; }
+            @Override public String persistAvatar(int fileId, String sourcePath) {
+                return PersistentAvatarStore.persist(app, fileId, sourcePath);
+            }
         }, fileToChat, videoFileToMessage, mediaFileToMessage, storyFileToKey);
 
         pushRegistrationController = new TdPushRegistrationController(app, (function, callback) ->
