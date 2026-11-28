@@ -275,6 +275,7 @@ private fun TelegramApp(td: TdLibClient) {
                             onEditMessage = { message, text -> td.editMessage(selectedChat!!.id, message.id, text) },
                             onReactToMessage = { message, emoji -> td.reactToMessage(selectedChat!!.id, message.id, emoji) },
                             onForwardMessage = { message, destination -> td.forwardMessage(selectedChat!!.id, destination.id, message.id) },
+                            onPinMessage = { message -> td.pinMessage(selectedChat!!.id, message.id, !message.isPinned) },
                             videoNoteShape = videoNoteShape,
                             onVideoNoteShape = { videoNoteShape = it },
                             onRecordVideo = { runCatching { videoCaptureLauncher.launch(Intent(MediaStore.ACTION_VIDEO_CAPTURE).putExtra(MediaStore.EXTRA_DURATION_LIMIT, 60)) }.onFailure { td.reportOperationError("Не удалось открыть камеру: ${it.message ?: "камера недоступна"}") } },
@@ -809,6 +810,7 @@ private fun ConversationScreen(
     onEditMessage: (TgMessage, String) -> Unit,
     onReactToMessage: (TgMessage, String) -> Unit,
     onForwardMessage: (TgMessage, TgChat) -> Unit,
+    onPinMessage: (TgMessage) -> Unit,
     videoNoteShape: String, onVideoNoteShape: (String) -> Unit, onRecordVideo: () -> Unit,
     operationError: String?, onDismissOperationError: () -> Unit,
     onLoadOlderMessages: () -> Unit,
@@ -916,6 +918,7 @@ private fun ConversationScreen(
                     Row(Modifier.horizontalScroll(rememberScrollState())) {
                         TextButton(onClick = { replyingTo = target; selectedMessage = null; deleteForBoth = false }) { Text("Ответить") }
                         TextButton(onClick = { forwardingMessage = target; selectedMessage = null; deleteForBoth = false }) { Text("Переслать") }
+                        TextButton(onClick = { onPinMessage(target); selectedMessage = null; deleteForBoth = false }) { Text(if (target.isPinned) "Открепить" else "Закрепить") }
                         if (target.outgoing) {
                             TextButton(onClick = { editingMessage = target; editDraft = target.text; selectedMessage = null }) { Text("Изменить") }
                         }
@@ -1313,6 +1316,7 @@ private fun MessageBubble(
                 Text(message.text, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 16.sp)
             } else Text(message.text, color = LocalAppearance.current.text, fontSize = 16.sp, lineHeight = 21.sp)
             Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                if (message.isPinned) Text("📌 ", color = LocalAppearance.current.muted, fontSize = 10.sp)
                 Text(time, color = LocalAppearance.current.muted.copy(alpha = 0.88f), fontSize = 11.sp)
                 if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 11.sp)
             }
