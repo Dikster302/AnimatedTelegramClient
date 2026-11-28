@@ -228,35 +228,177 @@ public final class NativeSettingsPanelView extends LinearLayout {
 
     private void renderAccount(){
         String name=account==null?"Мой аккаунт":account.getName();
-        LinearLayout row=new LinearLayout(getContext());row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0,dp(16),0,dp(12));
-        NativeAvatarView avatar=new NativeAvatarView(getContext(),account==null?"":account.getAvatarPath(),
-                first(name),0,76,false,false,false,panelLightColor);
-        row.addView(avatar,new LayoutParams(dp(76),dp(76)));
-        LinearLayout labels=vertical();LinearLayout.LayoutParams lp=new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f);
-        lp.leftMargin=dp(14);row.addView(labels,lp);
-        labels.addView(text(name,textColor,18,true));
         String username=account==null?"":account.getUsername();
-        labels.addView(text(empty(username)?"Имя пользователя не задано":"@"+username,mutedColor,13,false));
-        if(account!=null&&account.isPremium())labels.addView(text("✦ Telegram Premium",0xFFB58CFF,12,true));
-        body.addView(row);
-        Button photo=button("Изменить фотографию профиля",()->{if(listener!=null)listener.onPickProfilePhoto();});
-        body.addView(photo,match());
+        String phone=account==null?"":account.getPhone();
+        String bio=account==null?"":account.getBio();
+
+        // Branded profile cover.
+        LinearLayout cover=vertical();
+        cover.setPadding(dp(18),dp(18),dp(18),dp(18));
+        android.graphics.drawable.GradientDrawable coverBackground=
+                new android.graphics.drawable.GradientDrawable(
+                        android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                        new int[]{0xFF142D55,0xFF315D9D,0xFF7655A8});
+        coverBackground.setCornerRadius(dp(22));
+        cover.setBackground(coverBackground);
+        TextView brand=text("SPECIALGRAM",Color.WHITE,12,true);
+        brand.setLetterSpacing(0.18f);
+        cover.addView(brand);
+        TextView coverTitle=text("ТВОЙ ПРОФИЛЬ",Color.WHITE,22,true);
+        LinearLayout.LayoutParams titleParams=wrap();
+        titleParams.topMargin=dp(28);
+        cover.addView(coverTitle,titleParams);
+        TextView coverSubtitle=text("Личное пространство Telegram",0xFFDCE8FF,12,false);
+        LinearLayout.LayoutParams subtitleParams=wrap();
+        subtitleParams.topMargin=dp(3);
+        cover.addView(coverSubtitle,subtitleParams);
+        LinearLayout.LayoutParams coverParams=match();
+        coverParams.topMargin=dp(10);
+        body.addView(cover,coverParams);
+
+        // Avatar overlaps the cover, as on a finished profile page.
+        LinearLayout identity=new LinearLayout(getContext());
+        identity.setGravity(Gravity.CENTER_VERTICAL);
+        identity.setPadding(dp(12),0,dp(8),dp(12));
+        NativeAvatarView avatar=new NativeAvatarView(getContext(),
+                account==null?"":account.getAvatarPath(),first(name),0,92,
+                false,false,false,panelLightColor);
+        LinearLayout.LayoutParams avatarParams=new LayoutParams(dp(92),dp(92));
+        avatarParams.topMargin=-dp(42);
+        identity.addView(avatar,avatarParams);
+        LinearLayout identityText=vertical();
+        LinearLayout.LayoutParams identityTextParams=new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f);
+        identityTextParams.leftMargin=dp(14);
+        identityTextParams.topMargin=dp(8);
+        identity.addView(identityText,identityTextParams);
+        TextView displayName=text(name,textColor,20,true);
+        identityText.addView(displayName);
+        TextView handle=text(empty(username)?"Имя пользователя не задано":"@"+username,
+                accentColor,14,true);
+        LinearLayout.LayoutParams handleParams=wrap();
+        handleParams.topMargin=dp(3);
+        identityText.addView(handle,handleParams);
+        if(account!=null&&(account.isPremium()||account.isVerified())){
+            LinearLayout badges=new LinearLayout(getContext());
+            badges.setGravity(Gravity.CENTER_VERTICAL);
+            if(account.isPremium()){
+                TextView premium=text("✦ PREMIUM",0xFFFFD477,10,true);
+                premium.setPadding(dp(8),dp(4),dp(8),dp(4));
+                premium.setBackground(round(withAlpha(0xFFFFC857,0.16f),20));
+                badges.addView(premium);
+            }
+            if(account.isVerified()){
+                TextView verified=text("✓ ПОДТВЕРЖДЁН",0xFF6DCBFF,10,true);
+                verified.setPadding(dp(8),dp(4),dp(8),dp(4));
+                verified.setBackground(round(withAlpha(0xFF54B9F5,0.16f),20));
+                LinearLayout.LayoutParams verifiedParams=wrap();
+                verifiedParams.leftMargin=dp(6);
+                badges.addView(verified,verifiedParams);
+            }
+            LinearLayout.LayoutParams badgeParams=wrap();
+            badgeParams.topMargin=dp(7);
+            identityText.addView(badges,badgeParams);
+        }
+        LinearLayout.LayoutParams identityParams=match();
+        identityParams.topMargin=-dp(1);
+        body.addView(identity,identityParams);
+
+        // Account details in a separate, readable card.
+        LinearLayout details=vertical();
+        details.setPadding(dp(15),dp(5),dp(15),dp(5));
+        details.setBackground(round(panelColor,18));
+        profileInfoRow(details,"О СЕБЕ",empty(bio)?"Расскажи немного о себе":bio);
+        profileInfoDivider(details);
+        profileInfoRow(details,"ТЕЛЕФОН",empty(phone)?"Не указан":phone);
+        profileInfoDivider(details);
+        profileInfoRow(details,"ИМЯ ПОЛЬЗОВАТЕЛЯ",
+                empty(username)?"Не задано":"@"+username);
+        LinearLayout.LayoutParams detailsParams=match();
+        detailsParams.topMargin=dp(8);
+        body.addView(details,detailsParams);
+
+        heading("Редактирование профиля");
+        paragraph("Изменения сохраняются в твоём аккаунте Telegram и синхронизируются с другими устройствами.");
+        LinearLayout editCard=vertical();
+        editCard.setPadding(dp(14),dp(12),dp(14),dp(14));
+        editCard.setBackground(round(panelColor,18));
+        Button photo=button("Изменить фотографию",()->{
+            if(listener!=null)listener.onPickProfilePhoto();
+        });
+        photo.setAllCaps(false);
+        editCard.addView(photo,match());
+
         EditText first=edit(account==null?"":account.getFirstName(),"Имя",true);
         EditText last=edit(account==null?"":account.getLastName(),"Фамилия",true);
-        EditText bio=edit(account==null?"":account.getBio(),"О себе",false);
-        bio.setMinLines(2);bio.setMaxLines(3);bio.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(70)});
-        body.addView(first,match());body.addView(last,match());body.addView(bio,match());
+        EditText bioInput=edit(bio,"О себе",false);
+        first.setSingleLine(true);
+        last.setSingleLine(true);
+        bioInput.setSingleLine(false);
+        bioInput.setMinLines(3);
+        bioInput.setMaxLines(4);
+        bioInput.setGravity(Gravity.TOP|Gravity.START);
+        bioInput.setFilters(new android.text.InputFilter[]{
+                new android.text.InputFilter.LengthFilter(70)});
+        styleProfileInput(first);
+        styleProfileInput(last);
+        styleProfileInput(bioInput);
+        LinearLayout.LayoutParams fieldParams=match();
+        fieldParams.topMargin=dp(8);
+        editCard.addView(first,fieldParams);
+        LinearLayout.LayoutParams lastParams=match();
+        lastParams.topMargin=dp(5);
+        editCard.addView(last,lastParams);
+        LinearLayout.LayoutParams bioParams=match();
+        bioParams.topMargin=dp(5);
+        editCard.addView(bioInput,bioParams);
+
         Button save=button("Сохранить изменения",()->{
             String firstName=first.getText().toString().trim();
-            if(firstName.isEmpty()){first.setError("Укажите имя");return;}
-            if(listener!=null)listener.onSaveMyProfile(firstName,last.getText().toString().trim(),
-                    bio.getText().toString().replace("\n",""));
+            if(firstName.isEmpty()){
+                first.setError("Укажи имя");
+                return;
+            }
+            if(listener!=null)listener.onSaveMyProfile(firstName,
+                    last.getText().toString().trim(),
+                    bioInput.getText().toString().replace("\\n"," ").trim());
         });
-        body.addView(save,match());
-        String phone=account==null?"Загружаем…":empty(account.getPhone())?"не указан":account.getPhone();
-        paragraph("Телефон: "+phone);
-        paragraph("Изменения отправляются непосредственно в Telegram.");
+        save.setAllCaps(false);
+        LinearLayout.LayoutParams saveParams=match();
+        saveParams.topMargin=dp(12);
+        editCard.addView(save,saveParams);
+        LinearLayout.LayoutParams editCardParams=match();
+        editCardParams.topMargin=dp(2);
+        editCardParams.bottomMargin=dp(18);
+        body.addView(editCard,editCardParams);
+    }
+
+    private void profileInfoRow(LinearLayout parent,String title,String value){
+        LinearLayout row=vertical();
+        row.setPadding(dp(2),dp(11),dp(2),dp(11));
+        TextView caption=text(title,mutedColor,10,true);
+        caption.setLetterSpacing(0.08f);
+        row.addView(caption);
+        TextView content=text(value,textColor,14,false);
+        content.setLineSpacing(dp(2),1f);
+        LinearLayout.LayoutParams valueParams=wrap();
+        valueParams.topMargin=dp(4);
+        row.addView(content,valueParams);
+        parent.addView(row,match());
+    }
+
+    private void profileInfoDivider(LinearLayout parent){
+        View line=new View(getContext());
+        line.setBackgroundColor(withAlpha(mutedColor,0.18f));
+        parent.addView(line,new LayoutParams(LayoutParams.MATCH_PARENT,dp(1)));
+    }
+
+    private void styleProfileInput(EditText input){
+        input.setTextColor(textColor);
+        input.setHintTextColor(mutedColor);
+        input.setTextSize(15);
+        input.setPadding(dp(12),dp(10),dp(12),dp(10));
+        input.setBackground(round(panelLightColor,12));
+        input.setCompoundDrawablePadding(dp(6));
     }
 
     private void renderNotifications(){
