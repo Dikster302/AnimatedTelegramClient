@@ -20,6 +20,7 @@ public final class NativeChatListView extends LinearLayout {
         void onTogglePinned(TgChat chat);
         void onToggleUnread(TgChat chat);
         void onToggleMute(TgChat chat);
+        void onPreview(TgChat chat);
     }
 
     private final ListView list;
@@ -93,7 +94,7 @@ public final class NativeChatListView extends LinearLayout {
             super(context);setOrientation(VERTICAL);
             touchSlop=ViewConfiguration.get(context).getScaledTouchSlop();
             row=new NativeChatRowView(context,initial,compact,textColor,mutedColor,accentColor,panelColor,
-                    null,null,null,null,null);
+                    null,null,null,null,null,null);
             addView(row,new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
             divider=new View(context);
             LayoutParams dividerParams=new LayoutParams(LayoutParams.MATCH_PARENT,dp(1));
@@ -145,7 +146,8 @@ public final class NativeChatListView extends LinearLayout {
                     ()->{if(listener!=null)listener.onArchive(chat);},
                     ()->{if(listener!=null)listener.onTogglePinned(chat);},
                     ()->{if(listener!=null)listener.onToggleUnread(chat);},
-                    ()->{if(listener!=null)listener.onToggleMute(chat);});
+                    ()->{if(listener!=null)listener.onToggleMute(chat);},
+                    ()->{if(listener!=null)listener.onPreview(chat);});
             divider.setBackgroundColor((mutedColor&0x00FFFFFF)|0x29000000);
         }
     }
