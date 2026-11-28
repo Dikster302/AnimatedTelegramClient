@@ -1,6 +1,9 @@
 name: Build Android APK
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - migration/android-java-native
 permissions:
   contents: read
 jobs:
