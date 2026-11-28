@@ -85,7 +85,10 @@ public final class ChatCacheRepository implements AutoCloseable {
         for (TgMessage message : messages)
             if (message != null) rows.add(MessageEntity.from(chatId, message));
         if (rows.isEmpty()) return;
-        execute(() -> database.chatDao().upsertMessages(rows));
+        execute(() -> {
+            database.chatDao().upsertMessages(rows);
+            pruneMessageCache(chatId);
+        });
     }
 
     public void deleteMessages(long chatId, List<Long> messageIds) {
