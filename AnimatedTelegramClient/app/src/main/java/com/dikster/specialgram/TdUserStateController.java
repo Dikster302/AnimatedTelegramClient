@@ -74,6 +74,6 @@ public final class TdUserStateController {
         return new TgChat(chat.getId(), chat.getTitle(), chat.getPreview(), chat.getLastDate(),
                 chat.getUnreadCount(), chat.getAvatarPath(), chat.getKind(), chat.getArchived(),
                 status, online, premium, chat.getLastReadOutboxMessageId(), chat.getHasStory(),
-                chat.getHasUnviewedStory(), chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted());
+                chat.getHasUnviewedStory(), chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder());
     }
 }
