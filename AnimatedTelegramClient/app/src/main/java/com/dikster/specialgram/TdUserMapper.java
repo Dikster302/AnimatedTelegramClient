@@ -12,7 +12,7 @@ public final class TdUserMapper {
 
     public static TgContact toContact(TdApi.User user) {
         String name = fullName(user);
-        String username = user.usernames == null || user.usernames.activeUsernames.length == 0
+        String username = user.usernames == null || user.usernames.activeUsernames == null || user.usernames.activeUsernames.length == 0
                 ? "" : safe(user.usernames.activeUsernames[0]);
         return new TgContact(user.id, name, username, safe(user.phoneNumber),
                 statusText(user.status), user.status instanceof TdApi.UserStatusOnline,

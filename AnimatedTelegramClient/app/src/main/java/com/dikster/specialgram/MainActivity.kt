@@ -678,8 +678,8 @@ private fun SettingsPanel(
             } else if (page == "storage") {
                 Text("Данные и память", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
                 Text("Локальное хранилище TDLib и временные файлы приложения.", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
-                SettingsLine("Медиа и файлы Telegram", formatFileSize(tdlibMediaBytes))
-                SettingsLine("Временные файлы", formatFileSize(cacheBytes))
+                SettingsLine("Медиа и файлы Telegram", MediaPreparation.formatFileSize(tdlibMediaBytes))
+                SettingsLine("Временные файлы", MediaPreparation.formatFileSize(cacheBytes))
                 SettingsNavigationRow("Открыть хранилище Android", "Просмотр размера и очистка данных приложения") {
                     runCatching {
                         val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))
