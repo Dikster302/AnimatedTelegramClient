@@ -406,6 +406,9 @@ public final class TdLibClient implements AutoCloseable {
     public void openSavedMessages(TdContactReadyListener callback) {
         operationsController.openSavedMessages(callback == null ? null : callback::onReady);
     }
+    public void createBasicGroup(String title, long[] userIds, TdContactReadyListener callback) {
+        operationsController.createBasicGroup(title, userIds, callback == null ? null : callback::onReady);
+    }
     public void openContact(long id, TdContactReadyListener callback) {
         operationsController.openContact(id, callback == null ? null : callback::onReady);
     }
