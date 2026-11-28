@@ -18,7 +18,9 @@ public final class TdChatListFilter {
         for (TgChat chat : chats) {
             if (chat == null) continue;
             String title = chat.getTitle() == null ? "" : chat.getTitle();
-            if (!title.toLowerCase(Locale.ROOT).contains(needle)) continue;
+            String preview = chat.getPreview() == null ? "" : chat.getPreview();
+            if (!title.toLowerCase(Locale.ROOT).contains(needle)
+                    && !preview.toLowerCase(Locale.ROOT).contains(needle)) continue;
             if (unreadOnly && chat.getUnreadCount() <= 0) continue;
             boolean archived = chat.getArchived();
             String kind = chat.getKind() == null ? "" : chat.getKind();
