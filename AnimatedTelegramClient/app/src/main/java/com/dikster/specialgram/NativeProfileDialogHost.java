@@ -264,7 +264,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         TextView l=label(label,mutedColor,12,false),v=label(value,textColor,15,false);
         row.addView(l);LinearLayout.LayoutParams vp=wrap();vp.topMargin=dp(3);row.addView(v,vp);
         parent.addView(row,new LinearLayout.LayoutParams(-1,-2));
-        View line=new View(getContext());line.setBackgroundColor(0x222FFFFFFF);
+        View line=new View(getContext());line.setBackgroundColor(0x22FFFFFF);
         parent.addView(line,new LinearLayout.LayoutParams(-1,dp(1)));
     }
     private LinearLayout cardColumn(){
