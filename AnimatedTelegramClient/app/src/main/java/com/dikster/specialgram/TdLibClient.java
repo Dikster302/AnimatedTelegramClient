@@ -38,6 +38,7 @@ public final class TdLibClient implements AutoCloseable {
     private final Map<Integer, TdPair<Long, Long>> mediaFileToMessage = new ConcurrentHashMap<>();
     private final Map<Integer, TdPair<Long, Integer>> storyFileToKey = new ConcurrentHashMap<>();
     private final Map<Integer,TdPair<Long,Integer>> profilePhotoFileToIndex = new ConcurrentHashMap<>();
+    private final Map<Long,java.util.Set<Long>> profilePhotoIds = new ConcurrentHashMap<>();
     private final Map<Long, Long> userToChat = new ConcurrentHashMap<>();
     private final Map<Long, Long> confirmedIds = new ConcurrentHashMap<>();
 
@@ -192,30 +193,15 @@ public final class TdLibClient implements AutoCloseable {
                     }
 
                     @Override public void onProfilePhotos(long userId,TdApi.ChatPhotos photos) {
-                        TgProfile current=profile.getValue();
-                        if(current==null||current.getUserId()!=userId)return;
-                        List<String> paths=new ArrayList<>();
-                        if(photos!=null&&photos.photos!=null)for(TdApi.ChatPhoto photo:photos.photos){
-                            if(photo==null||photo.sizes==null||photo.sizes.length==0)continue;
-                            TdApi.File best=null;long bestArea=-1L;
-                            for(TdApi.PhotoSize size:photo.sizes){
-                                if(size==null||size.photo==null)continue;
-                                long area=(long)Math.max(1,size.width)*Math.max(1,size.height);
-                                if(area>bestArea){bestArea=area;best=size.photo;}
-                            }
-                            if(best==null){paths.add("");continue;}
-                            int index=paths.size();paths.add(best.local!=null&&best.local.isDownloadingCompleted
-                                    ?PersistentAvatarStore.persist(app,best.id,best.local.path):"");
-                            if(best.local==null||!best.local.isDownloadingCompleted){
-                                profilePhotoFileToIndex.put(best.id,new TdPair<>(userId,index));
-                                fileDownloadQueue.enqueue(best.id);
-                            }
-                        }
-                        TgProfile latest=profile.getValue();
-                        if(latest!=null&&latest.getUserId()==userId){
-                            if(paths.isEmpty()&&!latest.getAvatarPath().isEmpty())paths.add(latest.getAvatarPath());
-                            profile.setValue(latest.withPhotoPaths(paths));
-                        }
+                        profilePhotoIds.put(userId,java.util.concurrent.ConcurrentHashMap.newKeySet());
+                        if(photos!=null&&photos.photos!=null)
+                            for(TdApi.ChatPhoto photo:photos.photos)appendProfilePhoto(userId,photo);
+                    }
+                    @Override public void onProfileExtraPhotos(long userId,TdApi.ChatPhoto personal,
+                            TdApi.ChatPhoto main,TdApi.ChatPhoto publicPhoto){
+                        appendProfilePhoto(userId,personal);
+                        appendProfilePhoto(userId,main);
+                        appendProfilePhoto(userId,publicPhoto);
                     }
                 });
 
@@ -580,32 +566,57 @@ public final class TdLibClient implements AutoCloseable {
         });
     }
 
+    private void appendProfilePhoto(long userId,TdApi.ChatPhoto photo){
+        if(photo==null||photo.sizes==null||photo.sizes.length==0)return;
+        java.util.Set<Long> ids=profilePhotoIds.computeIfAbsent(userId,
+                key->java.util.concurrent.ConcurrentHashMap.newKeySet());
+        if(!ids.add(photo.id))return;
+        TdApi.File best=null;long bestArea=-1L;
+        for(TdApi.PhotoSize size:photo.sizes){
+            if(size==null||size.photo==null)continue;
+            long area=(long)Math.max(1,size.width)*Math.max(1,size.height);
+            if(area>bestArea){bestArea=area;best=size.photo;}
+        }
+        if(best==null)return;
+        TgProfile current=profile.getValue();
+        TgAccount own=account.getValue();
+        boolean forProfile=current!=null&&current.getUserId()==userId;
+        boolean forAccount=myUserId!=null&&myUserId==userId&&own!=null;
+        if(!forProfile&&!forAccount)return;
+        List<String> paths=new ArrayList<>(forProfile?current.getPhotoPaths():own.getPhotoPaths());
+        int index=paths.size();
+        String path=best.local!=null&&best.local.isDownloadingCompleted
+                ?PersistentAvatarStore.persist(app,best.id,best.local.path):"";
+        paths.add(path==null?"":path);
+        if(best.local==null||!best.local.isDownloadingCompleted){
+            profilePhotoFileToIndex.put(best.id,new TdPair<>(userId,index));
+            fileDownloadQueue.enqueue(best.id);
+        }
+        if(forProfile){
+            TgProfile latest=profile.getValue();
+            if(latest!=null&&latest.getUserId()==userId)profile.setValue(latest.withPhotoPaths(paths));
+        }else{
+            TgAccount latest=account.getValue();
+            if(latest!=null&&myUserId!=null&&myUserId==userId)account.setValue(latest.withPhotoPaths(paths));
+        }
+    }
+
     public void loadMyProfilePhotos(){
         Long userId=myUserId;
         if(userId==null||userId==0L)return;
+        profilePhotoIds.put(userId,java.util.concurrent.ConcurrentHashMap.newKeySet());
         send(new TdApi.GetUserProfilePhotos(userId,0,100),result->{
             if(!(result instanceof TdApi.ChatPhotos))return;
             TdApi.ChatPhotos photos=(TdApi.ChatPhotos)result;
-            List<String> paths=new ArrayList<>();
-            if(photos.photos!=null)for(TdApi.ChatPhoto photo:photos.photos){
-                if(photo==null||photo.sizes==null||photo.sizes.length==0)continue;
-                TdApi.File best=null;long bestArea=-1L;
-                for(TdApi.PhotoSize size:photo.sizes){
-                    if(size==null||size.photo==null)continue;
-                    long area=(long)Math.max(1,size.width)*Math.max(1,size.height);
-                    if(area>bestArea){bestArea=area;best=size.photo;}
-                }
-                if(best==null){paths.add("");continue;}
-                int index=paths.size();
-                paths.add(best.local!=null&&best.local.isDownloadingCompleted
-                        ?PersistentAvatarStore.persist(app,best.id,best.local.path):"");
-                if(best.local==null||!best.local.isDownloadingCompleted){
-                    profilePhotoFileToIndex.put(best.id,new TdPair<>(userId,index));
-                    fileDownloadQueue.enqueue(best.id);
-                }
+            if(photos.photos!=null)for(TdApi.ChatPhoto photo:photos.photos)appendProfilePhoto(userId,photo);
+        },null,false);
+        send(new TdApi.GetUserFullInfo(userId),result->{
+            if(result instanceof TdApi.UserFullInfo){
+                TdApi.UserFullInfo info=(TdApi.UserFullInfo)result;
+                appendProfilePhoto(userId,info.personalPhoto);
+                appendProfilePhoto(userId,info.photo);
+                appendProfilePhoto(userId,info.publicPhoto);
             }
-            TgAccount own=account.getValue();
-            if(own!=null&&myUserId!=null&&myUserId==userId)account.setValue(own.withPhotoPaths(paths));
         },null,false);
     }
 
