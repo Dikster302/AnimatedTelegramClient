@@ -37,7 +37,7 @@ class TdLibClient(context:Context) {
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val animatedMessageController = TdAnimatedMessageController(
-  TdAnimatedMessageController.Requester { function -> send(function) }
+  TdAnimatedMessageController.Requester { function, callback -> send(function, handler={ callback?.onResult(it) }, reportErrorToUi=true) }
  )
  private val fileDownloadQueue = TdFileDownloadQueue(
   TdFileDownloadQueue.Requester { function, callback ->
@@ -518,17 +518,15 @@ fun reportOperationError(text:String) {
  fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { clearOperationError(); messageActions.sendText(id,text,replyToMessageId) }
  fun replyToStory(chatId:Long,storyId:Int,text:String) { clearOperationError(); messageActions.replyToStory(chatId,storyId,text) }
  fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) {
-  val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
-  if(chars.isEmpty())return
   clearOperationError()
-  val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null,0,null) }
-  send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
-   if(r is TdApi.Message && chars.size>1) {
-    val serverId=confirmedIds[r.id]
-    if(serverId!=null) animatedMessageController.schedule(id,serverId,chars)
-    else pendingEdits[r.id]=chars
-   }
-  }
+  animatedMessageController.sendAnimated(id,text,replyToMessageId,
+   TdAnimatedMessageController.SendListener { message, characters ->
+    if(characters.size>1) {
+     val serverId=confirmedIds[message.id]
+     if(serverId!=null) animatedMessageController.schedule(id,serverId,characters)
+     else pendingEdits[message.id]=characters
+    }
+   })
  }
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
   client.send(f,Client.ResultHandler { r ->
