@@ -94,7 +94,7 @@ class TdLibClient(context:Context) {
    }
   }
   override fun onUser(user:TdApi.User) {
-   if(profileSession.isActiveUser(user.id)) _profile.value=TdUserMapper.updateProfile(user,_profile.value)
+   profileController.updateUser(user)
    _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
    _contacts.value=TdUserStateController.updateContact(_contacts.value,user)
    if(myUserId==user.id) updateAccount(user)
@@ -147,6 +147,18 @@ class TdLibClient(context:Context) {
     onError={ callback.onError(it) })
   }
  )
+ private val profileController = TdProfileController(userActions,profileSession,
+  object : TdProfileController.Listener {
+   override fun findChat(chatId:Long):TgChat? = _chats.value.firstOrNull { it.id==chatId }
+   override fun profile():TgProfile? = _profile.value
+   override fun setProfile(profile:TgProfile?) { _profile.value=profile }
+   override fun onPrivateChatUser(userId:Long,chatId:Long) { userToChat[userId]=chatId }
+   override fun onProfileUser(user:TdApi.User,chatId:Long) {
+    _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
+    val photoId=user.profilePhoto?.small?.id ?: 0
+    if(photoId>0) { fileToChat[photoId]=chatId; fileDownloadQueue.enqueue(photoId) }
+   }
+  })
  private val accountActions = TdAccountActionsController(
   TdAccountActionsController.Requester { function, callback ->
    send(function,
@@ -363,31 +375,7 @@ class TdLibClient(context:Context) {
  fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) { chatActions.togglePinned(id,isPinned,archived) }
  fun toggleChatUnread(id:Long,isUnread:Boolean) { chatActions.toggleUnread(id,isUnread) }
  fun toggleChatMuted(id:Long,isMuted:Boolean) { chatActions.toggleMuted(id,isMuted) }
- fun openProfile(chatId:Long) {
-  val session=profileSession.open()
-  userActions.loadProfile(chatId,object : TdUserActionsController.ProfileListener {
-   override fun onChat(chat:TdApi.Chat) {
-    if(!profileSession.isCurrent(session)) return
-    val kind=TdChatMapper.profileKind(chat.type)
-    _profile.value=TgProfile(chatId,chat.title,kind,"","",_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "", "","Статус неизвестен",false,false,false,0)
-    if(chat.type is TdApi.ChatTypePrivate) {
-     val userId=(chat.type as TdApi.ChatTypePrivate).userId
-     profileSession.setActiveUser(userId)
-     userToChat[userId]=chatId
-    }
-   }
-   override fun onUser(user:TdApi.User) {
-    if(!profileSession.isCurrent(session) || !profileSession.isActiveUser(user.id)) return
-    if(profileSession.isActiveUser(user.id)) _profile.value=TdUserMapper.updateProfile(user,_profile.value)
-    _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
-    val profilePhotoId=user.profilePhoto?.small?.id ?: 0
-    if(profilePhotoId>0) { fileToChat[profilePhotoId]=chatId; fileDownloadQueue.enqueue(profilePhotoId) }
-   }
-   override fun onFullInfo(userId:Long,info:TdApi.UserFullInfo) {
-    if(profileSession.isCurrent(session) && profileSession.isActiveUser(userId)) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount)
-   }
-  })
- }
+ fun openProfile(chatId:Long) { profileController.openProfile(chatId) }
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
   _account.value=TdUserMapper.toAccount(user,_account.value)
@@ -410,7 +398,7 @@ class TdLibClient(context:Context) {
  fun setLastSeenPrivacy(value:String) { privacyController.set(TdPrivacyController.STATUS,value) }
  fun setPhonePrivacy(value:String) { privacyController.set(TdPrivacyController.PHONE,value) }
  fun setPhotoPrivacy(value:String) { privacyController.set(TdPrivacyController.PHOTO,value) }
- fun closeProfile() { profileSession.close(); _profile.value=null }
+ fun closeProfile() { profileController.closeProfile() }
  fun openStory(chatId:Long,storyId:Int) {
   storyActions.open(chatId,storyId)
   storyStateController.markViewed(chatId,storyId)
