@@ -24,7 +24,7 @@ public final class TdStoryContentQueue implements AutoCloseable {
     }
 
     private static final long REQUEST_GAP_MS = 350L;
-    private static final long MAX_BACKOFF_MS = 60_000L;
+    private static final long MAX_BACKOFF_MS = 900_000L;
     private static final int MAX_RETRIES = 5;
     private static final Pattern RETRY_AFTER =
             Pattern.compile("retry after\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
