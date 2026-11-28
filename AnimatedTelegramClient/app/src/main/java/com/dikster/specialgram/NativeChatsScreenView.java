@@ -105,6 +105,9 @@ public final class NativeChatsScreenView extends FrameLayout {
     private TextView composeButton;
     private TgStory viewingStory;
     private List<TgStory> orderedStories=Collections.emptyList();
+    private FrameLayout archiveOverlay;
+    private float edgeTouchStartX,edgeTouchStartY;
+    private boolean edgeGesture;
 
     public NativeChatsScreenView(Context context,State state,Listener listener){
         super(context);
@@ -147,6 +150,83 @@ public final class NativeChatsScreenView extends FrameLayout {
         renderComposeButton();
         renderBottomNavigation();
         renderStoryViewer();
+    }
+
+    @Override public boolean dispatchTouchEvent(android.view.MotionEvent event){
+        if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){
+            edgeTouchStartX=event.getX();edgeTouchStartY=event.getY();
+            edgeGesture=archiveOverlay==null&&edgeTouchStartX<=dp(22);
+        }else if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP&&edgeGesture){
+            float dx=event.getX()-edgeTouchStartX,dy=event.getY()-edgeTouchStartY;
+            edgeGesture=false;
+            if(dx>dp(76)&&Math.abs(dx)>Math.abs(dy)*1.25f){showArchiveDrawer();return true;}
+        }else if(event.getActionMasked()==android.view.MotionEvent.ACTION_CANCEL){
+            edgeGesture=false;
+        }
+        return super.dispatchTouchEvent(event);
+    }
+
+    private void showArchiveDrawer(){
+        if(archiveOverlay!=null)return;
+        archiveOverlay=new FrameLayout(getContext());
+        archiveOverlay.setBackgroundColor(0x99000000);
+        archiveOverlay.setOnClickListener(v->closeArchiveDrawer());
+        FrameLayout panel=new FrameLayout(getContext());
+        GradientDrawable panelShape=new GradientDrawable();
+        panelShape.setColor(state.background);panelShape.setCornerRadius(dp(22));
+        panel.setBackground(panelShape);
+        panel.setElevation(dp(16));
+        FrameLayout.LayoutParams panelParams=new FrameLayout.LayoutParams(
+                Math.min(dp(340),Math.round(getResources().getDisplayMetrics().widthPixels*.86f)),
+                LayoutParams.MATCH_PARENT,Gravity.LEFT|Gravity.TOP);
+        panelParams.setMargins(0,0,dp(28),0);
+        archiveOverlay.addView(panel,panelParams);
+        panel.setOnClickListener(v->{});
+        LinearLayout column=new LinearLayout(getContext());column.setOrientation(LinearLayout.VERTICAL);
+        panel.addView(column,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        LinearLayout top=new LinearLayout(getContext());top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(20),dp(18),dp(14),dp(14));
+        TextView title=new TextView(getContext());title.setText("Архив");title.setTextSize(20);
+        title.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        title.setTextColor(state.text);
+        top.addView(title,new LinearLayout.LayoutParams(0,LayoutParams.WRAP_CONTENT,1f));
+        TextView close=new TextView(getContext());close.setText("×");close.setTextSize(28);
+        close.setTextColor(state.muted);close.setGravity(Gravity.CENTER);
+        top.addView(close,new LinearLayout.LayoutParams(dp(40),dp(40)));
+        close.setOnClickListener(v->closeArchiveDrawer());
+        column.addView(top);
+        View divider=new View(getContext());divider.setBackgroundColor((state.muted&0x00FFFFFF)|0x30000000);
+        column.addView(divider,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(1)));
+        List<TgChat> archived=new ArrayList<>();
+        for(TgChat chat:state.chats)if(chat!=null&&chat.getArchived())archived.add(chat);
+        if(archived.isEmpty()){
+            TextView empty=new TextView(getContext());empty.setText("В архиве пока пусто");
+            empty.setTextColor(state.muted);empty.setTextSize(15);empty.setGravity(Gravity.CENTER);
+            column.addView(empty,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
+        }else{
+            NativeChatListView list=new NativeChatListView(getContext(),archived,state.compactChats,
+                    state.text,state.muted,state.accent,state.panel,new NativeChatListView.Listener(){
+                @Override public void onOpen(TgChat chat){closeArchiveDrawer();if(listener!=null)listener.onOpen(chat);}
+                @Override public void onArchive(TgChat chat){if(listener!=null)listener.onArchive(chat);closeArchiveDrawer();}
+                @Override public void onTogglePinned(TgChat chat){if(listener!=null)listener.onTogglePinned(chat);}
+                @Override public void onToggleUnread(TgChat chat){if(listener!=null)listener.onToggleUnread(chat);}
+                @Override public void onToggleMute(TgChat chat){if(listener!=null)listener.onToggleMute(chat);}
+            });
+            column.addView(list,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
+        }
+        addView(archiveOverlay,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        panel.setTranslationX(-dp(24));panel.setAlpha(.85f);
+        panel.animate().translationX(0).alpha(1f).setDuration(190L)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+    }
+
+    private void closeArchiveDrawer(){
+        if(archiveOverlay==null)return;
+        FrameLayout closing=archiveOverlay;archiveOverlay=null;
+        View panel=closing.getChildAt(0);
+        if(panel!=null)panel.animate().translationX(-dp(24)).alpha(.8f).setDuration(140L)
+                .withEndAction(()->removeView(closing)).start();
+        else removeView(closing);
     }
 
     private void renderHeader(){
