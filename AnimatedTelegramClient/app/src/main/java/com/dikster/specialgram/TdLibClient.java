@@ -261,12 +261,13 @@ public final class TdLibClient implements AutoCloseable {
                 send(function, callback == null ? null : callback::onResult,
                         callback == null ? null : callback::onError, false),
                 new TdMessageActionsController.Listener() {
-                    @Override public void onMessageDeleted(long id) {
-                        Long activeChat = chatSession.getActiveChat();
-                        if (activeChat != null) chatCacheRepository.deleteMessages(activeChat, Collections.singletonList(id));
-                        List<TgMessage> next = new ArrayList<>();
-                        for (TgMessage item : messages.getValue()) if (item.getId() != id) next.add(item);
-                        messages.setValue(next);
+                    @Override public void onMessageDeleted(long chatId, long id) {
+                        chatCacheRepository.deleteMessages(chatId, Collections.singletonList(id));
+                        if (Objects.equals(chatSession.getActiveChat(), chatId)) {
+                            List<TgMessage> next = new ArrayList<>();
+                            for (TgMessage item : messages.getValue()) if (item.getId() != id) next.add(item);
+                            messages.setValue(next);
+                        }
                     }
                     @Override public void onHistoryCleared(long chatId) {
                         if (Objects.equals(chatSession.getActiveChat(), chatId))
