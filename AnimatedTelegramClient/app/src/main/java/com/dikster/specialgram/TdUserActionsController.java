@@ -20,6 +20,10 @@ public final class TdUserActionsController {
         void onGifts(TdApi.ReceivedGifts gifts);
         void onError(TdApi.Error error);
     }
+    public interface AvailableGiftsListener {
+        void onGifts(java.util.List<TgGiftOption> gifts);
+        void onError(TdApi.Error error);
+    }
 
     private final Requester requester;
 
@@ -77,6 +81,34 @@ public final class TdUserActionsController {
                 if (listener != null) listener.onError(error);
             }
         });
+    }
+
+    public void loadAvailableGifts(AvailableGiftsListener listener) {
+        requester.send(new TdApi.GetAvailableGifts(), new Callback() {
+            @Override public void onResult(TdApi.Object result) {
+                if (!(result instanceof TdApi.AvailableGifts)) return;
+                java.util.List<TgGiftOption> options = new java.util.ArrayList<>();
+                TdApi.AvailableGift[] available = ((TdApi.AvailableGifts) result).gifts;
+                long now = System.currentTimeMillis() / 1000L;
+                if (available != null) for (TdApi.AvailableGift item : available) {
+                    if (item == null || item.gift == null) continue;
+                    TdApi.Gift gift = item.gift;
+                    if (gift.auctionInfo != null || (gift.nextSendDate > now && gift.nextSendDate != 0)) continue;
+                    String emoji = gift.sticker == null ? "🎁" : gift.sticker.emoji;
+                    options.add(new TgGiftOption(gift.id,emoji,gift.starCount,gift.upgradeStarCount,gift.isPremium));
+                }
+                if (listener != null) listener.onGifts(options);
+            }
+            @Override public void onError(TdApi.Error error) {
+                if (listener != null) listener.onError(error);
+            }
+        });
+    }
+
+    public void sendGift(long userId,long giftId,Callback callback) {
+        TdApi.SendGift request = new TdApi.SendGift(giftId,new TdApi.MessageSenderUser(userId),
+                new TdApi.FormattedText("",new TdApi.TextEntity[0]),false,false);
+        requester.send(request,callback);
     }
 
     public void createPrivateChat(long userId, Callback callback) {
