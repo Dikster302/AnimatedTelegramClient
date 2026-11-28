@@ -21,9 +21,6 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
-import kotlinx.coroutines.flow.StateFlow;
-import kotlin.Unit;
-import kotlin.jvm.functions.Function1;
 
 /**
  * Native Android application shell. Chat list, folders, stories, settings and
@@ -223,8 +220,8 @@ public final class MainActivity extends Activity {
             @Override public void onSelectCosmicCover(){headerWallpaper="preset:cosmic";savePreferences();refreshNow();}
             @Override public void onOpen(TgChat chat){selectedChat=chat;td.openChat(chat.getId());refreshNow();}
             @Override public void onOpenContact(TgContact contact){
-                td.openContact(contact.getId(),new Function1<TgChat,Unit>(){
-                    @Override public Unit invoke(TgChat chat){selectedChat=chat;td.openChat(chat.getId());refreshNow();return Unit.INSTANCE;}
+                td.openContact(contact.getId(),new TdContactReadyListener(){
+                    @Override public void onReady(TgChat chat){selectedChat=chat;td.openChat(chat.getId());refreshNow();}
                 });
             }
             @Override public void onArchive(TgChat chat){td.archiveChat(chat.getId(),!chat.getArchived());}
@@ -286,7 +283,7 @@ public final class MainActivity extends Activity {
                     if(selectedChat!=null)td.sendDocument(selectedChat.getId(),MediaPreparation.prepareOutgoingMedia(this,uri,"specialgram_document",50L*1024L*1024L).getAbsolutePath(),"");break;
                 case PICK_STORY_PHOTO:td.postPhotoStory(MediaPreparation.prepareStoryPhoto(this,uri).getAbsolutePath(),"");break;
                 case PICK_STORY_VIDEO:
-                    kotlin.Pair<File,Double> story=MediaPreparation.prepareStoryVideo(this,uri);
+                    TdPair<File,Double> story=MediaPreparation.prepareStoryVideo(this,uri);
                     td.postVideoStory(story.getFirst().getAbsolutePath(),story.getSecond());break;
                 case CAPTURE_VIDEO:
                     if(selectedChat!=null)sendCapturedVideo(uri);break;
