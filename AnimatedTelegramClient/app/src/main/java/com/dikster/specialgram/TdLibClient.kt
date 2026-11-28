@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false)
+data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false,val isPinned:Boolean=false,val isMarkedAsUnread:Boolean=false,val isMuted:Boolean=false)
 data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
 data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
 data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList(),val photoPath:String="",val mediaKind:String="",val mediaPath:String="",val mediaName:String="",val mediaMimeType:String="",val mediaDuration:Int=0,val mediaSize:Long=0L)
@@ -86,6 +86,12 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(unreadCount=o.unreadCount) else it }
+  is TdApi.UpdateChatPosition -> {
+   val relevant = o.position.list is TdApi.ChatListMain || o.position.list is TdApi.ChatListArchive
+   if(relevant) _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(isPinned=o.position.isPinned) else it }
+  }
+  is TdApi.UpdateChatIsMarkedAsUnread -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(isMarkedAsUnread=o.isMarkedAsUnread) else it }
+  is TdApi.UpdateChatNotificationSettings -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(isMuted=o.notificationSettings.muteFor>0) else it }
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val mediaMessageId=mediaFileToMessage[file.id]; if(mediaMessageId!=null && activeChat!=null) { _messages.value=_messages.value.map { if(it.id==mediaMessageId) it.copy(mediaPath=file.local.path,photoPath=if(it.mediaKind=="photo") file.local.path else it.photoPath,mediaSize=file.size) else it }; mediaFileToMessage.remove(file.id) }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
@@ -115,6 +121,23 @@ class TdLibClient(context:Context) {
  fun archiveChat(id:Long,archived:Boolean) {
   if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
   else send(TdApi.AddChatToList(id,TdApi.ChatListMain())) { loadChats() }
+ }
+ fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) {
+  val list:TdApi.ChatList=if(archived) TdApi.ChatListArchive() else TdApi.ChatListMain()
+  send(TdApi.ToggleChatIsPinned(list,id,isPinned)) { loadChats() }
+ }
+ fun toggleChatUnread(id:Long,isUnread:Boolean) {
+  send(TdApi.ToggleChatIsMarkedAsUnread(id,isUnread))
+ }
+ fun toggleChatMuted(id:Long,isMuted:Boolean) {
+  send(TdApi.GetChat(id)) { result ->
+   if(result is TdApi.Chat) {
+    val settings=result.notificationSettings
+    settings.useDefaultMuteFor=false
+    settings.muteFor=if(isMuted) 366*24*60*60 else 0
+    send(TdApi.SetChatNotificationSettings(id,settings))
+   }
+  }
  }
  fun openProfile(chatId:Long) {
   activeProfileUserId=null
@@ -224,7 +247,10 @@ class TdLibClient(context:Context) {
   val photoId=c.photo?.small?.id ?: 0
   val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((c.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false)
+  val mainPosition=c.positions.firstOrNull { it.list is TdApi.ChatListMain }
+  val archivePosition=c.positions.firstOrNull { it.list is TdApi.ChatListArchive }
+  val pinned=mainPosition?.isPinned == true || archivePosition?.isPinned == true
+  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false,pinned,c.isMarkedAsUnread,c.notificationSettings.muteFor>0)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
   send(TdApi.GetChatActiveStories(c.id)) { result -> if(result is TdApi.ChatActiveStories) updateChatStories(result) }
   if(c.type is TdApi.ChatTypePrivate) {

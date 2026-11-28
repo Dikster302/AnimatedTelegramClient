@@ -250,7 +250,10 @@ private fun TelegramApp(td: TdLibClient) {
                             onSelectCosmicCover = { headerWallpaper = "preset:cosmic" },
                             onOpen = { selectedChat = it; td.openChat(it.id) },
                             onOpenContact = { contact -> td.openContact(contact.id) { selectedChat = it; td.openChat(it.id) } },
-                            onArchive = { td.archiveChat(it.id, !it.archived) }
+                            onArchive = { td.archiveChat(it.id, !it.archived) },
+                            onTogglePinned = { chat -> td.toggleChatPinned(chat.id, !chat.isPinned, chat.archived) },
+                            onToggleUnread = { chat -> td.toggleChatUnread(chat.id, !chat.isMarkedAsUnread) },
+                            onToggleMute = { chat -> td.toggleChatMuted(chat.id, !chat.isMuted) }
                         )
                     } else {
                         ConversationScreen(
@@ -291,7 +294,7 @@ private fun TelegramApp(td: TdLibClient) {
 }
 
 @Composable
-private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit) {
+private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit, onTogglePinned: (TgChat) -> Unit, onToggleUnread: (TgChat) -> Unit, onToggleMute: (TgChat) -> Unit) {
     var menuOpen by remember { mutableStateOf(false) }
     var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
@@ -304,7 +307,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     var folder by remember { mutableStateOf("Все") }
     val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
         val found = chats.filter { chat -> chat.title.contains(query, ignoreCase = true) && (!unreadOnly || chat.unreadCount > 0) && when(folder) { "Архив" -> chat.archived; "Личные" -> !chat.archived && (chat.kind == "Личный чат" || chat.kind == "Секретный чат"); "Группы" -> !chat.archived && chat.kind == "Группа"; "Каналы" -> !chat.archived && chat.kind == "Канал"; else -> !chat.archived } }
-        if (sortNewest) found.sortedByDescending { it.lastDate } else found.sortedBy { it.title.lowercase(Locale.getDefault()) }
+        if (sortNewest) found.sortedWith(compareByDescending<TgChat> { it.isPinned }.thenByDescending { it.lastDate })
+        else found.sortedWith(compareByDescending<TgChat> { it.isPinned }.thenBy { it.title.lowercase(Locale.getDefault()) })
     }
     Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
         Box(Modifier.fillMaxWidth()) {
@@ -406,7 +410,14 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = LocalAppearance.current.muted) }
             else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
                 items(filtered, key = { it.id }) { chat ->
-                    ChatRow(chat, compact = compactChats, onArchive = { onArchive(chat) }) { onOpen(chat) }
+                    ChatRow(
+                        chat,
+                        compact = compactChats,
+                        onArchive = { onArchive(chat) },
+                        onTogglePinned = { onTogglePinned(chat) },
+                        onToggleUnread = { onToggleUnread(chat) },
+                        onToggleMute = { onToggleMute(chat) }
+                    ) { onOpen(chat) }
                     HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
                 }
             }
@@ -727,7 +738,7 @@ private fun SettingsLine(title: String, subtitle: String) {
 }
 
 @Composable
-private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onClick: () -> Unit) {
+private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onTogglePinned: () -> Unit, onToggleUnread: () -> Unit, onToggleMute: () -> Unit, onClick: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
     val time = remember(chat.lastDate) {
@@ -752,7 +763,9 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (chat.isPremium) Text("✦", color = Color(0xFFB58CFF), fontSize = 13.sp)
-                if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 12.sp)
+                if (chat.isPinned) Text("📌", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 3.dp))
+                if (chat.isMuted) Text("🔕", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 2.dp))
+                if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0 || chat.isMarkedAsUnread) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 12.sp)
             }
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -766,6 +779,10 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+            DropdownMenuItem(text = { Text(if (chat.isPinned) "Открепить чат" else "Закрепить чат") }, onClick = { menu = false; onTogglePinned() })
+            DropdownMenuItem(text = { Text(if (chat.isMarkedAsUnread) "Отметить прочитанным" else "Отметить непрочитанным") }, onClick = { menu = false; onToggleUnread() })
+            DropdownMenuItem(text = { Text(if (chat.isMuted) "Включить уведомления" else "Отключить уведомления") }, onClick = { menu = false; onToggleMute() })
+            HorizontalDivider()
             DropdownMenuItem(text = { Text(if (chat.archived) "Вернуть из архива" else "В архив") }, onClick = { menu = false; onArchive() })
         }
     }
