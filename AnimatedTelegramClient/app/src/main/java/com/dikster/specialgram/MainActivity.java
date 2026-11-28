@@ -281,10 +281,10 @@ public final class MainActivity extends Activity {
                 case PICK_PROFILE:td.setMyProfilePhoto(MediaPreparation.prepareProfilePhoto(this,uri).getAbsolutePath());break;
                 case PICK_HEADER:headerWallpaper=uri.toString();savePreferences();lastSnapshot=null;refreshNow();break;
                 case PICK_CHAT_PHOTO:
-                    if(selectedChat!=null)td.sendPhoto(selectedChat.getId(),MediaPreparation.prepareOutgoingMedia(this,uri,"specialgram_photo",10L*1024L*1024L).getAbsolutePath());break;
+                    if(selectedChat!=null)td.sendPhoto(selectedChat.getId(),MediaPreparation.prepareOutgoingMedia(this,uri,"specialgram_photo",10L*1024L*1024L).getAbsolutePath(),"");break;
                 case PICK_DOCUMENT:
-                    if(selectedChat!=null)td.sendDocument(selectedChat.getId(),MediaPreparation.prepareOutgoingMedia(this,uri,"specialgram_document",50L*1024L*1024L).getAbsolutePath());break;
-                case PICK_STORY_PHOTO:td.postPhotoStory(MediaPreparation.prepareStoryPhoto(this,uri).getAbsolutePath());break;
+                    if(selectedChat!=null)td.sendDocument(selectedChat.getId(),MediaPreparation.prepareOutgoingMedia(this,uri,"specialgram_document",50L*1024L*1024L).getAbsolutePath(),"");break;
+                case PICK_STORY_PHOTO:td.postPhotoStory(MediaPreparation.prepareStoryPhoto(this,uri).getAbsolutePath(),"");break;
                 case PICK_STORY_VIDEO:
                     kotlin.Pair<File,Double> story=MediaPreparation.prepareStoryVideo(this,uri);
                     td.postVideoStory(story.getFirst().getAbsolutePath(),story.getSecond());break;
