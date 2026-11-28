@@ -8,6 +8,7 @@ import android.widget.BaseAdapter;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ListView;
+import com.dikster.specialgram.anim.SpecialgramAnimations;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -103,8 +104,10 @@ public final class NativeMessageListView extends LinearLayout {
         @Override public long getItemId(int position){return getItem(position).getId();}
         @Override public boolean hasStableIds(){return true;}
         @Override public View getView(int position,View convertView,android.view.ViewGroup parent){
-            MessageRow row=convertView instanceof MessageRow?(MessageRow)convertView:new MessageRow(getContext());
+            boolean created = !(convertView instanceof MessageRow);
+            MessageRow row=created?new MessageRow(getContext()):(MessageRow)convertView;
             row.update(position);
+            if(created && position==messages.size()-1) SpecialgramAnimations.animateMessageIn(row);
             return row;
         }
     }
