@@ -1,6 +1,4 @@
-#include "specialgram_core.h"
-
-#include <cctype>
+#include "SpecialgramCore.h"
 
 namespace specialgram {
 
