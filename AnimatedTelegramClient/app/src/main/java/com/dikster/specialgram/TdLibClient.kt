@@ -362,16 +362,11 @@ class TdLibClient(context:Context) {
  }
  private fun updateStory(story:TdApi.Story,isViewed:Boolean?=null) {
   val owner=_chats.value.firstOrNull { it.id==story.posterChatId }?.title ?: "История"
-  var file:TdApi.File?=null
-  var isVideo=false
-  when(val content=story.content) {
-   is TdApi.StoryContentPhoto -> file=content.photo.sizes.maxByOrNull { it.width*it.height }?.photo
-   is TdApi.StoryContentVideo -> { file=content.video.video; isVideo=true }
-  }
-  val path=if(file==null) "unsupported" else if(file.local.isDownloadingCompleted) file.local.path else ""
   val viewed=isViewed ?: (_stories.value.firstOrNull { it.chatId==story.posterChatId && it.storyId==story.id }?.isViewed ?: false)
-  val item=TgStory(story.posterChatId,story.id,owner,story.date,story.caption?.text ?: "",isVideo,path,viewed)
+  val mapped=TdStoryMapper.map(story,owner,viewed)
+  val item=mapped.story
   _stories.value=(_stories.value.filterNot { it.chatId==item.chatId && it.storyId==item.storyId }+item).sortedBy { it.date }
+  val file=mapped.mediaFile
   if(file!=null && !file.local.isDownloadingCompleted) {
    storyFileToKey[file.id]=item.chatId to item.storyId
    fileDownloadQueue.enqueue(file.id)
