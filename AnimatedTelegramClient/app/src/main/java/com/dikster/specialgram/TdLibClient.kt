@@ -348,8 +348,8 @@ class TdLibClient(context:Context) {
  fun toggleChatMuted(id:Long,isMuted:Boolean) { operationsController.toggleChatMuted(id,isMuted) }
  fun openProfile(chatId:Long) { operationsController.openProfile(chatId) }
  fun loadContacts() { operationsController.loadContacts() }
- fun openContact(userId:Long,onReady:(TgChat)->Unit) {
-  operationsController.openContact(userId) { chat -> onReady(chat) }
+ fun openContact(userId:Long,onReady:TdContactReadyListener) {
+  operationsController.openContact(userId) { chat -> onReady.onReady(chat) }
  }
  fun loadPrivacySettings() { operationsController.loadPrivacySettings() }
  fun setLastSeenPrivacy(value:String) { operationsController.setLastSeenPrivacy(value) }
