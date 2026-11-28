@@ -457,31 +457,13 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
 
 @Composable
 private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val bitmap = remember(uri) {
-        if (uri.isNullOrBlank()) null else runCatching {
-            context.contentResolver.openInputStream(Uri.parse(uri))?.use { BitmapFactory.decodeStream(it)?.asImageBitmap() }
-        }.getOrNull()
-    }
-    if (uri == "preset:cosmic") {
-        Box(modifier.background(Brush.linearGradient(listOf(Color(0xFF080B19), Color(0xFF29204D), Color(0xFF10152C))))) {
-            Canvas(Modifier.matchParentSize()) {
-                val stars = listOf(0.08f to 0.22f, 0.17f to 0.71f, 0.29f to 0.36f, 0.38f to 0.82f, 0.49f to 0.18f, 0.57f to 0.56f, 0.68f to 0.28f, 0.76f to 0.76f, 0.88f to 0.39f, 0.94f to 0.15f, 0.23f to 0.12f, 0.83f to 0.9f)
-                stars.forEachIndexed { index, point ->
-                    drawCircle(color = if (index % 3 == 0) Color(0xFFB9A8FF).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.72f), radius = if (index % 4 == 0) 2.2.dp.toPx() else 1.1.dp.toPx(), center = androidx.compose.ui.geometry.Offset(size.width * point.first, size.height * point.second))
-                }
-            }
-            Box(Modifier.matchParentSize().background(Color(0x33000000)))
-        }
-    } else if (bitmap != null) {
-        Image(bitmap = bitmap, contentDescription = "Фон верхней панели", modifier = modifier, contentScale = ContentScale.Crop)
-        Box(modifier.background(Color(0x99000000)))
-    } else {
-        Box(modifier.background(LocalAppearance.current.panel))
-    }
-}
-
-@Composable
+    val panelColor = LocalAppearance.current.panel.toArgb()
+    AndroidView(
+        modifier = modifier,
+        factory = { context -> NativeHeaderWallpaperView(context, uri, panelColor) },
+        update = { view -> view.update(uri, panelColor) }
+    )
+}@Composable
 private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, onOpen: (TgContact) -> Unit) {
     val appearance = LocalAppearance.current
     val listener = remember(onQuery, onOpen) {
