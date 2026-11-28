@@ -46,9 +46,9 @@ class TdLibClient(context:Context) {
  private val profileSession = TdProfileSessionController()
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
- private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
-  private val mediaFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
- private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Int>>()
+ private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,TdPair<Long,Long>>()
+  private val mediaFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,TdPair<Long,Long>>()
+ private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,TdPair<Long,Int>>()
  private val messageMappingController = TdMessageMappingController(object : TdMessageMappingController.Listener {
   override fun replyText(messageId:Long):String = _messages.value.firstOrNull { it.id==messageId }?.text ?: ""
   override fun enqueueMediaFile(file:TdApi.File,chatId:Long,messageId:Long,kind:String) {
@@ -179,7 +179,7 @@ class TdLibClient(context:Context) {
    storyContentQueue.enqueue(chatId,storyId,viewed)
   }
   override fun onStoryMediaFile(file:TdApi.File,story:TgStory) {
-   storyFileToKey[file.id]=story.chatId to story.storyId
+   storyFileToKey[file.id]=TdPair(story.chatId, story.storyId)
    fileDownloadQueue.enqueue(file.id)
   }
  })
