@@ -8,6 +8,10 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.content.ClipData;
+import androidx.core.content.FileProvider;
+import java.io.File;
+import java.io.FileOutputStream;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
@@ -54,6 +58,8 @@ public final class NativeProfileDialogHost extends FrameLayout {
         update(chat,profile,messages,text,muted,accent,panel);
         Window w=dialog.getWindow();
         if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            WindowManager.LayoutParams windowParams=w.getAttributes();windowParams.dimAmount=0.18f;w.setAttributes(windowParams);
             w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);}
         dialog.show();
@@ -73,7 +79,8 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
     private void render(){
         removeAllViews();
-        setBackgroundColor(panelColor);
+        setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{withAlpha(panelColor,0xEA),withAlpha(panelColor,0xF4)}));
         LinearLayout page=new LinearLayout(getContext());
         page.setOrientation(LinearLayout.VERTICAL);
         addView(page,new FrameLayout.LayoutParams(-1,-1));
@@ -89,6 +96,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         top.addView(title,new LinearLayout.LayoutParams(0,dp(48),1));
         TextView qr=label("▦",accentColor,25,true);
         qr.setGravity(Gravity.CENTER);
+        qr.setBackground(round(withAlpha(accentColor,0x20),dp(14)));
         top.addView(qr,new LinearLayout.LayoutParams(dp(44),dp(48)));
         qr.setContentDescription("Показать QR-код");
         qr.setOnClickListener(v->showQr());
@@ -138,7 +146,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             actions.addView(action,ap);
             TextView icon=label(glyphs[i],accentColor,22,true);
             icon.setGravity(Gravity.CENTER);
-            icon.setBackground(round(accentColor&0x22FFFFFF,dp(17)));
+            icon.setBackground(round(withAlpha(accentColor,0x22),dp(17)));
             action.addView(icon,new LinearLayout.LayoutParams(dp(54),dp(54)));
             TextView caption=label(actionNames[i],textColor,12,true);
             caption.setGravity(Gravity.CENTER);
@@ -217,7 +225,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         if(bitmap==null){Toast.makeText(getContext(),"Не удалось создать QR-код",Toast.LENGTH_SHORT).show();return;}
         Dialog qrDialog=new Dialog(getContext());
         LinearLayout page=new LinearLayout(getContext());page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18),dp(14),dp(18),dp(18));page.setBackground(round(0xFF171C22,dp(24)));
+        page.setPadding(dp(18),dp(14),dp(18),dp(18));page.setBackground(round(0xF2171C22,dp(24)));
         qrDialog.setContentView(page);
         LinearLayout top=new LinearLayout(getContext());top.setGravity(Gravity.CENTER_VERTICAL);
         TextView scan=label("Сканировать QR-код",0x99FFFFFF,14,true);
@@ -243,11 +251,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         bottom.addView(share,new LinearLayout.LayoutParams(0,dp(54),1));
         bottom.addView(save,new LinearLayout.LayoutParams(0,dp(54),1));
         page.addView(bottom);
-        share.setOnClickListener(v->{
-            Intent send=new Intent(Intent.ACTION_SEND);send.setType("text/plain");
-            send.putExtra(Intent.EXTRA_TEXT,address);
-            getContext().startActivity(Intent.createChooser(send,"Поделиться QR-профилем"));
-        });
+        share.setOnClickListener(v->shareQr(bitmap,address));
         save.setOnClickListener(v->saveQr(bitmap));
         Window w=qrDialog.getWindow();if(w!=null)w.setBackgroundDrawableResource(android.R.color.transparent);
         qrDialog.show();
@@ -264,6 +268,25 @@ public final class NativeProfileDialogHost extends FrameLayout {
         }catch(Exception e){return null;}
     }
 
+    private void shareQr(Bitmap bitmap,String profileAddress){
+        File directory=new File(getContext().getCacheDir(),"outgoing_media");
+        if(!directory.exists()&&!directory.mkdirs()){
+            Toast.makeText(getContext(),"Не удалось подготовить QR-код",Toast.LENGTH_SHORT).show();return;
+        }
+        File file=new File(directory,"specialgram_profile_"+currentChat.getId()+".png");
+        try(FileOutputStream out=new FileOutputStream(file)){
+            if(!bitmap.compress(Bitmap.CompressFormat.PNG,100,out))throw new IllegalStateException("PNG encode failed");
+            Uri uri=FileProvider.getUriForFile(getContext(),getContext().getPackageName()+".fileprovider",file);
+            Intent send=new Intent(Intent.ACTION_SEND);send.setType("image/png");
+            send.putExtra(Intent.EXTRA_STREAM,uri);send.putExtra(Intent.EXTRA_TEXT,profileAddress);
+            send.setClipData(ClipData.newUri(getContext().getContentResolver(),"QR-код профиля",uri));
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            getContext().startActivity(Intent.createChooser(send,"Поделиться QR-кодом"));
+        }catch(Exception e){
+            Toast.makeText(getContext(),"Не удалось поделиться QR-кодом",Toast.LENGTH_SHORT).show();
+        }
+    }
+    private int withAlpha(int color,int alpha){return (color&0x00FFFFFF)|((alpha&0xFF)<<24);}
     private void saveQr(Bitmap bitmap){
         try{
             if(Build.VERSION.SDK_INT>=29){
@@ -323,12 +346,12 @@ public final class NativeProfileDialogHost extends FrameLayout {
     }
     private LinearLayout cardColumn(){
         LinearLayout card=new LinearLayout(getContext());card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(round(panelColor==Color.WHITE?0xFFF4F6F8:0xFF20262E,dp(18)));
+        card.setBackground(round(withAlpha(panelColor==Color.WHITE?0xFFF4F6F8:0xFF20262E,0xE8),dp(18)));
         return card;
     }
     private TextView centerLabel(String value,int color,int size,boolean bold,int top){
         TextView v=label(value,color,size,bold);v.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams p=wrap();p.topMargin=dp(top);return v;
+        v.setPadding(0,dp(top),0,0);return v;
     }
     private String emptyTextFor(String tab){
         switch(tab){case "Подарки":return "Подарков пока нет";case "Медиа":return "Здесь будут фото и видео";
