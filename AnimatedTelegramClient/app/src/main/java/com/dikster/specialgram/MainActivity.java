@@ -250,6 +250,7 @@ public final class MainActivity extends Activity {
             @Override public void onCompactChats(boolean value){compactChats=value;savePreferences();refreshNow();}
             @Override public void onSaveMyProfile(String first,String last,String bio){td.updateMyProfile(first,last,bio);}
             @Override public void onPickProfilePhoto(){pick(PICK_PROFILE,"image/*");}
+            @Override public void onLoadMyProfilePhotos(){td.loadMyProfilePhotos();}
             @Override public void onDismissOperationError(){td.clearOperationError();}
             @Override public void onPrivacyLastSeen(String value){td.setLastSeenPrivacy(value);}
             @Override public void onPrivacyPhone(String value){td.setPhonePrivacy(value);}
