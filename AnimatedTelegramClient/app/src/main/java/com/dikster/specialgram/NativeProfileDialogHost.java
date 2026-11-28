@@ -83,6 +83,8 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
     public void update(TgChat chat,TgProfile profile,List<TgMessage> messages,int text,int muted,int accent,int panel){
         List<TgMessage> nextMessages=messages==null?Collections.emptyList():new ArrayList<>(messages);
+        boolean chatChanged=currentChat==null||currentChat.getId()!=chat.getId();
+        if(chatChanged){sectionCache.clear();loadingTabs.clear();}
         boolean changed=currentChat==null||!currentChat.equals(chat)
                 ||(currentProfile==null?profile!=null:!currentProfile.equals(profile))
                 ||!currentMessages.equals(nextMessages)
@@ -336,6 +338,10 @@ public final class NativeProfileDialogHost extends FrameLayout {
             Toast.makeText(getContext(),"Не удалось поделиться QR-кодом",Toast.LENGTH_SHORT).show();
         }
     }
+    private boolean isLightColor(int color){
+        double r=Color.red(color)/255.0,g=Color.green(color)/255.0,b=Color.blue(color)/255.0;
+        return (0.2126*r+0.7152*g+0.0722*b)>0.58;
+    }
     private int withAlpha(int color,int alpha){return (color&0x00FFFFFF)|((alpha&0xFF)<<24);}
     private void saveQr(Bitmap bitmap){
         try{
@@ -407,7 +413,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
     }
     private LinearLayout cardColumn(){
         LinearLayout card=new LinearLayout(getContext());card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(round(withAlpha(panelColor==Color.WHITE?0xFFF4F6F8:0xFF20262E,0xE8),dp(18)));
+        card.setBackground(round(withAlpha(isLightColor(panelColor)?0xFFF4F6F8:0xFF20262E,0xE8),dp(18)));
         return card;
     }
     private TextView centerLabel(String value,int color,int size,boolean bold,int top){
