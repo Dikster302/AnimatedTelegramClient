@@ -1,6 +1,5 @@
 package com.dikster.specialgram
 import android.content.Context
-import android.os.Build
 import org.drinkless.tdlib.TdApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -395,15 +394,12 @@ class TdLibClient(context:Context) {
  fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) { operationsController.sendAnimated(id,text,replyToMessageId) }
 
  private val requestDispatcher = TdRequestDispatcher(app, client)
+ private val requestGateway = TdRequestGateway(requestDispatcher,
+  TdRequestGateway.Listener { message -> _operationError.value=message })
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
-  requestDispatcher.send(f, object : TdRequestDispatcher.Listener {
-   override fun onResult(result:TdApi.Object) { handler?.invoke(result) }
-   override fun onError(error:TdApi.Error) {
-    onError?.invoke(error)
-    if(reportErrorToUi) _operationError.value=error.message
-   }
-  })
+  requestGateway.send(f,handler,onError,reportErrorToUi)
  }
+
  private val lifecycleController = TdClientLifecycleController(client,
   Runnable { animatedMessageController.close() },
   Runnable { messageViewQueue.close() },
