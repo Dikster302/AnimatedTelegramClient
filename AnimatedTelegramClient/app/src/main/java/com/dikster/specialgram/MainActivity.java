@@ -234,6 +234,9 @@ public final class MainActivity extends Activity {
             @Override public void onSavedMessages(){
                 td.openSavedMessages(chat->{selectedChat=chat;td.openChat(chat.getId());refreshNow();});
             }
+            @Override public void onCreateGroup(String title,long[] userIds){
+                td.createBasicGroup(title,userIds,chat->{selectedChat=chat;td.openChat(chat.getId());refreshNow();});
+            }
             @Override public void onArchive(TgChat chat){td.archiveChat(chat.getId(),!chat.getArchived());}
             @Override public void onTogglePinned(TgChat chat){td.toggleChatPinned(chat.getId(),!chat.isPinned(),chat.getArchived());}
             @Override public void onToggleUnread(TgChat chat){td.toggleChatUnread(chat.getId(),!chat.isMarkedAsUnread());}
