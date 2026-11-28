@@ -30,6 +30,10 @@ public interface ChatDao {
     @Query("DELETE FROM cached_messages WHERE chatId = :chatId")
     void clearMessages(long chatId);
 
+    @Query("UPDATE cached_messages SET read = CASE WHEN messageId <= :lastReadMessageId THEN 1 ELSE 0 END "
+            + "WHERE chatId = :chatId AND outgoing = 1")
+    void markOutgoingMessagesRead(long chatId, long lastReadMessageId);
+
     /** Ограничивает историю чата последними сообщениями, не затрагивая другие чаты. */
     @Query("DELETE FROM cached_messages WHERE chatId = :chatId AND messageId NOT IN "
             + "(SELECT messageId FROM cached_messages WHERE chatId = :chatId "
