@@ -29,4 +29,15 @@ public interface ChatDao {
 
     @Query("DELETE FROM cached_messages WHERE chatId = :chatId")
     void clearMessages(long chatId);
+
+    /** Ограничивает историю чата последними сообщениями, не затрагивая другие чаты. */
+    @Query("DELETE FROM cached_messages WHERE chatId = :chatId AND messageId NOT IN "
+            + "(SELECT messageId FROM cached_messages WHERE chatId = :chatId "
+            + "ORDER BY date DESC, messageId DESC LIMIT :maxCount)")
+    void pruneMessagesForChat(long chatId, int maxCount);
+
+    /** Общий предохранитель от бесконтрольного роста локальной базы. */
+    @Query("DELETE FROM cached_messages WHERE rowid NOT IN "
+            + "(SELECT rowid FROM cached_messages ORDER BY date DESC, messageId DESC LIMIT :maxCount)")
+    void pruneMessagesGlobally(int maxCount);
 }
