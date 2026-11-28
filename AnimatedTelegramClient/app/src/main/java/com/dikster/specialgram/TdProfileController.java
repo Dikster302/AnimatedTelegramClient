@@ -8,6 +8,7 @@ public final class TdProfileController {
         TgChat findChat(long chatId);
         TgProfile profile();
         void setProfile(TgProfile profile);
+        void onPrivateChatUser(long userId, long chatId);
         void onProfileUser(TdApi.User user, long chatId);
     }
 
@@ -35,6 +36,7 @@ public final class TdProfileController {
                 if (chat.type instanceof TdApi.ChatTypePrivate) {
                     long userId = ((TdApi.ChatTypePrivate) chat.type).userId;
                     session.setActiveUser(userId);
+                    listener.onPrivateChatUser(userId, chatId);
                 }
             }
 
