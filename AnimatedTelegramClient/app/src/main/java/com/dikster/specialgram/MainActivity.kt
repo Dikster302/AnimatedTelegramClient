@@ -120,6 +120,7 @@ private fun TelegramApp(td: TdLibClient) {
     var compactChats by remember { mutableStateOf(prefs.getBoolean("compactChats", false)) }
     var headerWallpaper by remember { mutableStateOf(prefs.getString("headerWallpaper", null)) }
     var videoNoteShape by remember { mutableStateOf(prefs.getString("videoNoteShape", "circle") ?: "circle") }
+    var selectedChat by remember { mutableStateOf<TgChat?>(null) }
     val profilePhotoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching { prepareProfilePhoto(context, uri) }.onSuccess { td.setMyProfilePhoto(it.absolutePath) }.onFailure { td.reportOperationError("Не удалось подготовить фото профиля: ${it.message ?: "ошибка файла"}") }
     }
@@ -189,7 +190,6 @@ private fun TelegramApp(td: TdLibClient) {
     var phone by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var selectedChat by remember { mutableStateOf<TgChat?>(null) }
     var query by remember { mutableStateOf("") }
     var contactsQuery by remember { mutableStateOf("") }
     var sortNewest by remember { mutableStateOf(true) }

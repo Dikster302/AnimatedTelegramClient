@@ -98,7 +98,7 @@ class TdLibClient(context:Context) {
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=messageDisplayText(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
-   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions,isPinned=message.isPinned) else it } } }
+  is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
@@ -369,7 +369,7 @@ class TdLibClient(context:Context) {
    val animation=content.animation; val file=animation.animation; val path=file.local.path
    mediaFileToMessage[file.id]=message.id
    if(!file.local.isDownloadingCompleted) send(TdApi.DownloadFile(file.id,32,0,0,false))
-   return TgMessage(message.id,animation.caption?.text?.ifBlank { "GIF" } ?: "GIF",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="animation",mediaPath=path,mediaMimeType=animation.mimeType,mediaSize=file.size,isPinned=message.isPinned)
+   return TgMessage(message.id,content.caption?.text?.ifBlank { "GIF" } ?: "GIF",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="animation",mediaPath=path,mediaMimeType=animation.mimeType,mediaSize=file.size,isPinned=message.isPinned)
   }
   if(content is TdApi.MessageAudio) {
    val audio=content.audio; val file=audio.audio; val path=file.local.path
@@ -405,7 +405,7 @@ class TdLibClient(context:Context) {
   is TdApi.MessageVideoNote -> "🎥 Видеокружок"
   is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
   is TdApi.MessageSticker -> "Стикер ${content.sticker.emoji}"
-  is TdApi.MessageAnimation -> content.animation.caption?.text?.ifBlank { "GIF" } ?: "GIF"
+  is TdApi.MessageAnimation -> content.caption?.text?.ifBlank { "GIF" } ?: "GIF"
   is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
   is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
   else -> "Сообщение"
@@ -458,9 +458,9 @@ class TdLibClient(context:Context) {
   }
   if(activeChat!=chatId) return
   _searchResults.value=emptyList()
-  send(TdApi.SearchChatMessages(chatId,value,0,0L,0,50,null)) { result ->
+  send(TdApi.SearchChatMessages(chatId,null,value,null,0L,0,50,null)) { result ->
    if(generation!=chatSearchGeneration || activeChat!=chatId) return@send
-   if(result is TdApi.Messages) {
+   if(result is TdApi.FoundChatMessages) {
     val readMarker=_chats.value.firstOrNull { it.id==chatId }?.lastReadOutboxMessageId ?: 0L
     _searchResults.value=result.messages.map { toTgMessage(it,readMarker) }.sortedBy { it.date }
    }
@@ -513,15 +513,26 @@ fun reportOperationError(text:String) {
  }
  fun sendPhoto(chatId:Long,path:String,caption:String="") {
    clearOperationError()
+   val photo=TdApi.InputPhoto()
+   photo.photo=TdApi.InputFileLocal(path)
+   photo.thumbnail=null
+   photo.video=null
+   photo.addedStickerFileIds=intArrayOf()
+   photo.width=0
+   photo.height=0
    val content=TdApi.InputMessagePhoto()
-   content.photo=TdApi.InputFileLocal(path)
+   content.photo=photo
    content.caption=TdApi.FormattedText(caption,null)
    send(TdApi.SendMessage(chatId,null,null,null,null,content))
   }
   fun sendDocument(chatId:Long,path:String,caption:String="") {
    clearOperationError()
+   val document=TdApi.InputDocument()
+   document.document=TdApi.InputFileLocal(path)
+   document.thumbnail=null
+   document.disableContentTypeDetection=false
    val content=TdApi.InputMessageDocument()
-   content.document=TdApi.InputFileLocal(path)
+   content.document=document
    content.caption=TdApi.FormattedText(caption,null)
    send(TdApi.SendMessage(chatId,null,null,null,null,content))
   }
