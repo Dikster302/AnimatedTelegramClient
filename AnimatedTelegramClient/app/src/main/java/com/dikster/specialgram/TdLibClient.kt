@@ -7,10 +7,6 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-private fun TgStory.copy(path:String=this.path,isViewed:Boolean=this.isViewed):TgStory =
- TgStory(chatId,storyId,ownerName,date,caption,isVideo,path,isViewed)
-private fun TgContact.copy(status:String=this.status,isOnline:Boolean=this.isOnline):TgContact =
- TgContact(id,name,username,phone,status,isOnline,isPremium)
 private fun TgProfile.copy(
  bio:String=this.bio,avatarPath:String=this.avatarPath,status:String=this.status,
  isOnline:Boolean=this.isOnline,commonGroups:Int=this.commonGroups
@@ -295,7 +291,7 @@ class TdLibClient(context:Context) {
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) messageViewQueue.enqueue(m.chatId,longArrayOf(m.id)) } }
   is TdApi.UpdateMessageContent -> { if(o.chatId==chatSession.activeChat) { val t=TdMessageTextFormatter.display(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==chatSession.activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
-  is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==chatSession.activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
+  is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==chatSession.activeChat) { val reactions=TdMessageMapper.mapReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { animatedMessageController.schedule(o.message.chatId,newId,it) } }
   else -> userUpdateRouter.route(o)
  } }
@@ -408,9 +404,6 @@ class TdLibClient(context:Context) {
   if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
   storyActions.postVideo(userId,path,duration)
  }
- private fun toTgReactions(info:TdApi.MessageInteractionInfo?):List<TgReaction> =
-   TdMessageMapper.mapReactions(info)
-
   private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage =
    TdMessageMapper.map(message, readMarker,
     { replyId -> _messages.value.firstOrNull { it.id==replyId }?.text ?: "" },
