@@ -12,7 +12,7 @@ public final class TdMessageActionsController {
         void send(TdApi.Function<?> function, Callback callback);
     }
     public interface Listener {
-        void onMessageDeleted(long messageId);
+        void onMessageDeleted(long chatId, long messageId);
         void onHistoryCleared(long chatId);
         void onOperationError(String message);
     }
@@ -101,7 +101,7 @@ public final class TdMessageActionsController {
         requester.send(new TdApi.DeleteMessages(chatId, new long[]{messageId}, revoke),
                 new Callback() {
                     @Override public void onResult(TdApi.Object result) {
-                        if (result instanceof TdApi.Ok) listener.onMessageDeleted(messageId);
+                        if (result instanceof TdApi.Ok) listener.onMessageDeleted(chatId, messageId);
                     }
                     @Override public void onError(TdApi.Error error) { reportError(error); }
                 });
