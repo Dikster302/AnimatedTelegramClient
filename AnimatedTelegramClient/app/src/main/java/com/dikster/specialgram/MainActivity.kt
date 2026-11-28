@@ -485,43 +485,27 @@ private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
 
 @Composable
 private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, onOpen: (TgContact) -> Unit) {
-    Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Контакты", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.weight(1f))
-            Text(contacts.size.toString(), color = LocalAppearance.current.muted, fontSize = 13.sp)
-        }
-        OutlinedTextField(value = query, onValueChange = onQuery, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), singleLine = true,
-            placeholder = { Text("Поиск контактов") },
-            trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Text("✕", color = LocalAppearance.current.muted, fontSize = 15.sp) } },
-            shape = RoundedCornerShape(24.dp),
-            colors = OutlinedTextFieldDefaults.colors(focusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), unfocusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent, focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text))
-        if (contacts.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Контакты не найдены", color = LocalAppearance.current.muted)
-            }
-        } else {
-            LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 8.dp)) {
-                items(contacts, key = { it.id }) { contact ->
-                    Row(Modifier.fillMaxWidth().clickable { onOpen(contact) }.padding(horizontal = 16.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(path = "", fallback = contact.name.take(1).uppercase(), id = contact.id, size = 48, online = contact.isOnline)
-                        Spacer(Modifier.width(13.dp))
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(contact.name, color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                if (contact.isPremium) Text("  ✦", color = Color(0xFFB58CFF), fontSize = 12.sp)
-                            }
-                            Text(if (contact.isOnline) "в сети" else contact.status.ifBlank { contact.username.takeIf { it.isNotBlank() }?.let { "@$it" } ?: contact.phone }, color = if (contact.isOnline) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 12.sp)
-                        }
-                    }
-                    HorizontalDivider(color = Color(0xFF253341), thickness = 0.6.dp, modifier = Modifier.padding(start = 76.dp))
-                }
-            }
+    val appearance = LocalAppearance.current
+    val listener = remember(onQuery, onOpen) {
+        object : NativeContactsPanel.Listener {
+            override fun onQuery(query: String) = onQuery(query)
+            override fun onOpen(contact: TgContact) = onOpen(contact)
         }
     }
-}
-
-@Composable
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            NativeContactsPanel(context, contacts, query, appearance.background.toArgb(),
+                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
+                appearance.panelLight.toArgb(), listener)
+        },
+        update = { view ->
+            view.update(contacts, query, appearance.background.toArgb(),
+                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
+                appearance.panelLight.toArgb(), listener)
+        }
+    )
+}@Composable
 private fun SettingsPanel(
     account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
