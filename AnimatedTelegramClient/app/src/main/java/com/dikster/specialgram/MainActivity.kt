@@ -999,18 +999,31 @@ private fun ConversationScreen(
         )
 
         if (messageSearchOpen) {
-            Row(Modifier.fillMaxWidth().background(LocalAppearance.current.panel).padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = messageSearchQuery, onValueChange = { messageSearchQuery = it; messageSearchIndex = 0 },
-                    modifier = Modifier.weight(1f), singleLine = true, placeholder = { Text("Поиск в переписке") },
-                    shape = RoundedCornerShape(18.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text, cursorColor = LocalAppearance.current.accent)
-                )
-                Text(if (messageSearchQuery.isBlank()) " " else "${if (visibleMessages.isEmpty()) 0 else messageSearchIndex + 1}/${visibleMessages.size}", color = LocalAppearance.current.muted, fontSize = 11.sp, modifier = Modifier.padding(horizontal = 6.dp))
-                IconButton(enabled = visibleMessages.isNotEmpty(), onClick = { messageSearchIndex = if (messageSearchIndex <= 0) visibleMessages.lastIndex else messageSearchIndex - 1 }) { Text("↑", color = LocalAppearance.current.text) }
-                IconButton(enabled = visibleMessages.isNotEmpty(), onClick = { messageSearchIndex = (messageSearchIndex + 1) % visibleMessages.size }) { Text("↓", color = LocalAppearance.current.text) }
-                IconButton(onClick = { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }) { Text("✕", color = LocalAppearance.current.text) }
+            val searchListener = remember(messageSearchIndex, visibleMessages) {
+                object : NativeMessageSearchBarView.Listener {
+                    override fun onQuery(value: String) { messageSearchQuery = value; messageSearchIndex = 0 }
+                    override fun onPrevious() { messageSearchIndex = if (messageSearchIndex <= 0) visibleMessages.lastIndex else messageSearchIndex - 1 }
+                    override fun onNext() { if (visibleMessages.isNotEmpty()) messageSearchIndex = (messageSearchIndex + 1) % visibleMessages.size }
+                    override fun onClose() { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }
+                }
             }
+            val searchAppearance = LocalAppearance.current
+            AndroidView(
+                modifier = Modifier.fillMaxWidth().background(searchAppearance.panel)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                factory = { context ->
+                    NativeMessageSearchBarView(context, messageSearchQuery, messageSearchIndex,
+                        visibleMessages.size, searchAppearance.text.toArgb(),
+                        searchAppearance.muted.toArgb(), searchAppearance.accent.toArgb(),
+                        searchAppearance.panelLight.toArgb(), searchListener)
+                },
+                update = { view ->
+                    view.update(messageSearchQuery, messageSearchIndex, visibleMessages.size,
+                        searchAppearance.text.toArgb(), searchAppearance.muted.toArgb(),
+                        searchAppearance.accent.toArgb(), searchAppearance.panelLight.toArgb(),
+                        searchListener)
+                }
+            )
         }
         if (visibleMessages.isEmpty()) {
             Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
