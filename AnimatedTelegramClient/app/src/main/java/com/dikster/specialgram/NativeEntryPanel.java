@@ -33,6 +33,7 @@ public final class NativeEntryPanel extends LinearLayout {
     private Runnable submitListener;
     private boolean changingText;
     private boolean submitting;
+    private String buttonLabel = "";
     private final String modeTitle;
 
     public NativeEntryPanel(Context context, String title, String subtitle, String value,
@@ -168,6 +169,7 @@ public final class NativeEntryPanel extends LinearLayout {
                        int accentColor, Consumer<String> onValue, Runnable onSubmit, String error) {
         valueListener = onValue;
         submitListener = onSubmit;
+        buttonLabel = buttonText;
         setBackgroundColor(backgroundColor);
         titleView.setText(title);
         titleView.setTextColor(textColor);
@@ -216,7 +218,7 @@ public final class NativeEntryPanel extends LinearLayout {
         boolean valid = input.getText() != null && input.getText().toString().trim().length() > 0;
         submit.setEnabled(valid && !submitting);
         submit.setAlpha(valid && !submitting ? 1f : .55f);
-        if (submitting) submit.setText("Отправляем…");
+        submit.setText(submitting ? "Отправляем…" : buttonLabel);
     }
 
     private int resolveInputType(String title, boolean secret) {
