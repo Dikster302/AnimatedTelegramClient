@@ -12,13 +12,13 @@ import android.widget.Toast;
 import androidx.core.content.FileProvider;
 import java.io.File;
 import java.util.Locale;
-import kotlin.Pair;
+
 
 /** File preparation and media validation shared by Specialgram UI flows. */
 public final class MediaPreparation {
     private MediaPreparation() { }
 
-    public static Pair<File, Double> prepareStoryVideo(Context context, Uri uri) throws Exception {
+    public static TdPair<File, Double> prepareStoryVideo(Context context, Uri uri) throws Exception {
         File file = new File(context.getCacheDir(),
                 "specialgram_story_video_" + System.currentTimeMillis() + ".mp4");
         try {
@@ -86,7 +86,7 @@ public final class MediaPreparation {
                             && durationUs - lastSyncUs <= 1_500_000L,
                     "Видео должно начинаться с ключевого кадра и содержать ключевые кадры примерно каждую секунду");
             require(lastSampleUs <= durationUs + 100_000L, "Некорректная длительность видео");
-            return new Pair<>(file, duration);
+            return new TdPair<>(file, duration);
         } finally {
             extractor.release();
         }
