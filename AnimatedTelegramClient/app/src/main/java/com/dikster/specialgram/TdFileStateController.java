@@ -24,6 +24,7 @@ public final class TdFileStateController {
         void markDownloadCompleted(int fileId);
         boolean isMyPhotoFile(int fileId);
         String persistAvatar(int fileId, String sourcePath);
+        void onProfilePhotoDownloaded(long userId,int photoIndex,String path);
     }
 
     private final Listener listener;
@@ -31,17 +32,20 @@ public final class TdFileStateController {
     private final Map<Integer, TdPair<Long, Long>> videoFileToMessage;
     private final Map<Integer, TdPair<Long, Long>> mediaFileToMessage;
     private final Map<Integer, TdPair<Long, Integer>> storyFileToKey;
+    private final Map<Integer,TdPair<Long,Integer>> profilePhotoFileToIndex;
 
     public TdFileStateController(Listener listener,
                                  Map<Integer, Long> fileToChat,
                                  Map<Integer, TdPair<Long, Long>> videoFileToMessage,
                                  Map<Integer, TdPair<Long, Long>> mediaFileToMessage,
-                                 Map<Integer, TdPair<Long, Integer>> storyFileToKey) {
+                                 Map<Integer, TdPair<Long, Integer>> storyFileToKey,
+                                 Map<Integer,TdPair<Long,Integer>> profilePhotoFileToIndex) {
         this.listener = listener;
         this.fileToChat = fileToChat;
         this.videoFileToMessage = videoFileToMessage;
         this.mediaFileToMessage = mediaFileToMessage;
         this.storyFileToKey = storyFileToKey;
+        this.profilePhotoFileToIndex=profilePhotoFileToIndex;
     }
 
     public boolean handle(TdApi.Object update) {
@@ -79,6 +83,13 @@ public final class TdFileStateController {
                 updateMessage(mediaMessage.getSecond(), file, true);
             else
                 listener.refreshCachedMessage(mediaMessage.getFirst(), mediaMessage.getSecond());
+        }
+
+        TdPair<Long,Integer> profilePhoto=profilePhotoFileToIndex.remove(file.id);
+        if(profilePhoto!=null){
+            String stored=listener.persistAvatar(file.id,file.local.path);
+            listener.onProfilePhotoDownloaded(profilePhoto.getFirst(),profilePhoto.getSecond(),
+                    stored==null||stored.isEmpty()?file.local.path:stored);
         }
 
         TdPair<Long, Integer> storyKey = storyFileToKey.remove(file.id);
@@ -136,7 +147,7 @@ public final class TdFileStateController {
                 profile.getBio(), path, profile.getUsername(), profile.getStatus(), profile.isOnline(),
                 profile.isPremium(), profile.isVerified(), profile.getCommonGroups(), profile.getBirthdate(),
                 profile.getGiftCount(), profile.canBeCalled(), profile.supportsVideoCalls(),
-                profile.getGifts(), profile.getUserId());
+                profile.getGifts(), profile.getUserId(),profile.getPhotoPaths());
     }
 
     private static TgAccount copyAvatar(TgAccount account, String path) {
