@@ -67,35 +67,43 @@ public final class TdFileDownloadQueue {
             fileId = pending.pollFirst();
             if (fileId == null) { inFlight = false; return; }
         }
-        requester.send(new TdApi.DownloadFile(fileId, 32, 0, 0, false), new Callback() {
-            @Override public void onResult(TdApi.Object result) {
-                if (result instanceof TdApi.File && ((TdApi.File) result).local.isDownloadingCompleted)
-                    markCompleted(fileId);
-                finishAndContinue(REQUEST_GAP_MS);
-            }
+        try {
+            requester.send(new TdApi.DownloadFile(fileId, 32, 0, 0, false), new Callback() {
+                @Override public void onResult(TdApi.Object result) {
+                    if (result instanceof TdApi.File && ((TdApi.File) result).local.isDownloadingCompleted)
+                        markCompleted(fileId);
+                    finishAndContinue(REQUEST_GAP_MS);
+                }
 
-            @Override public void onError(TdApi.Error error) {
-                long delay = REQUEST_GAP_MS;
-                synchronized (TdFileDownloadQueue.this) {
-                    if (closed) { inFlight = false; return; }
-                    if (error.code == 429) {
-                        int attempt = retries.getOrDefault(fileId, 0) + 1;
-                        if (attempt <= MAX_RETRIES) {
-                            retries.put(fileId, attempt);
-                            pending.addFirst(fileId);
-                            delay = retryDelay(error.message, attempt);
+                @Override public void onError(TdApi.Error error) {
+                    long delay = REQUEST_GAP_MS;
+                    synchronized (TdFileDownloadQueue.this) {
+                        if (closed) { inFlight = false; return; }
+                        if (error != null && error.code == 429) {
+                            int attempt = retries.getOrDefault(fileId, 0) + 1;
+                            if (attempt <= MAX_RETRIES) {
+                                retries.put(fileId, attempt);
+                                pending.addFirst(fileId);
+                                delay = retryDelay(error.message, attempt);
+                            } else {
+                                requested.remove(fileId);
+                                retries.remove(fileId);
+                            }
                         } else {
                             requested.remove(fileId);
                             retries.remove(fileId);
                         }
-                    } else {
-                        requested.remove(fileId);
-                        retries.remove(fileId);
                     }
+                    finishAndContinue(delay);
                 }
-                finishAndContinue(delay);
+            });
+        } catch (RuntimeException failure) {
+            synchronized (this) {
+                requested.remove(fileId);
+                retries.remove(fileId);
             }
-        });
+            finishAndContinue(REQUEST_GAP_MS);
+        }
     }
 
     private long retryDelay(String message, int attempt) {
