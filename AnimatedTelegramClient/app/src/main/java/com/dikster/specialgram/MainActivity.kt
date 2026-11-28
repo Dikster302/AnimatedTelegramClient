@@ -386,108 +386,6 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
 }
 
 @Composable
-private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
-    val panelColor = LocalAppearance.current.panel.toArgb()
-    AndroidView(
-        modifier = modifier,
-        factory = { context -> NativeHeaderWallpaperView(context, uri, panelColor) },
-        update = { view -> view.update(uri, panelColor) }
-    )
-}
-
-@Composable
-private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, onOpen: (TgContact) -> Unit) {
-    val appearance = LocalAppearance.current
-    val listener = remember(onQuery, onOpen) {
-        object : NativeContactsPanel.Listener {
-            override fun onQuery(query: String) = onQuery(query)
-            override fun onOpen(contact: TgContact) = onOpen(contact)
-        }
-    }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-            NativeContactsPanel(context, contacts, query, appearance.background.toArgb(),
-                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
-                appearance.panelLight.toArgb(), listener)
-        },
-        update = { view ->
-            view.update(contacts, query, appearance.background.toArgb(),
-                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
-                appearance.panelLight.toArgb(), listener)
-        }
-    )
-}
-
-@Composable
-private fun SettingsPanel(
-    account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit,
-    glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
-    accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
-    wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit,
-    headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit
-) { 
-    val appearance = LocalAppearance.current
-    val saveProfileAction = onSaveMyProfile
-    val pickPhotoAction = onPickProfilePhoto
-    val dismissErrorAction = onDismissOperationError
-    val lastSeenAction = onPrivacyLastSeen
-    val phonePrivacyAction = onPrivacyPhone
-    val photoPrivacyAction = onPrivacyPhoto
-    val themeAction = onTheme
-    val glassAction = onGlass
-    val fontScaleAction = onFontScale
-    val accentAction = onAccent
-    val bubbleRadiusAction = onBubbleRadius
-    val wallpaperAction = onWallpaper
-    val compactChatsAction = onCompactChats
-    val pickHeaderWallpaperAction = onPickHeaderWallpaper
-    val clearHeaderWallpaperAction = onClearHeaderWallpaper
-    val cosmicCoverAction = onSelectCosmicCover
-    val settingsListener = remember(saveProfileAction,pickPhotoAction,dismissErrorAction,
-        lastSeenAction,phonePrivacyAction,photoPrivacyAction,themeAction,glassAction,fontScaleAction,
-        accentAction,bubbleRadiusAction,wallpaperAction,compactChatsAction,pickHeaderWallpaperAction,
-        clearHeaderWallpaperAction,cosmicCoverAction) {
-        object : NativeSettingsPanelView.Listener {
-            override fun onSaveMyProfile(firstName:String,lastName:String,bio:String) =
-                saveProfileAction(firstName,lastName,bio)
-            override fun onPickProfilePhoto() = pickPhotoAction()
-            override fun onDismissOperationError() = dismissErrorAction()
-            override fun onPrivacyLastSeen(value:String) = lastSeenAction(value)
-            override fun onPrivacyPhone(value:String) = phonePrivacyAction(value)
-            override fun onPrivacyPhoto(value:String) = photoPrivacyAction(value)
-            override fun onTheme(value:String) = themeAction(value)
-            override fun onGlass(value:Float) = glassAction(value)
-            override fun onFontScale(value:Float) = fontScaleAction(value)
-            override fun onAccent(value:String) = accentAction(value)
-            override fun onBubbleRadius(value:Float) = bubbleRadiusAction(value)
-            override fun onWallpaper(value:String) = wallpaperAction(value)
-            override fun onCompactChats(value:Boolean) = compactChatsAction(value)
-            override fun onPickHeaderWallpaper() = pickHeaderWallpaperAction()
-            override fun onClearHeaderWallpaper() = clearHeaderWallpaperAction()
-            override fun onSelectCosmicCover() = cosmicCoverAction()
-        }
-    }
-    AndroidView(
-        modifier = Modifier.fillMaxSize(),
-        factory = { context ->
-            NativeSettingsPanelView(context, account, operationError, privacyLastSeen,
-                privacyPhone, privacyPhoto, themeName, glass, fontScale, accentName,
-                bubbleRadius, wallpaperName, compactChats, headerWallpaper,
-                appearance.background.toArgb(), appearance.panel.toArgb(),
-                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
-                appearance.panelLight.toArgb(), settingsListener)
-        },
-        update = { view ->
-            view.update(account, operationError, privacyLastSeen, privacyPhone, privacyPhoto,
-                themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName,
-                compactChats, headerWallpaper, appearance.background.toArgb(),
-                appearance.panel.toArgb(), appearance.text.toArgb(), appearance.muted.toArgb(),
-                appearance.accent.toArgb(), appearance.panelLight.toArgb(), settingsListener)
-        }
-    )
-}
-@Composable
 private fun ConversationScreen(
     chat: TgChat, chats: List<TgChat>, messages: List<TgMessage>, searchResults: List<TgMessage>, onSearchMessages: (String) -> Unit, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
     onSend: (String, Boolean, Long?) -> Unit,
@@ -567,25 +465,6 @@ private fun ConversationScreen(
                 appearance.accent.toArgb(), appearance.incoming.toArgb(), appearance.outgoing.toArgb(),
                 appearance.bubbleRadius, conversationListener)
         }
-    )
-}
-
-@Composable
-private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit, onReply: (String) -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val listener = remember(onDismiss, onPrevious, onNext, onReact, onReply) {
-        object : NativeStoryViewerDialogHost.Listener {
-            override fun onDismiss() = onDismiss()
-            override fun onPrevious() = onPrevious()
-            override fun onNext() = onNext()
-            override fun onReact() = onReact()
-            override fun onReply(text: String) = onReply(text)
-        }
-    }
-    AndroidView(
-        modifier = Modifier.size(1.dp),
-        factory = { NativeStoryViewerDialogHost(context, story, storyPosition, storyCount, listener) },
-        update = { view -> view.update(story, storyPosition, storyCount, listener) }
     )
 }
 
