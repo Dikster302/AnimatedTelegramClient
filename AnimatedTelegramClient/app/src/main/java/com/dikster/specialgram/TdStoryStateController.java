@@ -105,7 +105,20 @@ public final class TdStoryStateController {
             }
         }
         listener.setStories(stories);
-        updateChatStoryFlags(chatId, stories);
+        updateChatUnviewedFlag(chatId, stories);
+    }
+
+    private void updateChatUnviewedFlag(long chatId, List<TgStory> stories) {
+        boolean hasUnviewed = false;
+        for (TgStory story : stories) {
+            if (story.getChatId() == chatId && !story.isViewed()) hasUnviewed = true;
+        }
+        List<TgChat> chats = new ArrayList<>();
+        for (TgChat chat : listener.chats()) {
+            chats.add(chat.getId() == chatId
+                    ? withStoryFlags(chat, chat.getHasStory(), hasUnviewed) : chat);
+        }
+        listener.setChats(chats);
     }
 
     private void updateChatStoryFlags(long chatId, List<TgStory> stories) {
