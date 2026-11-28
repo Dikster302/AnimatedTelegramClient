@@ -71,6 +71,7 @@ public final class TdLibClient implements AutoCloseable {
 
     public TdLibClient(Context context) {
         app = context.getApplicationContext();
+        updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
 
         animatedMessageController = new TdAnimatedMessageController((function, callback) ->
                 send(function, callback == null ? null : callback::onResult, null, true));
@@ -340,8 +341,6 @@ public final class TdLibClient implements AutoCloseable {
             @Override public void setMessages(List<TgMessage> value) { messages.setValue(value); }
         }, authorizationStateRouter, chatRegistrationController, storyStateController,
                 chatSession, userUpdateRouter);
-        updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
-
         lifecycleController = new TdClientLifecycleController(client,
                 animatedMessageController::close, messageViewQueue::close, userFullInfoQueue::close,
                 pushRegistrationController::close, fileDownloadQueue::close, contactsController::close,
