@@ -772,12 +772,12 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
         factory = { context ->
             NativeChatRowView(context, chat, compact, appearance.text.toArgb(),
                 appearance.muted.toArgb(), appearance.accent.toArgb(), panelColor,
-                onClick, onArchive, onTogglePinned, onToggleUnread, onToggleMute)
+                { onClick() }, { onArchive() }, { onTogglePinned() }, { onToggleUnread() }, { onToggleMute() })
         },
         update = { view ->
             view.update(chat, compact, appearance.text.toArgb(), appearance.muted.toArgb(),
                 appearance.accent.toArgb(), panelColor,
-                onClick, onArchive, onTogglePinned, onToggleUnread, onToggleMute)
+                { onClick() }, { onArchive() }, { onTogglePinned() }, { onToggleUnread() }, { onToggleMute() })
         }
     )
 }
@@ -1377,12 +1377,12 @@ private fun AuthScreen(
         factory = { context ->
             NativeEntryPanel(context, title, subtitle, value, button, secret,
                 appearance.background.toArgb(), appearance.text.toArgb(),
-                appearance.muted.toArgb(), appearance.accent.toArgb(), onValue, onSubmit)
+                appearance.muted.toArgb(), appearance.accent.toArgb(), { onValue(it) }, { onSubmit() })
         },
         update = { panel ->
             panel.update(title, subtitle, value, button, secret,
                 appearance.background.toArgb(), appearance.text.toArgb(),
-                appearance.muted.toArgb(), appearance.accent.toArgb(), onValue, onSubmit)
+                appearance.muted.toArgb(), appearance.accent.toArgb(), { onValue(it) }, { onSubmit() })
         }
     )
 }
