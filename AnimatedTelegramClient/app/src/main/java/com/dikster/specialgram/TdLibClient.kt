@@ -78,6 +78,28 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val privacyController = TdPrivacyController(
+  TdPrivacyController.Requester { function, callback ->
+   send(function, handler={ callback.onResult(it) }, onError={ callback.onError(it) })
+  },
+  TdPrivacyController.Listener { type, value ->
+   when(type) {
+    TdPrivacyController.STATUS -> _privacyLastSeen.value=value
+    TdPrivacyController.PHONE -> _privacyPhone.value=value
+    TdPrivacyController.PHOTO -> _privacyPhoto.value=value
+   }
+  }
+ )
+ private val chatListLoader = TdChatListLoader(
+  TdChatListLoader.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  TdChatListLoader.ChatListener { chat, archived -> putChat(chat,archived) }
+ )
+
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
  private fun onUpdate(o:TdApi.Object) { when(o) {
   is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
@@ -136,27 +158,6 @@ class TdLibClient(context:Context) {
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
- private val privacyController = TdPrivacyController(
-  TdPrivacyController.Requester { function, callback ->
-   send(function, handler={ callback.onResult(it) }, onError={ callback.onError(it) })
-  },
-  TdPrivacyController.Listener { type, value ->
-   when(type) {
-    TdPrivacyController.STATUS -> _privacyLastSeen.value=value
-    TdPrivacyController.PHONE -> _privacyPhone.value=value
-    TdPrivacyController.PHOTO -> _privacyPhoto.value=value
-   }
-  }
- )
- private val chatListLoader = TdChatListLoader(
-  TdChatListLoader.Requester { function, callback ->
-   send(function,
-    handler={ callback.onResult(it) },
-    onError={ callback.onError(it) },
-    reportErrorToUi=false)
-  },
-  TdChatListLoader.ChatListener { chat, archived -> putChat(chat,archived) }
- )
  fun loadChats() {
   chatListLoader.load(TdApi.ChatListMain(),false)
   chatListLoader.load(TdApi.ChatListArchive(),true)
