@@ -31,7 +31,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -509,259 +508,67 @@ private fun SettingsPanel(
     accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit,
     wallpaperName: String, onWallpaper: (String) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit,
     headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val tdlibMediaBytes = remember { MediaPreparation.directoryBytes(File(context.filesDir, "tdlib-files")) }
-    val cacheBytes = remember { MediaPreparation.directoryBytes(context.cacheDir) }
-    var page by remember { mutableStateOf("main") }
-    BackHandler(enabled = page != "main") {
-        page = when (page) { "cover" -> "appearance"; else -> "main" }
-    }
-    Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
-        if (page != "main") {
-            Row(Modifier.fillMaxWidth().background(LocalAppearance.current.panel).clickable {
-                page = if (page == "cover") "appearance" else "main"
-            }.padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("‹", color = LocalAppearance.current.accent, fontSize = 30.sp)
-                Spacer(Modifier.width(12.dp))
-                Text(when(page) { "cover" -> "Обложка Specialgram"; "appearance" -> "Внешний вид"; "account" -> "Аккаунт"; "notifications" -> "Уведомления"; "privacy" -> "Конфиденциальность"; "storage" -> "Данные и память"; "diagnostics" -> "Диагностика"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-            }
-        }
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
-            if (page == "main") {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
-                    Avatar(path = account?.avatarPath ?: "", fallback = (account?.name ?: "S").take(1).uppercase(), id = 0, size = 60)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(account?.name ?: "Мой аккаунт Telegram", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (account?.username.isNullOrBlank()) "Подключён через TDLib" else "@${account?.username}", color = LocalAppearance.current.muted, fontSize = 13.sp)
-                        if (account?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.18f))
-                SettingsNavigationRow("Внешний вид", "Темы, обложка и оформление") { page = "appearance" }
-                SettingsNavigationRow("Аккаунт", "Номер телефона и профиль") { page = "account" }
-                SettingsNavigationRow("Уведомления", "Звуки и оповещения") { page = "notifications" }
-                SettingsNavigationRow("Конфиденциальность", "Последний визит и безопасность") { page = "privacy" }
-                SettingsNavigationRow("Данные и память", "Сеть и хранилище") { page = "storage" }
-                SettingsNavigationRow("Диагностика", "Журнал технических ошибок TDLib") { page = "diagnostics" }
-                SettingsNavigationRow("О приложении", "Specialgram · 0.3") { page = "about" }
-                Text("Авторская функция", color = LocalAppearance.current.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
-                Text("Постепенную отправку текста можно включить отдельно в меню каждого чата.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
-            } else if (page == "appearance") {
-                Text("SPECIALGRAM · ВНЕШНИЙ ВИД", color = LocalAppearance.current.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 17.dp, bottom = 9.dp))
-                Text("Цветовая тема", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("Telegram", "Midnight", "Aurora", "Rose", "Космос").forEach { name -> FilterChip(selected = themeName == name, onClick = { onTheme(name) }, label = { Text(name) }) }
-                }
-                Text("Акцентный цвет", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf("По теме", "Синий", "Фиолетовый", "Мятный", "Розовый").forEach { name -> FilterChip(selected = accentName == name, onClick = { onAccent(name) }, label = { Text(name) }) }
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Эффект стекла", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold); Text("Прозрачность панелей и карточек", color = LocalAppearance.current.muted, fontSize = 12.sp) }
-                    Text("${(glass * 100).toInt()}%", color = LocalAppearance.current.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Slider(value = glass, onValueChange = onGlass, valueRange = 0f..1f)
-                Surface(color = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp)) {
-                    Column(Modifier.padding(14.dp)) {
-                        Text("Предпросмотр Specialgram", color = LocalAppearance.current.text, fontWeight = FontWeight.SemiBold)
-                        Text("Так будут выглядеть панели приложения", color = LocalAppearance.current.muted, fontSize = 12.sp)
-                        Spacer(Modifier.height(10.dp))
-                        Surface(color = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-                            Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Box(Modifier.size(34.dp).clip(CircleShape).background(LocalAppearance.current.accent), contentAlignment = Alignment.Center) { Text("A", color = Color.White, fontWeight = FontWeight.Bold) }
-                                Spacer(Modifier.width(10.dp))
-                                Column(Modifier.weight(1f)) { Text("Specialgram", color = LocalAppearance.current.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold); Text("Пример полупрозрачной карточки", color = LocalAppearance.current.muted, fontSize = 11.sp) }
-                                Text("✓✓", color = LocalAppearance.current.accent, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-                SettingsNavigationRow("Обложка Specialgram", "Стандартная, космическая или своя фотография") { page = "cover" }
-                Text("Фон переписки", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 9.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    listOf("По теме", "Глубокая ночь", "Океан", "Сумерки").forEach { name -> FilterChip(selected = wallpaperName == name, onClick = { onWallpaper(name) }, label = { Text(name) }) }
-                }
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Компактный список чатов", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold); Text("Больше диалогов на экране", color = LocalAppearance.current.muted, fontSize = 12.sp) }
-                    Switch(checked = compactChats, onCheckedChange = onCompactChats)
-                }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Скругление сообщений", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold); Text("Форма пузырей в переписке", color = LocalAppearance.current.muted, fontSize = 12.sp) }
-                    Text("${bubbleRadius.toInt()} dp", color = LocalAppearance.current.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Slider(value = bubbleRadius, onValueChange = onBubbleRadius, valueRange = 8f..28f)
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("Размер текста", color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold); Text("Масштаб интерфейса", color = LocalAppearance.current.muted, fontSize = 12.sp) }
-                    Text("${(fontScale * 100).toInt()}%", color = LocalAppearance.current.accent, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                }
-                Slider(value = fontScale, onValueChange = onFontScale, valueRange = 0.85f..1.25f)
-            } else if (page == "cover") {
-                Text("Выбери, что будет отображаться в верхней части списка чатов.", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(vertical = 12.dp))
-                CoverChoice("Стандартная", "Обычный фон Telegram", headerWallpaper == null) { onClearHeaderWallpaper() }
-                CoverChoice("Космос", "Градиент со звёздами", headerWallpaper == "preset:cosmic") { onSelectCosmicCover() }
-                CoverChoice("Моя фотография", "Выбрать изображение из галереи", headerWallpaper != null && headerWallpaper != "preset:cosmic") { onPickHeaderWallpaper() }
-            } else if (page == "privacy") {
-                Text("Кто видит время последнего посещения и статус «в сети»", color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp, bottom = 6.dp))
-                Text("Настройка применяется к аккаунту Telegram и синхронизируется с другими клиентами.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 14.dp))
-                listOf("Все", "Мои контакты", "Никто").forEach { choice ->
-                    Row(Modifier.fillMaxWidth().clickable { onPrivacyLastSeen(choice) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(choice, color = LocalAppearance.current.text, fontSize = 15.sp)
-                            if (privacyLastSeen == choice) Text("Текущий выбор", color = LocalAppearance.current.accent, fontSize = 11.sp)
-                        }
-                        RadioButton(selected = privacyLastSeen == choice, onClick = { onPrivacyLastSeen(choice) })
-                    }
-                    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f))
-                }
-                Text("Сейчас: $privacyLastSeen", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp))
-                HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), modifier = Modifier.padding(vertical = 14.dp))
-                PrivacyChoiceSection("Кто видит мой номер телефона", privacyPhone, onPrivacyPhone)
-                HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), modifier = Modifier.padding(vertical = 14.dp))
-                PrivacyChoiceSection("Кто видит мою фотографию профиля", privacyPhoto, onPrivacyPhoto)
-                Text("Если в Telegram настроены исключения для отдельных людей, они будут обозначены как «Особые настройки». Выбор выше заменит такие исключения общим правилом.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.padding(top = 8.dp))
-            } else if (page == "account") {
-                var firstName by remember(account?.firstName) { mutableStateOf(account?.firstName.orEmpty()) }
-                var lastName by remember(account?.lastName) { mutableStateOf(account?.lastName.orEmpty()) }
-                var bio by remember(account?.bio) { mutableStateOf(account?.bio.orEmpty()) }
-                Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Avatar(path = account?.avatarPath ?: "", fallback = (account?.name ?: "Я").take(1), id = 0, size = 76)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(account?.name ?: "Мой аккаунт", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-                        Text(if (account?.username.isNullOrBlank()) "Имя пользователя не задано" else "@${account?.username}", color = LocalAppearance.current.muted, fontSize = 13.sp)
-                        if (account?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontSize = 12.sp)
-                    }
-                }
-                OutlinedButton(onClick = onPickProfilePhoto, modifier = Modifier.fillMaxWidth()) { Text("Изменить фотографию профиля") }
-                OutlinedTextField(value = firstName, onValueChange = { firstName = it }, label = { Text("Имя") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = lastName, onValueChange = { lastName = it }, label = { Text("Фамилия") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-                OutlinedTextField(value = bio, onValueChange = { bio = it.take(70).replace("\n", "") }, label = { Text("О себе") }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp), minLines = 2, maxLines = 3)
-                Button(onClick = { onSaveMyProfile(firstName, lastName, bio) }, enabled = firstName.isNotBlank(), modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Сохранить изменения") }
-                Text("Телефон: ${account?.phone?.ifBlank { "не указан" } ?: "Загружаем…"}", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 16.dp))
-                Text("Изменения отправляются непосредственно в Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp, bottom = 18.dp))
-            } else if (page == "notifications") {
-                Text("Уведомления Specialgram", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text("Управление разрешением, звуком и отображением уведомлений выполняется Android. Уведомления чатов синхронизируются с Telegram.", color = LocalAppearance.current.muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp, bottom = 14.dp))
-                SettingsNavigationRow("Системные настройки уведомлений", "Разрешения, звук, экран блокировки") {
-                    runCatching {
-                        val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
-                        context.startActivity(intent)
-                    }
-                }
-                Text("Если уведомления отключены в Android, включи их для Specialgram. Отдельные настройки чатов остаются на стороне Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
-            } else if (page == "diagnostics") {
-                val journal = remember { DiagnosticsJournal.read(context) }
-                Text("Журнал ошибок", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text("Здесь сохраняются технические ошибки TDLib: название запроса, код и время. Переписки, имена, номера телефонов и идентификаторы чатов не записываются.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
-                Text(if (journal.isBlank()) "Ошибок пока нет. Если появится Too Many Requests, запись появится здесь." else journal, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.fillMaxWidth().background(LocalAppearance.current.panel, RoundedCornerShape(12.dp)).padding(12.dp))
-                OutlinedButton(onClick = {
-                    val value = DiagnosticsJournal.read(context)
-                    if (value.isBlank()) android.widget.Toast.makeText(context, "Журнал пока пуст", android.widget.Toast.LENGTH_SHORT).show()
-                    else {
-                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Specialgram diagnostics", value))
-                        android.widget.Toast.makeText(context, "Журнал скопирован", android.widget.Toast.LENGTH_SHORT).show()
-                    }
-                }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Скопировать журнал") }
-                Button(onClick = {
-                    val value = DiagnosticsJournal.read(context)
-                    if (value.isBlank()) android.widget.Toast.makeText(context, "Журнал пока пуст", android.widget.Toast.LENGTH_SHORT).show()
-                    else {
-                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_SUBJECT, "Specialgram — журнал диагностики").putExtra(android.content.Intent.EXTRA_TEXT, value)
-                        context.startActivity(android.content.Intent.createChooser(intent, "Экспортировать журнал"))
-                    }
-                }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Экспортировать журнал") }
-                Text("Журнал хранится только в памяти приложения. Перед отправкой можешь просмотреть его содержимое.", color = LocalAppearance.current.muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
-            } else if (page == "storage") {
-                Text("Данные и память", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text("Локальное хранилище TDLib и временные файлы приложения.", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))
-                SettingsLine("Медиа и файлы Telegram", MediaPreparation.formatFileSize(tdlibMediaBytes))
-                SettingsLine("Временные файлы", MediaPreparation.formatFileSize(cacheBytes))
-                SettingsNavigationRow("Открыть хранилище Android", "Просмотр размера и очистка данных приложения") {
-                    runCatching {
-                        val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + context.packageName))
-                        context.startActivity(intent)
-                    }
-                }
-                Text("Очистка данных Android удалит локальную базу и может потребовать повторного входа. Не очищай данные приложения, если не хочешь заново авторизоваться.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 10.dp))
-            } else {
-                Text("О приложении", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
-                Text("Specialgram — клиент Telegram на базе TDLib.\n\nЗащищённая диагностика: приложение отправляет технические отчёты о сбоях и ошибках TDLib. Тексты сообщений, переписки, контакты и номер телефона в отчёты не включаются.", color = LocalAppearance.current.muted, fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 8.dp))
-            }
+) { 
+    val appearance = LocalAppearance.current
+    val saveProfileAction = onSaveMyProfile
+    val pickPhotoAction = onPickProfilePhoto
+    val dismissErrorAction = onDismissOperationError
+    val lastSeenAction = onPrivacyLastSeen
+    val phonePrivacyAction = onPrivacyPhone
+    val photoPrivacyAction = onPrivacyPhoto
+    val themeAction = onTheme
+    val glassAction = onGlass
+    val fontScaleAction = onFontScale
+    val accentAction = onAccent
+    val bubbleRadiusAction = onBubbleRadius
+    val wallpaperAction = onWallpaper
+    val compactChatsAction = onCompactChats
+    val pickHeaderWallpaperAction = onPickHeaderWallpaper
+    val clearHeaderWallpaperAction = onClearHeaderWallpaper
+    val cosmicCoverAction = onSelectCosmicCover
+    val settingsListener = remember(saveProfileAction,pickPhotoAction,dismissErrorAction,
+        lastSeenAction,phonePrivacyAction,photoPrivacyAction,themeAction,glassAction,fontScaleAction,
+        accentAction,bubbleRadiusAction,wallpaperAction,compactChatsAction,pickHeaderWallpaperAction,
+        clearHeaderWallpaperAction,cosmicCoverAction) {
+        object : NativeSettingsPanelView.Listener {
+            override fun onSaveMyProfile(firstName:String,lastName:String,bio:String) =
+                saveProfileAction(firstName,lastName,bio)
+            override fun onPickProfilePhoto() = pickPhotoAction()
+            override fun onDismissOperationError() = dismissErrorAction()
+            override fun onPrivacyLastSeen(value:String) = lastSeenAction(value)
+            override fun onPrivacyPhone(value:String) = phonePrivacyAction(value)
+            override fun onPrivacyPhoto(value:String) = photoPrivacyAction(value)
+            override fun onTheme(value:String) = themeAction(value)
+            override fun onGlass(value:Float) = glassAction(value)
+            override fun onFontScale(value:Float) = fontScaleAction(value)
+            override fun onAccent(value:String) = accentAction(value)
+            override fun onBubbleRadius(value:Float) = bubbleRadiusAction(value)
+            override fun onWallpaper(value:String) = wallpaperAction(value)
+            override fun onCompactChats(value:Boolean) = compactChatsAction(value)
+            override fun onPickHeaderWallpaper() = pickHeaderWallpaperAction()
+            override fun onClearHeaderWallpaper() = clearHeaderWallpaperAction()
+            override fun onSelectCosmicCover() = cosmicCoverAction()
         }
     }
-    if (operationError != null) AlertDialog(
-        onDismissRequest = onDismissOperationError,
-        title = { Text("Не удалось выполнить действие", color = LocalAppearance.current.text) },
-        text = { Text(operationError, color = LocalAppearance.current.muted) },
-        confirmButton = { TextButton(onClick = onDismissOperationError) { Text("Понятно") } }
-    )
-}
-
-@Composable
-private fun PrivacyChoiceSection(title:String,current:String,onSelect:(String)->Unit) {
-    val appearance = LocalAppearance.current
     AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context -> NativeSettingsRows.privacy(context, title, current,
-            appearance.text.toArgb(), appearance.muted.toArgb(), { value -> onSelect(value) }) },
-        update = { view -> NativeSettingsRows.updatePrivacy(view, view.context, title, current,
-            appearance.text.toArgb(), appearance.muted.toArgb(), { value -> onSelect(value) }) }
-    )
-}
-
-@Composable
-private fun SettingsNavigationRow(title: String, subtitle: String, onClick: () -> Unit) {
-    val appearance = LocalAppearance.current
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context -> NativeSettingsRows.navigation(context, title, subtitle,
-            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) },
-        update = { view -> NativeSettingsRows.updateNavigation(view, view.context, title, subtitle,
-            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
-    )
-}
-
-@Composable
-private fun CoverChoice(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
-    val appearance = LocalAppearance.current
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context -> NativeSettingsRows.coverChoice(context, title, subtitle, selected,
-            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) },
-        update = { view -> NativeSettingsRows.updateCoverChoice(view, view.context, title, subtitle,
-            selected, appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
-    )
-}
-
-@Composable
-private fun SettingsLine(title: String, subtitle: String) {
-    val appearance = LocalAppearance.current
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context -> NativeSettingsRows.setting(context, title, subtitle,
-            appearance.text.toArgb(), appearance.muted.toArgb()) },
-        update = { view -> NativeSettingsRows.updateSetting(view, view.context, title, subtitle,
-            appearance.text.toArgb(), appearance.muted.toArgb()) }
-    )
-}
-
-@Composable
-private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false, storyViewed: Boolean = false) {
-    val panelColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f).toArgb()
-    AndroidView(
-        modifier = Modifier.size(size.dp),
+        modifier = Modifier.fillMaxSize(),
         factory = { context ->
-            NativeAvatarView(context, path, fallback, id, size, online, hasStory, storyViewed, panelColor)
+            NativeSettingsPanelView(context, account, operationError, privacyLastSeen,
+                privacyPhone, privacyPhoto, themeName, glass, fontScale, accentName,
+                bubbleRadius, wallpaperName, compactChats, headerWallpaper,
+                appearance.background.toArgb(), appearance.panel.toArgb(),
+                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
+                appearance.panelLight.toArgb(), settingsListener)
         },
         update = { view ->
-            view.update(path, fallback, id, size, online, hasStory, storyViewed, panelColor)
+            view.update(account, operationError, privacyLastSeen, privacyPhone, privacyPhoto,
+                themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName,
+                compactChats, headerWallpaper, appearance.background.toArgb(),
+                appearance.panel.toArgb(), appearance.text.toArgb(), appearance.muted.toArgb(),
+                appearance.accent.toArgb(), appearance.panelLight.toArgb(), settingsListener)
         }
     )
 }
-
 @Composable
 private fun ConversationScreen(
     chat: TgChat, chats: List<TgChat>, messages: List<TgMessage>, searchResults: List<TgMessage>, onSearchMessages: (String) -> Unit, profile: TgProfile?, onOpenProfile: () -> Unit, onCloseProfile: () -> Unit, onBack: () -> Unit,
