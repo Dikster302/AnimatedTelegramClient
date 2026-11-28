@@ -57,6 +57,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         void onCompactChats(boolean compact);
         void onSaveMyProfile(String firstName,String lastName,String bio);
         void onPickProfilePhoto();
+        void onLoadMyProfilePhotos();
         void onDismissOperationError();
         void onPrivacyLastSeen(String value);
         void onPrivacyPhone(String value);
@@ -108,6 +109,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private FrameLayout archiveOverlay;
     private float edgeTouchStartX,edgeTouchStartY;
     private boolean edgeGesture;
+    private boolean myProfilePhotosRequested;
 
     public NativeChatsScreenView(Context context,State state,Listener listener){
         super(context);
@@ -449,6 +451,10 @@ public final class NativeChatsScreenView extends FrameLayout {
 
 
     private void renderProfile(){
+        if(!myProfilePhotosRequested&&state.account!=null){
+            myProfilePhotosRequested=true;
+            if(listener!=null)listener.onLoadMyProfilePhotos();
+        }
         contentHost.removeAllViews();
         profilePanel=new LinearLayout(getContext());
         profilePanel.setOrientation(LinearLayout.VERTICAL);
@@ -459,6 +465,13 @@ public final class NativeChatsScreenView extends FrameLayout {
         NativeAvatarView avatar=new NativeAvatarView(getContext(),
                 state.account==null?"":state.account.getAvatarPath(),first(name),0L,104,
                 false,false,false,state.panelLight);
+        avatar.setContentDescription("Открыть фотографии профиля");
+        avatar.setOnClickListener(v->{
+            if(state.account!=null&&!state.account.getPhotoPaths().isEmpty())
+                NativePhotoGalleryDialog.show(getContext(),state.account.getPhotoPaths(),0);
+            else if(state.account!=null&&!state.account.getAvatarPath().isEmpty())
+                NativePhotoGalleryDialog.show(getContext(),Collections.singletonList(state.account.getAvatarPath()),0);
+        });
         profilePanel.addView(avatar,new LinearLayout.LayoutParams(dp(104),dp(104)));
         TextView accountName=new TextView(getContext());accountName.setText(name);
         accountName.setTextColor(state.text);accountName.setTextSize(22);
