@@ -86,6 +86,17 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val userFullInfoQueue = TdUserFullInfoQueue(
+  TdUserFullInfoQueue.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  TdUserFullInfoQueue.Listener { userId, info ->
+   if(myUserId==userId) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
+  }
+ )
  private val userActions = TdUserActionsController(
   TdUserActionsController.Requester { function, callback ->
    send(function,
@@ -288,9 +299,7 @@ class TdLibClient(context:Context) {
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
   _account.value=TdUserMapper.toAccount(user,_account.value)
-  send(TdApi.GetUserFullInfo(user.id)) { info ->
-   if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
-  }
+  userFullInfoQueue.enqueue(user.id)
   val photoId=user.profilePhoto?.small?.id ?: 0
   myPhotoFileId=photoId.takeIf { it>0 }
   if(photoId>0) fileDownloadQueue.enqueue(photoId) else _account.value=_account.value?.copy(avatarPath="")
@@ -543,6 +552,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){animatedMessageController.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){animatedMessageController.close();userFullInfoQueue.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
