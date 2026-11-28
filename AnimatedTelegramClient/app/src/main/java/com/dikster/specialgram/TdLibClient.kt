@@ -582,19 +582,15 @@ fun reportOperationError(text:String) {
     }
    })
  }
+ private val requestDispatcher = TdRequestDispatcher(app, client)
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
-  client.send(f,Client.ResultHandler { r ->
-   if(r is TdApi.Error) {
-    DiagnosticsJournal.record(app, f.javaClass.simpleName, r.code, r.message)
-    FirebaseCrashlytics.getInstance().apply {
-     log("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}")
-     setCustomKey("tdlib_function", f.javaClass.simpleName)
-     setCustomKey("tdlib_error_code", r.code)
-     recordException(IllegalStateException("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}"))
-    }
-    onError?.invoke(r)
-    if(reportErrorToUi) _operationError.value=r.message
-   } else handler?.invoke(r)
+  requestDispatcher.send(f, object : TdRequestDispatcher.Listener {
+   override fun onResult(result:TdApi.Object) {
+    if(result is TdApi.Error) {
+     onError?.invoke(result)
+     if(reportErrorToUi) _operationError.value=result.message
+    } else handler?.invoke(result)
+   }
   })
  }
  fun close(){animatedMessageController.close();messageViewQueue.close();userFullInfoQueue.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
