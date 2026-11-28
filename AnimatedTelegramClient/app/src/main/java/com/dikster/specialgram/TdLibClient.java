@@ -562,7 +562,8 @@ public final class TdLibClient implements AutoCloseable {
     public void toggleChatUnread(long id, boolean unread) { operationsController.toggleChatUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { operationsController.toggleChatMuted(id, muted); }
 
-    public void loadChatPreview(long chatId,java.util.function.Consumer<List<TgMessage>> callback){
+    public interface ChatPreviewCallback { void onLoaded(List<TgMessage> messages); }
+    public void loadChatPreview(long chatId,ChatPreviewCallback callback){
         chatHistoryController.loadInitial(chatId,new TdChatHistoryController.Callback(){
             @Override public void onResult(TdApi.Object result){
                 List<TgMessage> items=new ArrayList<>();
