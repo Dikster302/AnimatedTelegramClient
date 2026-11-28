@@ -97,6 +97,14 @@ class TdLibClient(context:Context) {
    if(myUserId==userId) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
   }
  )
+ private val messageViewQueue = TdMessageViewQueue(
+  TdMessageViewQueue.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  }
+ )
  private val userActions = TdUserActionsController(
   TdUserActionsController.Requester { function, callback ->
    send(function,
@@ -246,7 +254,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { fileDownloadQueue.markCompleted(file.id); val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val mediaMessageId=mediaFileToMessage[file.id]; if(mediaMessageId!=null && activeChat!=null) { _messages.value=_messages.value.map { if(it.id==mediaMessageId) it.copy(mediaPath=file.local.path,photoPath=if(it.mediaKind=="photo") file.local.path else it.photoPath,mediaSize=file.size) else it }; mediaFileToMessage.remove(file.id) }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
-   _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
+   _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) messageViewQueue.enqueue(m.chatId,longArrayOf(m.id)) } }
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=TdMessageTextFormatter.display(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
@@ -439,7 +447,7 @@ class TdLibClient(context:Context) {
     val byId=mapped.associateBy{it.id}
     _messages.value=mapped.map { item -> if(item.replyToMessageId!=0L) item.copy(replyToText=byId[item.replyToMessageId]?.text ?: item.replyToText) else item }.sortedBy{it.date}
     val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
-    if(incomingIds.isNotEmpty()) send(TdApi.ViewMessages(id,incomingIds,null,true))
+    if(incomingIds.isNotEmpty()) messageViewQueue.enqueue(id,incomingIds)
    }
    }
    override fun onError(error:TdApi.Error) { }
@@ -552,6 +560,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){animatedMessageController.close();userFullInfoQueue.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){animatedMessageController.close();messageViewQueue.close();userFullInfoQueue.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
