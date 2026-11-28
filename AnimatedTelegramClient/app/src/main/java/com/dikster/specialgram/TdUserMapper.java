@@ -26,7 +26,7 @@ public final class TdUserMapper {
                 user.verificationStatus != null && user.verificationStatus.isVerified,
                 previous == null ? "" : safe(previous.getBio()),
                 previous == null ? "" : safe(previous.getAvatarPath()),
-                safe(user.firstName), safe(user.lastName));
+                safe(user.firstName), safe(user.lastName),previous==null?java.util.Collections.emptyList():previous.getPhotoPaths());
     }
 
     public static TgProfile updateProfile(TdApi.User user, TgProfile previous) {
