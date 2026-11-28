@@ -13,6 +13,7 @@ public final class TdLibClient implements AutoCloseable {
     private final Context app;
     private final ChatCacheRepository chatCacheRepository;
     private final AtomicBoolean chatStateInitialized = new AtomicBoolean(false);
+    private final Object chatStateLock = new Object();
     private final TdLibClientState<Auth> auth = new TdLibClientState<>(Auth.Loading);
     private final TdLibClientState<List<TgChat>> chats = new TdLibClientState<>(Collections.emptyList());
     private final TdLibClientState<List<TgMessage>> messages = new TdLibClientState<>(Collections.emptyList());
@@ -78,8 +79,9 @@ public final class TdLibClient implements AutoCloseable {
         chatCacheRepository = new ChatCacheRepository(app);
         chatCacheRepository.load(cached -> {
             // Apply the disk snapshot only if no TDLib update has arrived first.
-            if (!cached.isEmpty() && chatStateInitialized.compareAndSet(false, true)) {
-                chats.setValue(cached);
+            synchronized (chatStateLock) {
+                if (!cached.isEmpty() && chatStateInitialized.compareAndSet(false, true))
+                    chats.setValue(cached);
             }
         });
         updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
@@ -447,9 +449,11 @@ public final class TdLibClient implements AutoCloseable {
     }
 
     private void setChats(List<TgChat> value) {
-        chatStateInitialized.set(true);
         List<TgChat> snapshot = value == null ? Collections.emptyList() : value;
-        chats.setValue(snapshot);
+        synchronized (chatStateLock) {
+            chatStateInitialized.set(true);
+            chats.setValue(snapshot);
+        }
         chatCacheRepository.replaceAll(snapshot);
     }
 
