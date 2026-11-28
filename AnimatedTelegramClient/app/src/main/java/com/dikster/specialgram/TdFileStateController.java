@@ -16,6 +16,7 @@ public final class TdFileStateController {
         void setProfile(TgProfile profile);
         List<TgMessage> messages();
         void setMessages(List<TgMessage> messages);
+        void refreshCachedMessage(long chatId, long messageId);
         List<TgStory> stories();
         void setStories(List<TgStory> stories);
         TgAccount account();
@@ -65,13 +66,19 @@ public final class TdFileStateController {
         }
 
         TdPair<Long, Long> videoMessage = videoFileToMessage.remove(file.id);
-        if (videoMessage != null && isActive(videoMessage.getFirst())) {
-            updateMessage(videoMessage.getSecond(), file, false);
+        if (videoMessage != null) {
+            if (isActive(videoMessage.getFirst()))
+                updateMessage(videoMessage.getSecond(), file, false);
+            else
+                listener.refreshCachedMessage(videoMessage.getFirst(), videoMessage.getSecond());
         }
 
         TdPair<Long, Long> mediaMessage = mediaFileToMessage.remove(file.id);
-        if (mediaMessage != null && isActive(mediaMessage.getFirst())) {
-            updateMessage(mediaMessage.getSecond(), file, true);
+        if (mediaMessage != null) {
+            if (isActive(mediaMessage.getFirst()))
+                updateMessage(mediaMessage.getSecond(), file, true);
+            else
+                listener.refreshCachedMessage(mediaMessage.getFirst(), mediaMessage.getSecond());
         }
 
         TdPair<Long, Integer> storyKey = storyFileToKey.remove(file.id);
