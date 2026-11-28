@@ -17,18 +17,20 @@ public final class NativeChatSearchBarView extends LinearLayout {
     private final TextView clear;
     private Listener listener;
     private boolean changing;
+    private int textColor,mutedColor,panelColor;
 
-    public NativeChatSearchBarView(Context context,String query,Listener listener){
+    public NativeChatSearchBarView(Context context,String query,int textColor,int mutedColor,int panelColor,Listener listener){
         super(context);setOrientation(HORIZONTAL);setGravity(Gravity.CENTER_VERTICAL);
         setPadding(dp(12),dp(4),dp(8),dp(4));
-        GradientDrawable background=new GradientDrawable();background.setColor(0x1FFFFFFF);background.setCornerRadius(dp(18));setBackground(background);
-        TextView search=new TextView(context);search.setText("⌕");search.setTextColor(0xDFFFFFFF);search.setTextSize(24);
+        this.textColor=textColor;this.mutedColor=mutedColor;this.panelColor=panelColor;
+        GradientDrawable background=new GradientDrawable();background.setColor(panelColor);background.setCornerRadius(dp(18));setBackground(background);
+        TextView search=new TextView(context);search.setText("⌕");search.setTextColor(textColor);search.setTextSize(24);
         addView(search,new LayoutParams(dp(30),dp(40)));
         input=new EditText(context);input.setSingleLine(true);input.setTextSize(15);
-        input.setTextColor(Color.WHITE);input.setHintTextColor(0xBFFFFFFF);input.setHint("Поиск");
+        input.setTextColor(textColor);input.setHintTextColor(mutedColor);input.setHint("Поиск");
         input.setPadding(dp(4),0,dp(4),0);input.setBackgroundColor(Color.TRANSPARENT);
         addView(input,new LayoutParams(0,dp(42),1f));
-        clear=new TextView(context);clear.setText("✕");clear.setTextColor(0xDFFFFFFF);clear.setTextSize(16);
+        clear=new TextView(context);clear.setText("✕");clear.setTextColor(mutedColor);clear.setTextSize(16);
         clear.setGravity(Gravity.CENTER);addView(clear,new LayoutParams(dp(34),dp(40)));
         clear.setOnClickListener(v->{if(this.listener!=null)this.listener.onQuery("");});
         input.addTextChangedListener(new TextWatcher(){
@@ -45,7 +47,11 @@ public final class NativeChatSearchBarView extends LinearLayout {
     public void focusSearch(){input.requestFocus();input.setSelection(input.length());
         ((android.view.inputmethod.InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE))
                 .showSoftInput(input,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);}
-    public void update(String query,Listener callback){
+    public void update(String query,int textColor,int mutedColor,int panelColor,Listener callback){
+        this.textColor=textColor;this.mutedColor=mutedColor;this.panelColor=panelColor;
+        GradientDrawable background=new GradientDrawable();background.setColor(panelColor);background.setCornerRadius(dp(18));setBackground(background);
+        input.setTextColor(textColor);input.setHintTextColor(mutedColor);
+        clear.setTextColor(mutedColor);
         listener=callback;
         if(!query.equals(input.getText().toString())){
             changing=true;input.setText(query);input.setSelection(input.length());changing=false;
