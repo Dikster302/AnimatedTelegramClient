@@ -99,8 +99,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
     private void render(){
         removeAllViews();
-        setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{panelLayer(panelColor,0xEA),panelLayer(panelColor,0xF4)}));
+        setBackgroundColor(panelColor);
         LinearLayout page=new LinearLayout(getContext());
         page.setOrientation(LinearLayout.VERTICAL);
         addView(page,new FrameLayout.LayoutParams(-1,-1));
@@ -142,7 +141,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         LinearLayout.LayoutParams np=wrap();np.topMargin=dp(12);body.addView(nameView,np);
 
         String status=currentProfile==null?"Загружаем информацию…":currentProfile.getStatus();
-        TextView statusView=label(status,currentProfile!=null&&currentProfile.isOnline()?0xFF35C759:mutedColor,14,false);
+        TextView statusView=label(status,currentProfile!=null&&currentProfile.isOnline()?0xFF35C759:mutedColor,16,true);
         statusView.setGravity(Gravity.CENTER);
         body.addView(statusView,wrap());
 
