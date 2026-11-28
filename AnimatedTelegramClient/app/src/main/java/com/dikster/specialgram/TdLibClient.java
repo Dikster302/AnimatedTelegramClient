@@ -402,6 +402,9 @@ public final class TdLibClient implements AutoCloseable {
     public void toggleChatUnread(long id, boolean unread) { operationsController.toggleChatUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { operationsController.toggleChatMuted(id, muted); }
     public void openProfile(long id) { operationsController.openProfile(id); }
+    public void searchProfileSection(long chatId,String tab,TdChatConversationController.ProfileSectionCallback callback) {
+        operationsController.searchProfileSection(chatId,tab,callback);
+    }
     public void loadAvailableGifts(TdUserActionsController.AvailableGiftsListener callback) {
         operationsController.loadAvailableGifts(callback);
     }
