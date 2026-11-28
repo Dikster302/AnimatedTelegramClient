@@ -111,8 +111,13 @@ public final class TdContactsController {
             @Override public void onResult(TdApi.Object result) {
                 retries.remove(userId);
                 if (result instanceof TdApi.User) {
-                    synchronized (TdContactsController.this) { completedUsers.add(userId); }
+                    synchronized (TdContactsController.this) {
+                        completedUsers.add(userId);
+                        queued.remove(userId);
+                    }
                     listener.onUser((TdApi.User) result);
+                } else {
+                    synchronized (TdContactsController.this) { queued.remove(userId); }
                 }
                 completeOne(REQUEST_GAP_MS);
             }
@@ -128,9 +133,11 @@ public final class TdContactsController {
                             delay = retryDelay(error.message, attempt);
                         } else {
                             retries.remove(userId);
+                            queued.remove(userId);
                         }
                     } else {
                         retries.remove(userId);
+                        queued.remove(userId);
                     }
                 }
                 completeOne(delay);
