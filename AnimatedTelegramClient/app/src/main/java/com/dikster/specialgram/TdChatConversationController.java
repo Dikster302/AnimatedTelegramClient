@@ -151,7 +151,7 @@ public final class TdChatConversationController {
                 if (loaded.length < 50 || resolved.size() == current.size()) session.markExhausted(chatId);
             }
             @Override public void onError(TdApi.Error error) {
-                session.clearLoading(chatId);
+                session.clearLoading(chatId, generation);
             }
         });
     }
