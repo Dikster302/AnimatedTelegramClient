@@ -6,10 +6,6 @@ import org.drinkless.tdlib.TdApi
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import java.io.File
-import java.text.SimpleDateFormat
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 
 private fun TgStory.copy(path:String=this.path,isViewed:Boolean=this.isViewed):TgStory =
  TgStory(chatId,storyId,ownerName,date,caption,isVideo,path,isViewed)
@@ -531,8 +527,6 @@ fun reportOperationError(text:String) { operationErrorController.report(text) }
  fun sendPhoto(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendPhoto(chatId,path,caption) }
   fun sendDocument(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendDocument(chatId,path,caption) }
   fun sendVideo(chatId:Long,path:String,shape:String) { clearOperationError(); messageActions.sendVideo(chatId,path,shape) }
- private fun encodeVideoShape(shape:String):String = TdMessageActionsController.encodeVideoShape(shape)
- private fun decodeVideoShape(caption:String):String = TdMessageActionsController.decodeVideoShape(caption)
  fun reactToMessage(chatId:Long,messageId:Long,emoji:String) {
   clearOperationError()
   val chosen=_messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
