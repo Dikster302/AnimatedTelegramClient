@@ -42,15 +42,17 @@ public final class TdUserActionsController {
                 long userId = ((TdApi.ChatTypePrivate) chat.type).userId;
                 requester.send(new TdApi.GetUser(userId), new Callback() {
                     @Override public void onResult(TdApi.Object user) {
-                        if (user instanceof TdApi.User) listener.onUser((TdApi.User) user);
+                        if(user instanceof TdApi.User){
+                            listener.onUser((TdApi.User)user);
+                            requester.send(new TdApi.GetUserProfilePhotos(userId,0,100),new Callback(){
+                                @Override public void onResult(TdApi.Object photos){
+                                    if(photos instanceof TdApi.ChatPhotos)listener.onPhotos(userId,(TdApi.ChatPhotos)photos);
+                                }
+                                @Override public void onError(TdApi.Error error){ }
+                            });
+                        }
                     }
                     @Override public void onError(TdApi.Error error) { }
-                });
-                requester.send(new TdApi.GetUserProfilePhotos(userId,0,100),new Callback(){
-                    @Override public void onResult(TdApi.Object photos){
-                        if(photos instanceof TdApi.ChatPhotos)listener.onPhotos(userId,(TdApi.ChatPhotos)photos);
-                    }
-                    @Override public void onError(TdApi.Error error){ }
                 });
                 requester.send(new TdApi.GetUserFullInfo(userId), new Callback() {
                     @Override public void onResult(TdApi.Object info) {
