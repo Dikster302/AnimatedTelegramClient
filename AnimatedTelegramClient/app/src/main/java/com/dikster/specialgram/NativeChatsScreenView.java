@@ -172,6 +172,15 @@ public final class NativeChatsScreenView extends FrameLayout {
         }else if(chatSearch!=null&&chatSearch.getParent()==headerColumn){headerColumn.removeView(chatSearch);chatSearch=null;}
     }
 
+    private void addContentWithTransition(View child){
+        child.setAlpha(0f);
+        child.setTranslationY(dp(10));
+        contentHost.addView(child,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        child.animate().cancel();
+        child.animate().alpha(1f).translationY(0f).setDuration(190L)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.5f)).start();
+    }
+
     private NativeChatsHeaderView.Listener toolbarListener(){
         return new NativeChatsHeaderView.Listener(){
             @Override public void onSelectTab(int tab){selectedTab=tab;update(state,listener);}
@@ -190,7 +199,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private void renderChats(){
         if(listColumn==null){
             listColumn=new LinearLayout(getContext());listColumn.setOrientation(LinearLayout.VERTICAL);
-            contentHost.addView(listColumn,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+            addContentWithTransition(listColumn);
         }
         if(!"Архив".equals(folder)){
             if(storyStrip==null){
@@ -234,7 +243,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         if(contactsPanel==null){
             contactsPanel=new NativeContactsPanel(getContext(),filtered,state.contactsQuery,state.background,
                     state.text,state.muted,state.accent,state.panelLight,contactsListener());
-            contentHost.addView(contactsPanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+            addContentWithTransition(contactsPanel);
         }else contactsPanel.update(filtered,state.contactsQuery,state.background,state.text,state.muted,
                 state.accent,state.panelLight,contactsListener());
     }
@@ -246,7 +255,7 @@ public final class NativeChatsScreenView extends FrameLayout {
                     state.fontScale,state.accentName,state.bubbleRadius,state.wallpaperName,state.compactChats,
                     state.headerWallpaper,state.background,state.panel,state.text,state.muted,state.accent,
                     state.panelLight,settingsListener());
-            contentHost.addView(settingsPanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+            addContentWithTransition(settingsPanel);
         }else settingsPanel.update(state.account,state.operationError,state.privacyLastSeen,state.privacyPhone,
                 state.privacyPhoto,state.themeName,state.glass,state.fontScale,state.accentName,state.bubbleRadius,
                 state.wallpaperName,state.compactChats,state.headerWallpaper,state.background,state.panel,
@@ -343,7 +352,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         edit.setOnClickListener(v->{selectedTab=2;update(state,listener);if(settingsPanel!=null)settingsPanel.openAccountPage();});
         android.widget.ScrollView profileScroll=new android.widget.ScrollView(getContext());
         profileScroll.setFillViewport(true);profileScroll.addView(profilePanel);
-        contentHost.addView(profileScroll,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        addContentWithTransition(profileScroll);
     }
 
 
@@ -407,7 +416,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         message.setTextColor(state.muted);message.setTextSize(14);message.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
         mp.topMargin=dp(8);callsPanel.addView(message,mp);
-        contentHost.addView(callsPanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        addContentWithTransition(callsPanel);
     }
 
     private void renderBottomNavigation(){
