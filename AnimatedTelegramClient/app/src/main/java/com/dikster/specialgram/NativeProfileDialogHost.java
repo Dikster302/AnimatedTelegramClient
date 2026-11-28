@@ -266,7 +266,10 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
     private void showQr(){
         String username=currentProfile==null?"":currentProfile.getUsername();
-        String address=!empty(username)?"https://t.me/"+username:"tg://user?id="+currentChat.getId();
+        String address=!empty(username)?"https://t.me/"+username:
+                currentProfile!=null&&currentProfile.getUserId()>0
+                        ?"tg://user?id="+currentProfile.getUserId()
+                        :"tg://openmessage?chat_id="+currentChat.getId();
         Bitmap bitmap=makeQr(address);
         if(bitmap==null){Toast.makeText(getContext(),"Не удалось создать QR-код",Toast.LENGTH_SHORT).show();return;}
         Dialog qrDialog=new Dialog(getContext());
@@ -288,7 +291,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         image.setPadding(dp(20),dp(20),dp(20),dp(20));image.setBackground(round(Color.WHITE,dp(22)));
         LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(-1,dp(280));
         ip.topMargin=dp(12);page.addView(image,ip);
-        TextView handle=label("@"+(empty(username)?"user"+currentChat.getId():username),Color.BLACK,25,true);
+        TextView handle=label(empty(username)?"ID · "+currentChat.getId():"@"+username,Color.BLACK,25,true);
         handle.setGravity(Gravity.CENTER);
         handle.setPadding(dp(12),dp(20),dp(12),dp(20));
         handle.setBackground(round(Color.WHITE,dp(22)));
@@ -305,7 +308,8 @@ public final class NativeProfileDialogHost extends FrameLayout {
         save.setOnClickListener(v->saveQr(bitmap));
         Window w=qrDialog.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
             w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(0xF2171C22);}
+            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(0xF2171C22);
+            w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);}
         qrDialog.show();
         if(w!=null)w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
     }
