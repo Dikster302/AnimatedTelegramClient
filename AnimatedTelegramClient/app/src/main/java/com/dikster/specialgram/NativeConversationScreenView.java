@@ -19,6 +19,7 @@ public final class NativeConversationScreenView extends FrameLayout {
         void onCloseProfile();
         void onToggleMute(TgChat chat, boolean muted);
         void onOpenGiftCatalog(TgProfile profile);
+        void onLoadProfileSection(TgChat chat,String tab,NativeProfileDialogHost.SectionCallback callback);
         void onBack();
         void onSend(String text,boolean animated,Long replyToMessageId);
         void onDeleteMessage(TgMessage message,boolean forEveryone);
@@ -239,6 +240,10 @@ public final class NativeConversationScreenView extends FrameLayout {
                 }
                 @Override public void onOpenGiftCatalog(TgProfile value){
                     if(listener!=null)listener.onOpenGiftCatalog(value);
+                }
+                @Override public void onLoadProfileSection(TgChat value,String tab,NativeProfileDialogHost.SectionCallback callback){
+                    if(listener!=null)listener.onLoadProfileSection(value,tab,callback);
+                    else if(callback!=null)callback.onResult(Collections.emptyList());
                 }
             });
             addView(profileHost,new FrameLayout.LayoutParams(dp(1),dp(1)));
