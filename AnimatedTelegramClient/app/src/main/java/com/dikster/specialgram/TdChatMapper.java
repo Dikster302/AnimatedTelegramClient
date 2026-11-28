@@ -10,6 +10,10 @@ public final class TdChatMapper {
         TdApi.Message last = chat.lastMessage;
         String preview = last == null ? "" : TdMessageTextFormatter.preview(last.content);
         String avatar = previous == null ? "" : previous.getAvatarPath();
+        if (avatar.isEmpty() && chat.photo != null && chat.photo.small != null
+                && chat.photo.small.local != null) {
+            avatar = chat.photo.small.local.path == null ? "" : chat.photo.small.local.path;
+        }
         String status = previous == null ? "" : previous.getStatus();
         boolean online = previous != null && previous.isOnline();
         boolean premium = previous != null && previous.isPremium();
