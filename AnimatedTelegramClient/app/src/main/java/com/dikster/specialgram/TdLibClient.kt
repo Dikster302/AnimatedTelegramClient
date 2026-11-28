@@ -3,7 +3,6 @@ import android.content.Context
 import android.os.Build
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
@@ -92,6 +91,10 @@ class TdLibClient(context:Context) {
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
+ private val operationErrorController = TdOperationErrorController(object : TdOperationErrorController.Listener {
+  override fun onOperationError(message:String) { _operationError.value=message }
+  override fun onClearOperationError() { _operationError.value=null }
+ })
  private val client=Client.create(
   { o -> onUpdate(o) },
   { e ->
@@ -546,20 +549,14 @@ class TdLibClient(context:Context) {
   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(lastReadOutboxMessageId=lastReadId) else it }
   if(activeChat==chatId) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=lastReadId) else m }
  }
- fun clearOperationError() { _operationError.value=null }
+ fun clearOperationError() { operationErrorController.clear() }
   fun updateMyProfile(firstName:String,lastName:String,bio:String) {
   accountActions.updateProfile(firstName,lastName,bio,myUserId ?: 0L)
  }
  fun setMyProfilePhoto(path:String) {
   accountActions.setProfilePhoto(path,myUserId ?: 0L)
  }
-fun reportOperationError(text:String) {
-  FirebaseCrashlytics.getInstance().apply {
-   setCustomKey("operation_error_source", "local_ui_or_media")
-   recordException(IllegalStateException("Local media or UI operation failed"))
-  }
-  _operationError.value=text
- }
+fun reportOperationError(text:String) { operationErrorController.report(text) }
  fun sendPhoto(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendPhoto(chatId,path,caption) }
   fun sendDocument(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendDocument(chatId,path,caption) }
   fun sendVideo(chatId:Long,path:String,shape:String) { clearOperationError(); messageActions.sendVideo(chatId,path,shape) }
