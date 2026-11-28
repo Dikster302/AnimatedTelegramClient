@@ -99,7 +99,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
     private void render(){
         removeAllViews();
-        setBackgroundColor(panelColor);
+        setBackgroundColor(panelColor | 0xFF000000);
         LinearLayout page=new LinearLayout(getContext());
         page.setOrientation(LinearLayout.VERTICAL);
         addView(page,new FrameLayout.LayoutParams(-1,-1));
