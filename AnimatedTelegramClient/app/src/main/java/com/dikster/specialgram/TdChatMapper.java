@@ -9,7 +9,6 @@ public final class TdChatMapper {
     public static TgChat map(TdApi.Chat chat, boolean archived, TgChat previous) {
         TdApi.Message last = chat.lastMessage;
         String preview = last == null ? "" : TdMessageTextFormatter.preview(last.content);
-        int photoId = chat.photo == null || chat.photo.small == null ? 0 : chat.photo.small.id;
         String avatar = previous == null ? "" : previous.getAvatarPath();
         String status = previous == null ? "" : previous.getStatus();
         boolean online = previous != null && previous.isOnline();
@@ -18,17 +17,24 @@ public final class TdChatMapper {
         boolean hasUnviewed = previous != null && previous.getHasUnviewedStory();
         boolean mainPinned = false, archivePinned = false;
         boolean hasMainPosition = false, hasArchivePosition = false;
+        long mainOrder = 0L, archiveOrder = 0L;
         if (chat.positions != null) for (TdApi.ChatPosition position : chat.positions) {
             if (position.list instanceof TdApi.ChatListMain) {
                 hasMainPosition = true;
                 mainPinned = position.isPinned;
+                mainOrder = position.order;
             } else if (position.list instanceof TdApi.ChatListArchive) {
                 hasArchivePosition = true;
                 archivePinned = position.isPinned;
+                archiveOrder = position.order;
             }
         }
         boolean isArchived = hasMainPosition || hasArchivePosition
                 ? hasArchivePosition && !hasMainPosition : archived;
+        long pinnedOrder = isArchived ? archiveOrder : mainOrder;
+        if (pinnedOrder == 0L && previous != null && previous.isPinned()) {
+            pinnedOrder = previous.getPinnedOrder();
+        }
         String kind;
         if (chat.type instanceof TdApi.ChatTypePrivate) kind = "Личный чат";
         else if (chat.type instanceof TdApi.ChatTypeBasicGroup) kind = "Группа";
@@ -41,7 +47,8 @@ public final class TdChatMapper {
                 chat.unreadCount, avatar, kind, isArchived, status, online, premium,
                 chat.lastReadOutboxMessageId, hasStory, hasUnviewed,
                 mainPinned || archivePinned, chat.isMarkedAsUnread,
-                chat.notificationSettings != null && chat.notificationSettings.muteFor > 0);
+                chat.notificationSettings != null && chat.notificationSettings.muteFor > 0,
+                pinnedOrder);
     }
 
     public static String profileKind(TdApi.ChatType type) {
