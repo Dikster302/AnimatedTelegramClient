@@ -155,7 +155,7 @@ public final class NativeChatRowView extends LinearLayout {
             unread.setVisibility(VISIBLE);
             unread.setText(value.getUnreadCount() > 99 ? "99+" : String.valueOf(value.getUnreadCount()));
             GradientDrawable badge = new GradientDrawable();
-            badge.setColor(accentColor);
+            badge.setColor(value.isMuted()?mutedColor:accentColor);
             badge.setCornerRadius(dp(20));
             unread.setBackground(badge);
             if (appeared) SpecialgramAnimations.animateCounterIn(unread);
