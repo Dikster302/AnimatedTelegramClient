@@ -90,6 +90,16 @@ public final class ChatCacheRepository implements AutoCloseable {
         execute(() -> database.chatDao().deleteMessages(chatId, ids));
     }
 
+    /** Атомарно заменяет временный ID отправки на подтверждённый TDLib ID. */
+    public void replaceMessageId(long chatId, long oldMessageId, TgMessage confirmedMessage) {
+        if (closed.get() || confirmedMessage == null) return;
+        MessageEntity row = MessageEntity.from(chatId, confirmedMessage);
+        execute(() -> database.runInTransaction(() -> {
+            database.chatDao().deleteMessages(chatId, Collections.singletonList(oldMessageId));
+            database.chatDao().upsertMessages(Collections.singletonList(row));
+        }));
+    }
+
     public void clearMessages(long chatId) {
         if (closed.get()) return;
         execute(() -> database.chatDao().clearMessages(chatId));
