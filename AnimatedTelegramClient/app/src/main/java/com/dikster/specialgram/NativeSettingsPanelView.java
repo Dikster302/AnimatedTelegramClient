@@ -360,7 +360,7 @@ public final class NativeSettingsPanelView extends LinearLayout {
             }
             if(listener!=null)listener.onSaveMyProfile(firstName,
                     last.getText().toString().trim(),
-                    bioInput.getText().toString().replace("\\n"," ").trim());
+                    bioInput.getText().toString().replace("\n"," ").trim());
         });
         save.setAllCaps(false);
         LinearLayout.LayoutParams saveParams=match();
