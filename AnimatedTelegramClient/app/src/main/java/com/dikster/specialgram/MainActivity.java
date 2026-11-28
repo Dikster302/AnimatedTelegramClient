@@ -81,7 +81,7 @@ public final class MainActivity extends Activity {
             // При открытой клавиатуре поднимаем весь экран чата вместе с composer.
             // Учитываем нижнюю системную панель, когда клавиатура закрыта.
             int bottom=Math.max(navigationBottom,imeBottom);
-            view.setPadding(0,top,bottom>0?0:0,bottom);
+            view.setPadding(0,top,0,bottom);
             return insets;
         });
         setContentView(root);
