@@ -5,12 +5,14 @@ import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import com.dikster.specialgram.data.ChatCacheRepository;
 
 /** Native Java TDLib client: owns state, update routing, request dispatch and all controllers. */
 public final class TdLibClient implements AutoCloseable {
     private final Context app;
     private final ChatCacheRepository chatCacheRepository;
+    private final AtomicBoolean chatStateInitialized = new AtomicBoolean(false);
     private final TdLibClientState<Auth> auth = new TdLibClientState<>(Auth.Loading);
     private final TdLibClientState<List<TgChat>> chats = new TdLibClientState<>(Collections.emptyList());
     private final TdLibClientState<List<TgMessage>> messages = new TdLibClientState<>(Collections.emptyList());
@@ -75,8 +77,10 @@ public final class TdLibClient implements AutoCloseable {
         app = context.getApplicationContext();
         chatCacheRepository = new ChatCacheRepository(app);
         chatCacheRepository.load(cached -> {
-            // Never let a late disk read overwrite a newer TDLib snapshot.
-            if (chats.getValue().isEmpty() && !cached.isEmpty()) setChats(cached);
+            // Apply the disk snapshot only if no TDLib update has arrived first.
+            if (!cached.isEmpty() && chatStateInitialized.compareAndSet(false, true)) {
+                chats.setValue(cached);
+            }
         });
         updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
         final TdStoryStateController[] storyStateRef = new TdStoryStateController[1];
@@ -379,6 +383,7 @@ public final class TdLibClient implements AutoCloseable {
     }
 
     private void setChats(List<TgChat> value) {
+        chatStateInitialized.set(true);
         List<TgChat> snapshot = value == null ? Collections.emptyList() : value;
         chats.setValue(snapshot);
         chatCacheRepository.replaceAll(snapshot);
