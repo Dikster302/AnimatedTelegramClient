@@ -1,16 +1,10 @@
 name: Build Android APK
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - feature/native-android-core
-    paths:
-      - '.github/workflows/build-apk.yml'
 permissions:
   contents: read
 jobs:
   build:
-    if: ${{ !contains(github.event.head_commit.message, 'Disable temporary APK auto-build') }}
     runs-on: ubuntu-22.04
     timeout-minutes: 180
     steps:
