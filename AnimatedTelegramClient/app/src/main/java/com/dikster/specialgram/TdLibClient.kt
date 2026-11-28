@@ -75,6 +75,22 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val storyActions = TdStoryActionsController(
+  TdStoryActionsController.Requester { function, callback ->
+   send(function,
+    handler={ callback?.onResult(it) },
+    onError={ callback?.onError(it) },
+    reportErrorToUi=false)
+  },
+  object : TdStoryActionsController.Listener {
+   override fun onStoryPosted(story:TdApi.Story) {
+    updateStory(story,false)
+    val userId=myUserId
+    if(userId!=null) _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
+   }
+   override fun onValidationError(message:String) { reportOperationError(message) }
+  }
+ )
  private val messageActions = TdMessageActionsController(
   TdMessageActionsController.Requester { function, callback ->
    send(function,
@@ -308,42 +324,24 @@ class TdLibClient(context:Context) {
   }
  }
  fun openStory(chatId:Long,storyId:Int) {
-  send(TdApi.OpenStory(chatId,storyId))
+  storyActions.open(chatId,storyId)
   _stories.value=_stories.value.map { if(it.chatId==chatId && it.storyId==storyId) it.copy(isViewed=true) else it }
   val hasUnviewed=_stories.value.any { it.chatId==chatId && !it.isViewed }
   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(hasUnviewedStory=hasUnviewed) else it }
  }
- fun closeStory(chatId:Long,storyId:Int) { send(TdApi.CloseStory(chatId,storyId)) }
- fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") {
-  send(TdApi.SetStoryReaction(chatId,storyId,TdApi.ReactionTypeEmoji(emoji),true))
- }
+ fun closeStory(chatId:Long,storyId:Int) { storyActions.close(chatId,storyId) }
+ fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") { storyActions.react(chatId,storyId,emoji) }
  fun postPhotoStory(path:String,caption:String="") {
   clearOperationError()
   val userId=myUserId
   if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
-  val content=TdApi.InputStoryContentPhoto(TdApi.InputFileLocal(path),intArrayOf())
-  val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
-  val text=caption.trim().takeIf { it.isNotBlank() }?.let { TdApi.FormattedText(it,null) }
-  send(TdApi.PostStory(userId,content,null,text,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
-   if(result is TdApi.Story) {
-    updateStory(result,false)
-    _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
-   }
-  }
+  storyActions.postPhoto(userId,path,caption)
  }
  fun postVideoStory(path:String,duration:Double) {
   clearOperationError()
   val userId=myUserId
   if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
-  if(duration<=0.0 || duration>60.0) { reportOperationError("Длительность видеоистории должна быть от 1 до 60 секунд"); return }
-  val content=TdApi.InputStoryContentVideo(TdApi.InputFileLocal(path),intArrayOf(),duration,0.0,false)
-  val privacy=TdApi.StoryPrivacySettingsContacts(longArrayOf())
-  send(TdApi.PostStory(userId,content,null,null,null,privacy,intArrayOf(),86400,null,false,false)) { result ->
-   if(result is TdApi.Story) {
-    updateStory(result,false)
-    _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
-   }
-  }
+  storyActions.postVideo(userId,path,duration)
  }
  private fun toTgReactions(info:TdApi.MessageInteractionInfo?):List<TgReaction> {
    val items=info?.reactions?.reactions ?: return emptyList()
