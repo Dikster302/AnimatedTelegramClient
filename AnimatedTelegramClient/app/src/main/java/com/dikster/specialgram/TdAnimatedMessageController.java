@@ -19,7 +19,7 @@ public final class TdAnimatedMessageController implements AutoCloseable {
         void onTextProgress(long chatId, long messageId, String text);
     }
 
-    private static final long STEP_DELAY_MS = 180L;
+    private static final long STEP_DELAY_MS = 50L;
     private final Requester requester;
     private final TextProgressListener progressListener;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(task -> {
