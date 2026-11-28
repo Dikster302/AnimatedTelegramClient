@@ -54,6 +54,18 @@ public final class TdUserActionsController {
     }
 
     public void createBasicGroup(long[] userIds, String title, Callback callback) {
-        requester.send(new TdApi.CreateNewBasicGroupChat(userIds, title), callback);
+        requester.send(new TdApi.CreateNewBasicGroupChat(userIds, title, 0), new Callback() {
+            @Override public void onResult(TdApi.Object result) {
+                if (!(result instanceof TdApi.CreatedBasicGroupChat)) {
+                    if (callback != null) callback.onError(new TdApi.Error(500, "Unexpected group creation response"));
+                    return;
+                }
+                long chatId = ((TdApi.CreatedBasicGroupChat) result).chatId;
+                requester.send(new TdApi.GetChat(chatId), callback);
+            }
+            @Override public void onError(TdApi.Error error) {
+                if (callback != null) callback.onError(error);
+            }
+        });
     }
 }
