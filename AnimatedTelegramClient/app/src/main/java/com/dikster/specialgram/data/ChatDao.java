@@ -17,4 +17,16 @@ public interface ChatDao {
 
     @Query("DELETE FROM cached_chats")
     void deleteAll();
+
+    @Query("SELECT * FROM cached_messages WHERE chatId = :chatId ORDER BY date ASC, messageId ASC")
+    List<MessageEntity> getMessages(long chatId);
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void upsertMessages(List<MessageEntity> messages);
+
+    @Query("DELETE FROM cached_messages WHERE chatId = :chatId AND messageId IN (:messageIds)")
+    void deleteMessages(long chatId, List<Long> messageIds);
+
+    @Query("DELETE FROM cached_messages WHERE chatId = :chatId")
+    void clearMessages(long chatId);
 }
