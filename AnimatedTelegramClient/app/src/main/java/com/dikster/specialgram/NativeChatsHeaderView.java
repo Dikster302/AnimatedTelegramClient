@@ -15,6 +15,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         void onSelectTab(int tab);
         void onSort(boolean newestFirst);
         void onToggleUnread();
+        void onSearch();
     }
     private final TextView menuButton, title, subtitle, searchButton;
     private Listener listener;
@@ -38,7 +39,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         searchButton=text(context,"⌕",Color.WHITE,25,false);searchButton.setGravity(Gravity.CENTER);
         addView(searchButton,new LayoutParams(dp(42),dp(42)));
         menuButton.setOnClickListener(this::showMenu);
-        searchButton.setOnClickListener(this::showMenu);
+        searchButton.setOnClickListener(v->{if(listener!=null)listener.onSearch();});
         update(tab,count,unread,newest,textColor,listener);
     }
 
@@ -46,6 +47,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         selectedTab=tab;chatCount=count;unreadOnly=unread;newestFirst=newest;listener=callback;
         title.setText(tab==2?"Настройки":tab==1?"Контакты":"Specialgram");
         subtitle.setText(tab==0?count+" диалогов":"Specialgram · Telegram");
+        searchButton.setVisibility(tab==0?VISIBLE:GONE);
     }
 
     private void showMenu(View anchor) {

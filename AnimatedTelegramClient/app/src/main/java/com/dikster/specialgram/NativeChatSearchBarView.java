@@ -42,6 +42,9 @@ public final class NativeChatSearchBarView extends LinearLayout {
         });
         update(query,listener);
     }
+    public void focusSearch(){input.requestFocus();input.setSelection(input.length());
+        ((android.view.inputmethod.InputMethodManager)getContext().getSystemService(Context.INPUT_METHOD_SERVICE))
+                .showSoftInput(input,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);}
     public void update(String query,Listener callback){
         listener=callback;
         if(!query.equals(input.getText().toString())){

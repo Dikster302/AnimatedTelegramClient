@@ -36,7 +36,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -305,12 +304,14 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     var selectedTab by remember { mutableStateOf(0) }
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
+    val searchBarRef = remember { mutableStateOf<NativeChatSearchBarView?>(null) }
     val sortAction = onSort
     val chatsHeaderListener = remember(sortAction) {
         object : NativeChatsHeaderView.Listener {
             override fun onSelectTab(tab: Int) { selectedTab = tab }
             override fun onSort(newestFirst: Boolean) { sortAction(newestFirst); selectedTab = 0 }
             override fun onToggleUnread() { unreadOnly = !unreadOnly; selectedTab = 0 }
+            override fun onSearch() { if (selectedTab != 0) selectedTab = 0 else searchBarRef.value?.focusSearch() }
         }
     }
     var folder by remember { mutableStateOf("Все") }
@@ -353,8 +354,8 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     AndroidView(
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)
                             .height(50.dp),
-                        factory = { context -> NativeChatSearchBarView(context, query, searchListener) },
-                        update = { view -> view.update(query, searchListener) }
+                        factory = { context -> NativeChatSearchBarView(context, query, searchListener).also { searchBarRef.value = it } },
+                        update = { view -> searchBarRef.value = view; view.update(query, searchListener) }
                     )
                 }
             }
@@ -837,27 +838,6 @@ private fun ConversationScreen(
             delay(350)
             onSearchMessages(messageSearchQuery.trim())
         } else onSearchMessages("")
-    }
-    val listState = rememberLazyListState()
-    var hasScrolledAwayFromBottom by remember(chat.id) { mutableStateOf(false) }
-    LaunchedEffect(chat.id, listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }.collect { firstVisible ->
-            if (firstVisible > 2) hasScrolledAwayFromBottom = true
-            else if (hasScrolledAwayFromBottom && !messageSearchOpen) {
-                hasScrolledAwayFromBottom = false
-                onLoadOlderMessages()
-            }
-        }
-    }
-    val scope = rememberCoroutineScope()
-    LaunchedEffect(orderedMessages.lastOrNull()?.id, messageSearchOpen, messageSearchQuery) {
-        if (!messageSearchOpen && orderedMessages.isNotEmpty()) listState.animateScrollToItem(orderedMessages.lastIndex)
-    }
-    LaunchedEffect(visibleMessages, messageSearchIndex, messageSearchOpen) {
-        if (messageSearchOpen && visibleMessages.isNotEmpty()) {
-            messageSearchIndex = messageSearchIndex.coerceIn(0, visibleMessages.lastIndex)
-            listState.animateScrollToItem(messageSearchIndex)
-        }
     }
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
         if (showVideoShapePicker) AlertDialog(
