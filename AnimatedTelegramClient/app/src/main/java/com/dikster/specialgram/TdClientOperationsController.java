@@ -88,6 +88,9 @@ public final class TdClientOperationsController {
     public void toggleChatUnread(long id, boolean unread) { chatActions.toggleUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { chatActions.toggleMuted(id, muted); }
     public void openProfile(long chatId) { profile.openProfile(chatId); }
+    public void searchProfileSection(long chatId,String tab,TdChatConversationController.ProfileSectionCallback callback) {
+        conversation.searchProfileSection(chatId,tab,callback);
+    }
     public void loadAvailableGifts(TdUserActionsController.AvailableGiftsListener callback) {
         userActions.loadAvailableGifts(callback);
     }
