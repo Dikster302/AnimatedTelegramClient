@@ -17,10 +17,18 @@ public final class TdChatMapper {
         boolean hasStory = previous != null && previous.getHasStory();
         boolean hasUnviewed = previous != null && previous.getHasUnviewedStory();
         boolean mainPinned = false, archivePinned = false;
+        boolean hasMainPosition = false, hasArchivePosition = false;
         if (chat.positions != null) for (TdApi.ChatPosition position : chat.positions) {
-            if (position.list instanceof TdApi.ChatListMain) mainPinned = position.isPinned;
-            else if (position.list instanceof TdApi.ChatListArchive) archivePinned = position.isPinned;
+            if (position.list instanceof TdApi.ChatListMain) {
+                hasMainPosition = true;
+                mainPinned = position.isPinned;
+            } else if (position.list instanceof TdApi.ChatListArchive) {
+                hasArchivePosition = true;
+                archivePinned = position.isPinned;
+            }
         }
+        boolean isArchived = hasMainPosition || hasArchivePosition
+                ? hasArchivePosition && !hasMainPosition : archived;
         String kind;
         if (chat.type instanceof TdApi.ChatTypePrivate) kind = "Личный чат";
         else if (chat.type instanceof TdApi.ChatTypeBasicGroup) kind = "Группа";
@@ -30,7 +38,7 @@ public final class TdChatMapper {
         else kind = "Чат";
 
         return new TgChat(chat.id, safe(chat.title), preview, last == null ? 0 : last.date,
-                chat.unreadCount, avatar, kind, archived, status, online, premium,
+                chat.unreadCount, avatar, kind, isArchived, status, online, premium,
                 chat.lastReadOutboxMessageId, hasStory, hasUnviewed,
                 mainPinned || archivePinned, chat.isMarkedAsUnread,
                 chat.notificationSettings != null && chat.notificationSettings.muteFor > 0);
