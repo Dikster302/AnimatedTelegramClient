@@ -31,14 +31,15 @@ public final class DiagnosticsJournal {
             File file = new File(context.getApplicationContext().getFilesDir(), FILE_NAME);
             List<String> lines = new ArrayList<>();
             if (file.isFile()) {
-                byte[] bytes = readAll(file);
-                String[] parts = new String(bytes, StandardCharsets.UTF_8).split("\\r?\\n");
+                String[] parts = new String(readAll(file), StandardCharsets.UTF_8).split("\\r?\\n");
                 int start = Math.max(0, parts.length - (MAX_LINES - 1));
                 for (int i = start; i < parts.length; i++) if (!parts[i].isEmpty()) lines.add(parts[i]);
             }
             lines.add(timestamp + " | TDLib | " + safeRequest + " | code=" + code + detail);
             if (lines.size() > MAX_LINES) lines = lines.subList(lines.size() - MAX_LINES, lines.size());
-            writeAll(file, (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
+            StringBuilder output = new StringBuilder();
+            for (String line : lines) output.append(line).append('\n');
+            writeAll(file, output.toString().getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) { }
     }
 
