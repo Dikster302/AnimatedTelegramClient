@@ -142,7 +142,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         }else wallpaperView.update(selectedTab==0?state.headerWallpaper:null,state.panel);
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
-                    state.sortNewest,Color.WHITE,new NativeChatsHeaderView.Listener(){
+                    state.sortNewest,Color.WHITE,state.account,new NativeChatsHeaderView.Listener(){
                 @Override public void onSelectTab(int tab){selectedTab=tab;update(state,listener);}
                 @Override public void onSort(boolean newestFirst){if(listener!=null)listener.onSort(newestFirst);selectedTab=0;update(state,listener);}
                 @Override public void onToggleUnread(){unreadOnly=!unreadOnly;update(state,listener);}
@@ -152,7 +152,7 @@ public final class NativeChatsScreenView extends FrameLayout {
                 }
             });
             headerColumn.addView(toolbar,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
-        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,Color.WHITE,toolbarListener());
+        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,Color.WHITE,state.account,toolbarListener());
         if(selectedTab==0){
             if(chatSearch==null){
                 chatSearch=new NativeChatSearchBarView(getContext(),state.query,value->{if(listener!=null)listener.onQuery(value);});
