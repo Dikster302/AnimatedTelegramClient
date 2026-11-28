@@ -27,6 +27,7 @@ public final class NativeEntryPanel extends LinearLayout {
     private Consumer<String> valueListener;
     private Runnable submitListener;
     private boolean changingText;
+    private Boolean secretMode;
 
     public NativeEntryPanel(Context context, String title, String subtitle, String value,
                             String buttonText, boolean secret, int backgroundColor,
@@ -41,6 +42,7 @@ public final class NativeEntryPanel extends LinearLayout {
 
         logo = new ImageView(context);
         logo.setImageResource(R.drawable.ic_launcher_foreground);
+        logo.setContentDescription("Specialgram");
         logo.setScaleType(ImageView.ScaleType.FIT_CENTER);
         LayoutParams logoParams = new LayoutParams(dp(context, 92), dp(context, 92));
         addView(logo, logoParams);
@@ -104,9 +106,12 @@ public final class NativeEntryPanel extends LinearLayout {
         input.setTextColor(textColor);
         input.setHintTextColor(mutedColor);
         input.setHint(" ");
-        input.setInputType(secret
-                ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
-                : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        if (secretMode == null || secretMode.booleanValue() != secret) {
+            input.setInputType(secret
+                    ? InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
+                    : InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+            secretMode = secret;
+        }
         GradientDrawable fieldBackground = new GradientDrawable();
         fieldBackground.setColor(Color.TRANSPARENT);
         fieldBackground.setCornerRadius(dp(getContext(), 12));

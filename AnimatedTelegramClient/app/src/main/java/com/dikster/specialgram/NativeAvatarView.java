@@ -43,7 +43,6 @@ public final class NativeAvatarView extends View {
     public NativeAvatarView(Context context, String path, String fallback, long id, int size,
                             boolean online, boolean hasStory, boolean storyViewed, int panelColor) {
         super(context);
-        setLayerType(View.LAYER_TYPE_SOFTWARE, null);
         update(path, fallback, id, size, online, hasStory, storyViewed, panelColor);
     }
 
