@@ -15,7 +15,7 @@ import android.widget.TextView;
 public final class NativeChatFoldersView extends HorizontalScrollView {
     public interface Listener { void onSelect(String folder); }
 
-    private static final String[] FOLDERS={"Все","Личные","Группы","Каналы","Архив"};
+    private static final String[] FOLDERS={"Все чаты"};
     private String selected="Все";
     private int textColor,mutedColor,accentColor;
     private Listener listener;
@@ -25,20 +25,21 @@ public final class NativeChatFoldersView extends HorizontalScrollView {
             Listener listener){
         super(context);
         setHorizontalScrollBarEnabled(false);
-        setFillViewport(false);
+        setFillViewport(true);
         setOverScrollMode(OVER_SCROLL_NEVER);
         setClipToPadding(false);
         content=new LinearLayout(context);
         content.setOrientation(LinearLayout.HORIZONTAL);
         content.setGravity(Gravity.CENTER_VERTICAL);
         content.setPadding(dp(8),dp(2),dp(8),dp(2));
-        addView(content,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+        content.setGravity(Gravity.CENTER);
+        addView(content,new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
         update(selected,text,muted,accent,listener);
     }
 
     public void update(String value,int text,int muted,int accent,Listener callback){
         listener=callback;
-        String next=value==null?"Все":value;
+        String next=value==null||value.trim().isEmpty()?"Все чаты":value;
         if(selected.equals(next)&&textColor==text&&mutedColor==muted&&accentColor==accent){
             revealSelected();
             return;
@@ -53,7 +54,7 @@ public final class NativeChatFoldersView extends HorizontalScrollView {
             LinearLayout item=new LinearLayout(getContext());
             item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER_HORIZONTAL);
-            item.setMinimumWidth(dp(76));
+            item.setMinimumWidth(dp(112));
             item.setPadding(dp(10),dp(7),dp(10),dp(7));
             item.setBackground(new RippleDrawable(
                     ColorStateList.valueOf(0x2233B5E5),rounded(0x00000000,dp(12)),null));
