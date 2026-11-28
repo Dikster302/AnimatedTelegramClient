@@ -36,14 +36,25 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
-      - name: Build APK
+      - name: Prepare persistent release signing key
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64 repository secret"; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/specialgram-release.jks"
+          test -s "$RUNNER_TEMP/specialgram-release.jks"
+      - name: Build signed update APK
         working-directory: AnimatedTelegramClient
         env:
           TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
           TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
-        run: gradle --no-daemon assembleDebug
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/specialgram-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: gradle --no-daemon assembleRelease
       - uses: actions/upload-artifact@v4
         with:
-          name: AnimatedTelegramClient-debug
-          path: AnimatedTelegramClient/app/build/outputs/apk/debug/app-debug.apk
+          name: Specialgram-update
+          path: AnimatedTelegramClient/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
