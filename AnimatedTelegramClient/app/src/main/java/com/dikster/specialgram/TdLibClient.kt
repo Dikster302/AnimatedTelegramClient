@@ -97,7 +97,7 @@ class TdLibClient(context:Context) {
    profileController.updateUser(user)
    _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
    _contacts.value=TdUserStateController.updateContact(_contacts.value,user)
-   if(myUserId==user.id) updateAccount(user)
+   if(myUserId==user.id) accountStateController.updateAccount(user)
   }
  })
  private val operationErrorController = TdOperationErrorController(object : TdOperationErrorController.Listener {
@@ -132,6 +132,14 @@ class TdLibClient(context:Context) {
    if(myUserId==userId) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
   }
  )
+ private val accountStateController = TdAccountStateController(object : TdAccountStateController.Listener {
+  override fun account():TgAccount? = _account.value
+  override fun setAccount(account:TgAccount?) { _account.value=account }
+  override fun setMyUserId(userId:Long) { myUserId=userId }
+  override fun setMyPhotoFileId(fileId:Int?) { myPhotoFileId=fileId }
+  override fun enqueueUserFullInfo(userId:Long) { userFullInfoQueue.enqueue(userId) }
+  override fun enqueueFileDownload(fileId:Int) { fileDownloadQueue.enqueue(fileId) }
+ })
  private val messageViewQueue = TdMessageViewQueue(
   TdMessageViewQueue.Requester { function, callback ->
    send(function,
@@ -166,7 +174,7 @@ class TdLibClient(context:Context) {
     onError={ callback.onError(it) })
   },
   object : TdAccountActionsController.Listener {
-   override fun onAccountUser(user:TdApi.User) { updateAccount(user) }
+   override fun onAccountUser(user:TdApi.User) { accountStateController.updateAccount(user) }
    override fun onBioUpdated(bio:String) { _account.value=_account.value?.copy(bio=bio) }
    override fun onValidationError(message:String) { _operationError.value=message }
   }
@@ -358,7 +366,7 @@ class TdLibClient(context:Context) {
     loadChats()
     loadContacts()
     loadPrivacySettings()
-    send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) }
+    send(TdApi.GetMe()) { me -> if(me is TdApi.User) accountStateController.updateAccount(me) }
    }
   }
  )
@@ -376,14 +384,6 @@ class TdLibClient(context:Context) {
  fun toggleChatUnread(id:Long,isUnread:Boolean) { chatActions.toggleUnread(id,isUnread) }
  fun toggleChatMuted(id:Long,isMuted:Boolean) { chatActions.toggleMuted(id,isMuted) }
  fun openProfile(chatId:Long) { profileController.openProfile(chatId) }
- private fun updateAccount(user:TdApi.User) {
-  myUserId=user.id
-  _account.value=TdUserMapper.toAccount(user,_account.value)
-  userFullInfoQueue.enqueue(user.id)
-  val photoId=user.profilePhoto?.small?.id ?: 0
-  myPhotoFileId=photoId.takeIf { it>0 }
-  if(photoId>0) fileDownloadQueue.enqueue(photoId) else _account.value=_account.value?.copy(avatarPath="")
- }
  fun loadContacts() { contactsController.load() }
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
   userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
