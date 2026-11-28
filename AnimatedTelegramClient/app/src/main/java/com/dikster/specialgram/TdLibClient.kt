@@ -145,7 +145,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
-  is TdApi.AuthorizationStateWaitTdlibParameters -> { val d=File(app.filesDir,"tdlib"); val f=File(app.filesDir,"tdlib-files"); d.mkdirs(); f.mkdirs(); val p=TdApi.SetTdlibParameters(); p.useTestDc=false; p.databaseDirectory=d.absolutePath; p.filesDirectory=f.absolutePath; p.databaseEncryptionKey=TdDatabaseKeyStore.getOrCreate(app); p.useFileDatabase=true; p.useChatInfoDatabase=true; p.useMessageDatabase=true; p.useSecretChats=true; p.apiId=BuildConfig.TELEGRAM_API_ID.toInt(); p.apiHash=BuildConfig.TELEGRAM_API_HASH; p.systemLanguageCode="ru"; p.deviceModel=Build.MANUFACTURER+" "+Build.MODEL; p.systemVersion=Build.VERSION.RELEASE; p.applicationVersion="1.0.0"; send(p) }
+  is TdApi.AuthorizationStateWaitTdlibParameters -> send(TdAuthorizationController.createParameters(app,BuildConfig.TELEGRAM_API_ID,BuildConfig.TELEGRAM_API_HASH))
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
