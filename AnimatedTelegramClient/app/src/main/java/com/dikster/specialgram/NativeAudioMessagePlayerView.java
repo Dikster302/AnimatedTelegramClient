@@ -126,8 +126,8 @@ public final class NativeAudioMessagePlayerView extends LinearLayout {
                 try { completed.seekTo(0); } catch (IllegalStateException ignored) { }
                 renderState();
             });
-            media.setOnErrorListener((failed, what, extra) -> {
-                if (player == failed) {
+            media.setOnErrorListener((failedPlayer, what, extra) -> {
+                if (player == failedPlayer) {
                     releasePlayer();
                     failed = true;
                     renderState();
