@@ -572,10 +572,10 @@ public final class TdLibClient implements AutoCloseable {
                     if(values!=null)for(int i=values.length-1;i>=0;i--)
                         items.add(TdMessageMapper.map(values[i],0L,null,null));
                 }
-                if(callback!=null)callback.accept(items);
+                if(callback!=null)callback.onLoaded(items);
             }
             @Override public void onError(TdApi.Error error){
-                if(callback!=null)callback.accept(Collections.emptyList());
+                if(callback!=null)callback.onLoaded(Collections.emptyList());
             }
         });
     }
