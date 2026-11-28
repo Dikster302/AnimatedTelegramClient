@@ -71,7 +71,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         Window w=dialog.getWindow();
         if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
             w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND|WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(withAlpha(panelColor,0xE8));
+            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(panelLayer(panelColor,0xE8));
             WindowManager.LayoutParams windowParams=w.getAttributes();windowParams.dimAmount=0.18f;w.setAttributes(windowParams);
             w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
             w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
@@ -97,7 +97,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
     private void render(){
         removeAllViews();
         setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{withAlpha(panelColor,0xEA),withAlpha(panelColor,0xF4)}));
+                new int[]{panelLayer(panelColor,0xEA),panelLayer(panelColor,0xF4)}));
         LinearLayout page=new LinearLayout(getContext());
         page.setOrientation(LinearLayout.VERTICAL);
         addView(page,new FrameLayout.LayoutParams(-1,-1));
@@ -113,7 +113,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         top.addView(title,new LinearLayout.LayoutParams(0,dp(48),1));
         TextView qr=label("▦",accentColor,25,true);
         qr.setGravity(Gravity.CENTER);
-        qr.setBackground(round(withAlpha(accentColor,0x20),dp(14)));
+        qr.setBackground(round(panelLayer(accentColor,0x20),dp(14)));
         top.addView(qr,new LinearLayout.LayoutParams(dp(44),dp(48)));
         qr.setContentDescription("Показать QR-код");
         qr.setOnClickListener(v->showQr());
@@ -164,7 +164,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             actions.addView(action,ap);
             TextView icon=label(glyphs[i],accentColor,22,true);
             icon.setGravity(Gravity.CENTER);
-            icon.setBackground(round(withAlpha(accentColor,0x22),dp(17)));
+            icon.setBackground(round(panelLayer(accentColor,0x22),dp(17)));
             action.addView(icon,new LinearLayout.LayoutParams(dp(54),dp(54)));
             TextView caption=label(actionNames[i],textColor,12,true);
             caption.setGravity(Gravity.CENTER);
@@ -342,7 +342,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
         double r=Color.red(color)/255.0,g=Color.green(color)/255.0,b=Color.blue(color)/255.0;
         return (0.2126*r+0.7152*g+0.0722*b)>0.58;
     }
-    private int withAlpha(int color,int alpha){return (color&0x00FFFFFF)|((alpha&0xFF)<<24);}
+    private int panelLayer(int color,int opacity){
+        int sourceAlpha=Color.alpha(panelColor);
+        int alpha=(sourceAlpha*(opacity&0xFF))/255;
+        return (color&0x00FFFFFF)|(alpha<<24);
+    }
     private void saveQr(Bitmap bitmap){
         try{
             if(Build.VERSION.SDK_INT>=29){
@@ -413,7 +417,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
     }
     private LinearLayout cardColumn(){
         LinearLayout card=new LinearLayout(getContext());card.setOrientation(LinearLayout.VERTICAL);
-        card.setBackground(round(withAlpha(isLightColor(panelColor)?0xFFF4F6F8:0xFF20262E,0xE8),dp(18)));
+        card.setBackground(round(panelLayer(isLightColor(panelColor)?0xFFF4F6F8:0xFF20262E,0xE8),dp(18)));
         return card;
     }
     private TextView centerLabel(String value,int color,int size,boolean bold,int top){
