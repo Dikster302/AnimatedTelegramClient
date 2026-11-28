@@ -28,7 +28,6 @@ public final class NativeChatsHeaderView extends LinearLayout {
     }
 
     private final TextView title;
-    private final TextView menuButton;
     private final SearchButton searchButton;
     private final TextView overflowButton;
     private Listener listener;
@@ -48,9 +47,6 @@ public final class NativeChatsHeaderView extends LinearLayout {
         title.setContentDescription("Specialgram");
         title.setGravity(Gravity.CENTER_VERTICAL);
         addView(title,new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f));
-
-        View spacer=new View(context);
-        addView(spacer,new LayoutParams(0,1,1f));
 
         searchButton=new SearchButton(context,textColor);
         searchButton.setVisibility(GONE);
