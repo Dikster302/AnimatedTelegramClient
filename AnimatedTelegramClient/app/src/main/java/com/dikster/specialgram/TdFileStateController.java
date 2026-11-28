@@ -22,6 +22,7 @@ public final class TdFileStateController {
         void setAccount(TgAccount account);
         void markDownloadCompleted(int fileId);
         boolean isMyPhotoFile(int fileId);
+        String persistAvatar(int fileId, String sourcePath);
     }
 
     private final Listener listener;
@@ -49,14 +50,18 @@ public final class TdFileStateController {
 
         listener.markDownloadCompleted(file.id);
         Long chatId = fileToChat.remove(file.id);
+        boolean myPhoto = listener.isMyPhotoFile(file.id);
+        String avatarPath = (chatId != null || myPhoto)
+                ? listener.persistAvatar(file.id, file.local.path) : file.local.path;
+        if (avatarPath == null || avatarPath.isEmpty()) avatarPath = file.local.path;
         if (chatId != null) {
             List<TgChat> chats = new ArrayList<>(listener.chats().size());
             for (TgChat chat : listener.chats()) chats.add(chat.getId() == chatId
-                    ? copyAvatar(chat, file.local.path) : chat);
+                    ? copyAvatar(chat, avatarPath) : chat);
             listener.setChats(chats);
             TgProfile profile = listener.profile();
             if (profile != null && profile.getChatId() == chatId)
-                listener.setProfile(copyAvatar(profile, file.local.path));
+                listener.setProfile(copyAvatar(profile, avatarPath));
         }
 
         TdPair<Long, Long> videoMessage = videoFileToMessage.remove(file.id);
@@ -78,9 +83,9 @@ public final class TdFileStateController {
             listener.setStories(stories);
         }
 
-        if (listener.isMyPhotoFile(file.id)) {
+        if (myPhoto) {
             TgAccount account = listener.account();
-            if (account != null) listener.setAccount(copyAvatar(account, file.local.path));
+            if (account != null) listener.setAccount(copyAvatar(account, avatarPath));
         }
         return true;
     }
@@ -122,7 +127,9 @@ public final class TdFileStateController {
     private static TgProfile copyAvatar(TgProfile profile, String path) {
         return new TgProfile(profile.getChatId(), profile.getName(), profile.getKind(), profile.getPhone(),
                 profile.getBio(), path, profile.getUsername(), profile.getStatus(), profile.isOnline(),
-                profile.isPremium(), profile.isVerified(), profile.getCommonGroups());
+                profile.isPremium(), profile.isVerified(), profile.getCommonGroups(), profile.getBirthdate(),
+                profile.getGiftCount(), profile.canBeCalled(), profile.supportsVideoCalls(),
+                profile.getGifts(), profile.getUserId());
     }
 
     private static TgAccount copyAvatar(TgAccount account, String path) {
