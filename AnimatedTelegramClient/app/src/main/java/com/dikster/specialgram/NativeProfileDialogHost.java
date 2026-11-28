@@ -193,7 +193,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         String[] names={"Подарки","Медиа","Избранное","Файлы","Ссылки","Голосовые","GIF"};
         for(String tab:names){
             boolean selected=tab.equals(activeTab);
-            TextView chip=label(tab,selected?0xFF082B43:textColor,13,true);
+            TextView chip=label(tab,selected?Color.WHITE:textColor,13,true);
             chip.setGravity(Gravity.CENTER);
             chip.setPadding(dp(14),dp(10),dp(14),dp(10));
             chip.setBackground(round(selected?accentColor:0x18000000,dp(18)));
@@ -259,11 +259,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
         TextView scan=label("Сканировать QR-код",0x99FFFFFF,14,true);
         scan.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
         top.addView(scan,new LinearLayout.LayoutParams(0,dp(48),1));
-        TextView close=label("×",textColor,28,false);close.setGravity(Gravity.CENTER);
+        TextView close=label("×",Color.WHITE,28,false);close.setGravity(Gravity.CENTER);
         top.addView(close,new LinearLayout.LayoutParams(dp(42),dp(48)));
         close.setOnClickListener(v->qrDialog.dismiss());page.addView(top);
 
-        page.addView(new View(getContext()),new LinearLayout.LayoutParams(1,0,1f));
+        page.addView(new View(getContext()),new LinearLayout.LayoutParams(-1,0,1f));
         ImageView image=new ImageView(getContext());image.setImageBitmap(bitmap);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         image.setPadding(dp(20),dp(20),dp(20),dp(20));image.setBackground(round(Color.WHITE,dp(22)));
@@ -277,8 +277,8 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
         page.addView(new View(getContext()),new LinearLayout.LayoutParams(1,0,1f));
         LinearLayout bottom=new LinearLayout(getContext());bottom.setGravity(Gravity.CENTER_VERTICAL);
-        TextView share=label("Поделиться",textColor,14,true);
-        TextView save=label("Скачать QR-код",textColor,14,true);
+        TextView share=label("Поделиться",Color.WHITE,14,true);
+        TextView save=label("Скачать QR-код",Color.WHITE,14,true);
         bottom.addView(share,new LinearLayout.LayoutParams(0,dp(54),1));
         bottom.addView(save,new LinearLayout.LayoutParams(0,dp(54),1));
         page.addView(bottom);
