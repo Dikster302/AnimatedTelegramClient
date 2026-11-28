@@ -749,25 +749,6 @@ private fun SettingsLine(title: String, subtitle: String) {
 }
 
 @Composable
-private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onTogglePinned: () -> Unit, onToggleUnread: () -> Unit, onToggleMute: () -> Unit, onClick: () -> Unit) {
-    val appearance = LocalAppearance.current
-    val panelColor = appearance.panel.copy(alpha = 1f - appearance.glass * 0.30f).toArgb()
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context ->
-            NativeChatRowView(context, chat, compact, appearance.text.toArgb(),
-                appearance.muted.toArgb(), appearance.accent.toArgb(), panelColor,
-                { onClick() }, { onArchive() }, { onTogglePinned() }, { onToggleUnread() }, { onToggleMute() })
-        },
-        update = { view ->
-            view.update(chat, compact, appearance.text.toArgb(), appearance.muted.toArgb(),
-                appearance.accent.toArgb(), panelColor,
-                { onClick() }, { onArchive() }, { onTogglePinned() }, { onToggleUnread() }, { onToggleMute() })
-        }
-    )
-}
-
-@Composable
 private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false, storyViewed: Boolean = false) {
     val panelColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f).toArgb()
     AndroidView(
@@ -1053,66 +1034,6 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
         )
     }
 }
-
-@Composable
-private fun ProfileInfoLine(label: String, value: String) {
-    val appearance = LocalAppearance.current
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context ->
-            NativeTextRows.profileInfo(context, label, value,
-                appearance.muted.toArgb(), appearance.text.toArgb())
-        },
-        update = { }
-    )
-}
-
-private fun isSameMessageDay(first: Int, second: Int): Boolean =
-    NativeTextRows.isSameMessageDay(first, second)
-
-@Composable
-private fun MessageDateDivider(timestamp: Int) {
-    val panelColor = LocalAppearance.current.panel.toArgb()
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context -> NativeTextRows.messageDateDivider(context, timestamp, panelColor) },
-        update = { }
-    )
-}
-
-@Composable
-private fun MessageBubble(
-    message: TgMessage,
-    onLongPress: () -> Unit,
-    onReaction: (String) -> Unit,
-    groupedWithPrevious: Boolean = false,
-    groupedWithNext: Boolean = false
-) {
-    val appearance = LocalAppearance.current
-    val listener = remember(onLongPress, onReaction) {
-        object : NativeMessageBubbleView.Listener {
-            override fun onLongPress() = onLongPress()
-            override fun onReaction(emoji: String) = onReaction(emoji)
-        }
-    }
-    AndroidView(
-        modifier = Modifier.fillMaxWidth(),
-        factory = { context ->
-            NativeMessageBubbleView(context, message, appearance.text.toArgb(),
-                appearance.muted.toArgb(), appearance.accent.toArgb(),
-                appearance.incoming.toArgb(), appearance.outgoing.toArgb(),
-                appearance.panelLight.toArgb(), appearance.bubbleRadius,
-                groupedWithPrevious, groupedWithNext, listener)
-        },
-        update = { view ->
-            view.update(message, appearance.text.toArgb(), appearance.muted.toArgb(),
-                appearance.accent.toArgb(), appearance.incoming.toArgb(),
-                appearance.outgoing.toArgb(), appearance.panelLight.toArgb(),
-                appearance.bubbleRadius, groupedWithPrevious, groupedWithNext, listener)
-        }
-    )
-}
-
 @Composable
 private fun AuthScreen(
     title: String, subtitle: String, value: String, onValue: (String) -> Unit,
@@ -1148,23 +1069,3 @@ private fun CenterPanel(title: String, subtitle: String) {
     )
 }
 
-@Composable
-private fun AudioMessagePlayer(path: String, title: String, duration: Int) {
-    val appearance = LocalAppearance.current
-    AndroidView(
-        modifier = Modifier.widthIn(min = 210.dp, max = 270.dp).padding(vertical = 3.dp),
-        factory = { context ->
-            NativeAudioMessagePlayerView(context, path, title, duration,
-                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb())
-        },
-        update = { view ->
-            view.update(path, title, duration, appearance.text.toArgb(),
-                appearance.muted.toArgb(), appearance.accent.toArgb())
-        }
-    )
-}
-
-private fun avatarColor(id: Long): Color {
-    val colors = listOf(Color(0xFF5B8DEF), Color(0xFF8E6AC8), Color(0xFF26A69A), Color(0xFFE28B55), Color(0xFFCC6688))
-    return colors[kotlin.math.abs(id % colors.size).toInt()]
-}
