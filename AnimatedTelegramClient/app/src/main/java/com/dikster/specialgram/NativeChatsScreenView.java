@@ -76,6 +76,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         void onToggleUnread(TgChat chat);
         void onToggleMute(TgChat chat);
         void onSavedMessages();
+        void onCreateGroup(String title,long[] userIds);
     }
 
     private final LinearLayout root;
@@ -179,11 +180,7 @@ public final class NativeChatsScreenView extends FrameLayout {
                 if(listener!=null)listener.onTheme("Midnight".equalsIgnoreCase(state.themeName)?"Telegram":"Midnight");
             }
             @Override public void onOpenCalls(){selectedTab=4;update(state,listener);}
-            @Override public void onCreateGroup(){
-                new android.app.AlertDialog.Builder(getContext()).setTitle("Создать группу")
-                        .setMessage("Создание групп с выбором участников ещё не подключено к TDLib.")
-                        .setPositiveButton("Понятно",null).show();
-            }
+            @Override public void onCreateGroup(){showCreateGroupDialog();}
             @Override public void onSavedMessages(){if(listener!=null)listener.onSavedMessages();}
         };
     }
@@ -343,6 +340,52 @@ public final class NativeChatsScreenView extends FrameLayout {
         ep.topMargin=dp(22);profilePanel.addView(edit,ep);
         edit.setOnClickListener(v->{selectedTab=2;update(state,listener);if(settingsPanel!=null)settingsPanel.openAccountPage();});
         contentHost.addView(profilePanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+    }
+
+
+    private void showCreateGroupDialog(){
+        if(state.contacts.isEmpty()){
+            new android.app.AlertDialog.Builder(getContext()).setTitle("Создать группу")
+                    .setMessage("Сначала загрузи контакты Telegram, затем можно будет выбрать участников.")
+                    .setPositiveButton("Понятно",null).show();
+            return;
+        }
+        LinearLayout form=new LinearLayout(getContext());form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(20),dp(8),dp(20),dp(8));
+        android.widget.EditText titleInput=new android.widget.EditText(getContext());
+        titleInput.setSingleLine(true);titleInput.setTextSize(16);titleInput.setHint("Название группы");
+        form.addView(titleInput,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(52)));
+        TextView choose=new TextView(getContext());choose.setText("Выбери участников");
+        choose.setTextColor(state.muted);choose.setTextSize(13);
+        LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
+        cp.topMargin=dp(8);form.addView(choose,cp);
+        android.widget.ScrollView scroll=new android.widget.ScrollView(getContext());
+        LinearLayout choices=new LinearLayout(getContext());choices.setOrientation(LinearLayout.VERTICAL);
+        List<android.widget.CheckBox> checks=new ArrayList<>();
+        for(TgContact contact:state.contacts){
+            android.widget.CheckBox check=new android.widget.CheckBox(getContext());
+            check.setText(contact.getName());check.setTextColor(state.text);
+            check.setButtonTintList(android.content.res.ColorStateList.valueOf(state.accent));
+            checks.add(check);choices.addView(check,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(44)));
+        }
+        scroll.addView(choices);
+        LinearLayout.LayoutParams sp=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(250));
+        sp.topMargin=dp(4);form.addView(scroll,sp);
+        android.app.AlertDialog dialog=new android.app.AlertDialog.Builder(getContext())
+                .setTitle("Новая группа").setView(form)
+                .setNegativeButton("Отмена",null).setPositiveButton("Создать",null).create();
+        dialog.setOnShowListener(ignored->dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v->{
+                    String title=titleInput.getText().toString().trim();
+                    if(title.isEmpty()){titleInput.setError("Укажи название группы");return;}
+                    List<Long> ids=new ArrayList<>();
+                    for(int i=0;i<checks.size();i++)if(checks.get(i).isChecked())ids.add(state.contacts.get(i).getId());
+                    if(ids.isEmpty()){choose.setText("Выбери хотя бы одного участника");choose.setTextColor(0xFFFF6B6B);return;}
+                    long[] userIds=new long[ids.size()];for(int i=0;i<ids.size();i++)userIds[i]=ids.get(i);
+                    if(listener!=null)listener.onCreateGroup(title,userIds);
+                    dialog.dismiss();
+                }));
+        dialog.show();
     }
 
     private void renderCalls(){
