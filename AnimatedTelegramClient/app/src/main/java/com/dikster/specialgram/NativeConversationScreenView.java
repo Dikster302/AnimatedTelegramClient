@@ -246,7 +246,7 @@ public final class NativeConversationScreenView extends FrameLayout {
                     else if(callback!=null)callback.onResult(Collections.emptyList());
                 }
             });
-            addView(profileHost,new FrameLayout.LayoutParams(dp(1),dp(1)));
+            // NativeProfileDialogHost attaches itself to its Dialog; do not add it to this ViewGroup.
         }else profileHost.update(chat,profile,messages,textColor,mutedColor,accentColor,panelLightColor);
     }
 
@@ -268,7 +268,7 @@ public final class NativeConversationScreenView extends FrameLayout {
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
     @Override protected void onDetachedFromWindow(){
         handler.removeCallbacks(pendingSearch);
-        if(profileHost!=null){removeView(profileHost);profileHost=null;}
+        if(profileHost!=null){NativeProfileDialogHost old=profileHost;profileHost=null;old.dismiss();}
         super.onDetachedFromWindow();
     }
 }
