@@ -7,31 +7,6 @@ import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-private fun TgProfile.copy(
- bio:String=this.bio,avatarPath:String=this.avatarPath,status:String=this.status,
- isOnline:Boolean=this.isOnline,commonGroups:Int=this.commonGroups
-):TgProfile = TgProfile(chatId,name,kind,phone,bio,avatarPath,username,status,isOnline,isPremium,isVerified,commonGroups)
-private fun TgAccount.copy(bio:String=this.bio,avatarPath:String=this.avatarPath):TgAccount =
- TgAccount(name,username,phone,isPremium,isVerified,bio,avatarPath,firstName,lastName)
-private fun TgChat.copy(
- title:String=this.title,preview:String=this.preview,lastDate:Int=this.lastDate,unreadCount:Int=this.unreadCount,
- avatarPath:String=this.avatarPath,kind:String=this.kind,archived:Boolean=this.archived,status:String=this.status,
- isOnline:Boolean=this.isOnline,isPremium:Boolean=this.isPremium,
- lastReadOutboxMessageId:Long=this.lastReadOutboxMessageId,hasStory:Boolean=this.hasStory,
- hasUnviewedStory:Boolean=this.hasUnviewedStory,isPinned:Boolean=this.isPinned,
- isMarkedAsUnread:Boolean=this.isMarkedAsUnread,isMuted:Boolean=this.isMuted
-):TgChat = TgChat(id,title,preview,lastDate,unreadCount,avatarPath,kind,archived,status,isOnline,isPremium,
- lastReadOutboxMessageId,hasStory,hasUnviewedStory,isPinned,isMarkedAsUnread,isMuted)
-private fun TgMessage.copy(
- text:String=this.text,outgoing:Boolean=this.outgoing,date:Int=this.date,isRead:Boolean=this.isRead,
- videoShape:String=this.videoShape,videoPath:String=this.videoPath,replyToMessageId:Long=this.replyToMessageId,
- replyToText:String=this.replyToText,reactions:List<TgReaction> = this.reactions,photoPath:String=this.photoPath,
- mediaKind:String=this.mediaKind,mediaPath:String=this.mediaPath,mediaName:String=this.mediaName,
- mediaMimeType:String=this.mediaMimeType,mediaDuration:Int=this.mediaDuration,mediaSize:Long=this.mediaSize,
- isPinned:Boolean=this.isPinned
-):TgMessage = TgMessage(id,text,outgoing,date,isRead,videoShape,videoPath,replyToMessageId,replyToText,
- reactions,photoPath,mediaKind,mediaPath,mediaName,mediaMimeType,mediaDuration,mediaSize,isPinned)
-
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
  private val _auth=MutableStateFlow<Auth>(Auth.Loading); val auth=_auth.asStateFlow()
@@ -135,7 +110,7 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   },
   TdUserFullInfoQueue.Listener { userId, info ->
-   if(myUserId==userId) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
+   if(myUserId==userId) _account.value=TgModelStateController.withBio(_account.value,info.bio?.text ?: "")
   }
  )
  private val accountStateController = TdAccountStateController(object : TdAccountStateController.Listener {
@@ -181,7 +156,7 @@ class TdLibClient(context:Context) {
   },
   object : TdAccountActionsController.Listener {
    override fun onAccountUser(user:TdApi.User) { accountStateController.updateAccount(user) }
-   override fun onBioUpdated(bio:String) { _account.value=_account.value?.copy(bio=bio) }
+   override fun onBioUpdated(bio:String) { _account.value=TgModelStateController.withBio(_account.value,bio) }
    override fun onValidationError(message:String) { _operationError.value=message }
   }
  )
@@ -238,7 +213,7 @@ class TdLibClient(context:Context) {
    override fun onStoryPosted(story:TdApi.Story) {
     storyStateController.updateStory(story,false)
     val userId=myUserId
-    if(userId!=null) _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
+    if(userId!=null) _chats.value=_chats.value.map { if(it.id==userId) TgModelStateController.withStoryFlags(it,true,true) else it }
    }
    override fun onValidationError(message:String) { reportOperationError(message) }
   }
@@ -256,7 +231,7 @@ class TdLibClient(context:Context) {
    }
    override fun onHistoryCleared(chatId:Long) {
     if(chatSession.activeChat==chatId) _messages.value=emptyList()
-    _chats.value=_chats.value.map { if(it.id==chatId) it.copy(preview="",lastDate=0,unreadCount=0) else it }
+    _chats.value=_chats.value.map { if(it.id==chatId) TgModelStateController.clearHistoryPreview(it) else it }
    }
   }
  )
