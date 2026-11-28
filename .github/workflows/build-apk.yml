@@ -1,10 +1,6 @@
 name: Build Android APK
 on:
-  # Build an APK automatically whenever either maintained branch is updated.
-  push:
-    branches:
-      - main
-      - feature/profile-editor
+  # APK packaging is manual only; normal branch updates must not create APKs.
   workflow_dispatch:
 permissions:
   contents: read
