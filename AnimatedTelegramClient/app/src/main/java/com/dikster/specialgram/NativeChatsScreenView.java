@@ -157,9 +157,9 @@ public final class NativeChatsScreenView extends FrameLayout {
         wallpaperView.setVisibility(selectedTab==0?VISIBLE:GONE);
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
-                    state.sortNewest,Color.WHITE,state.account,state.themeName,toolbarListener()); 
+                    state.sortNewest,state.text,state.account,state.themeName,toolbarListener()); 
             headerColumn.addView(toolbar,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(52)));
-        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,Color.WHITE,
+        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,state.text,
                 state.account,state.themeName,toolbarListener());
         if(selectedTab==0){ 
             if(chatSearch==null){
