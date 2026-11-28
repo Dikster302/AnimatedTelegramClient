@@ -24,13 +24,14 @@ public final class NativeStoryStripView extends HorizontalScrollView {
     private List<TgStory> stories = new ArrayList<>();
     private List<TgChat> chats = new ArrayList<>();
     private Listener listener;
+    private TgAccount account;
     private int textColor, accentColor, panelColor;
 
     public NativeStoryStripView(Context context, List<TgStory> stories, List<TgChat> chats,
-                                int text, int accent, int panel, Listener listener) {
+                                int text, int accent, int panel, TgAccount account, Listener listener) {
         super(context);
         setHorizontalScrollBarEnabled(false);
-        this.textColor=text; this.accentColor=accent; this.panelColor=panel;
+        this.textColor=text; this.accentColor=accent; this.panelColor=panel;this.account=account;
         content = new LinearLayout(context);
         content.setOrientation(LinearLayout.HORIZONTAL);
         content.setPadding(dp(12), dp(8), dp(12), dp(8));
@@ -39,11 +40,12 @@ public final class NativeStoryStripView extends HorizontalScrollView {
     }
 
     public void update(List<TgStory> nextStories, List<TgChat> nextChats,
-                       int text, int accent, int panel, Listener callback) {
+                       int text, int accent, int panel, TgAccount account, Listener callback) {
         listener=callback;
         boolean changed=!stories.equals(nextStories)||!chats.equals(nextChats)
-                ||textColor!=text||accentColor!=accent||panelColor!=panel;
-        textColor=text; accentColor=accent; panelColor=panel;
+                ||textColor!=text||accentColor!=accent||panelColor!=panel
+                ||(this.account==null?account!=null:!this.account.equals(account));
+        textColor=text; accentColor=accent; panelColor=panel;this.account=account;
         if (!changed) return;
         stories=nextStories==null?new ArrayList<>():new ArrayList<>(nextStories);
         chats=nextChats==null?new ArrayList<>():new ArrayList<>(nextChats);
@@ -91,9 +93,10 @@ public final class NativeStoryStripView extends HorizontalScrollView {
         ring.setColor(panelColor); ring.setShape(GradientDrawable.OVAL);
         ring.setStroke(dp(2),accentColor);
         circle.setBackground(ring);
-        TextView camera=text("📷",textColor,22,false);
-        camera.setGravity(Gravity.CENTER);
-        circle.addView(camera,new FrameLayout.LayoutParams(dp(62),dp(62),Gravity.CENTER));
+        String ownName=account==null?"Мой аккаунт":account.getName();
+        NativeAvatarView ownAvatar=new NativeAvatarView(getContext(),
+                account==null?"":account.getAvatarPath(),first(ownName),0L,62,false,true,false,panelColor);
+        circle.addView(ownAvatar,new FrameLayout.LayoutParams(dp(62),dp(62),Gravity.CENTER));
         TextView plus=text("+",Color.WHITE,14,true);
         plus.setGravity(Gravity.CENTER);
         GradientDrawable plusBadge=new GradientDrawable();
