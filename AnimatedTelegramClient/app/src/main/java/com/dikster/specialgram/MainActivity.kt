@@ -816,14 +816,16 @@ private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Uni
 
 @Composable
 private fun Avatar(path: String, fallback: String, id: Long, size: Int, online: Boolean = false, hasStory: Boolean = false, storyViewed: Boolean = false) {
-    val bitmap = remember(path) { if (path.isNotBlank()) runCatching { BitmapFactory.decodeFile(path)?.asImageBitmap() }.getOrNull() else null }
-    val storyRing = if (storyViewed) Brush.sweepGradient(listOf(Color(0xFF78828D), Color(0xFF78828D))) else Brush.sweepGradient(listOf(Color(0xFF42C7FF), Color(0xFF6575FF), Color(0xFFB34DFF), Color(0xFF6575FF), Color(0xFF42C7FF)))
-    val ringModifier = if (hasStory) Modifier.border(2.8.dp, storyRing, CircleShape).padding(3.dp) else Modifier
-    Box(Modifier.size(size.dp).then(ringModifier).clip(CircleShape).background(avatarColor(id)), contentAlignment = Alignment.Center) {
-        if (bitmap != null) Image(bitmap = bitmap, contentDescription = "Аватар", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        else Text(fallback, color = Color.White, fontSize = (size / 3).sp, fontWeight = FontWeight.SemiBold)
-        if (online) Box(Modifier.align(Alignment.BottomEnd).size((size / 4).dp).clip(CircleShape).background(Color(0xFF35C759)).padding(2.dp).background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f), CircleShape).padding(2.dp).background(Color(0xFF35C759), CircleShape))
-    }
+    val panelColor = LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f).toArgb()
+    AndroidView(
+        modifier = Modifier.size(size.dp),
+        factory = { context ->
+            NativeAvatarView(context, path, fallback, id, size, online, hasStory, storyViewed, panelColor)
+        },
+        update = { view ->
+            view.update(path, fallback, id, size, online, hasStory, storyViewed, panelColor)
+        }
+    )
 }
 
 @Composable
