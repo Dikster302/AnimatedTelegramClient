@@ -16,12 +16,13 @@ public final class TdChatListLoader implements AutoCloseable {
         void onResult(TdApi.Object result);
         void onError(TdApi.Error error);
     }
+    public interface CompletionListener { void onAllChatListsLoaded(); }
     public interface Requester {
         void request(TdApi.Function<?> function, Callback callback);
     }
 
     private static final int PAGE_SIZE = 100;
-    private static final long REQUEST_INTERVAL_MS = 150L;
+    private static final long REQUEST_INTERVAL_MS = 50L;
     private static final long DEFAULT_BACKOFF_MS = 60_000L;
     private static final long MAX_BACKOFF_MS = 900_000L;
     private static final Pattern RETRY_AFTER =
@@ -37,6 +38,9 @@ public final class TdChatListLoader implements AutoCloseable {
     }
 
     private final Requester requester;
+    private final CompletionListener completionListener;
+    private final java.util.Set<String> completedLists = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean completionNotified = new AtomicBoolean(false);
     private final ConcurrentLinkedQueue<Task> tasks = new ConcurrentLinkedQueue<>();
     private final java.util.Set<String> loadingLists = ConcurrentHashMap.newKeySet();
     private final ConcurrentHashMap<String, Integer> transientRetries = new ConcurrentHashMap<>();
@@ -48,9 +52,24 @@ public final class TdChatListLoader implements AutoCloseable {
         return thread;
     });
 
-    public TdChatListLoader(Requester requester) {
+    public TdChatListLoader(Requester requester) { this(requester, null); }
+
+    public TdChatListLoader(Requester requester, CompletionListener completionListener) {
         if (requester == null) throw new IllegalArgumentException("requester == null");
         this.requester = requester;
+        this.completionListener = completionListener;
+    }
+
+    private void markListCompleted(String key) {
+        loadingLists.remove(key);
+        transientRetries.remove(key);
+        completedLists.add(key);
+        if (completedLists.contains("main") && completedLists.contains("archive")
+                && completionNotified.compareAndSet(false, true)
+                && completionListener != null) {
+            try { completionListener.onAllChatListsLoaded(); }
+            catch (RuntimeException ignored) { }
+        }
     }
 
     public void load(TdApi.ChatList list, boolean archived) {
@@ -88,8 +107,7 @@ public final class TdChatListLoader implements AutoCloseable {
                         // Keep loading until TDLib explicitly reports that the list is exhausted.
                         tasks.offer(task);
                     } else {
-                        loadingLists.remove(task.key);
-                        transientRetries.remove(task.key);
+                        markListCompleted(task.key);
                     }
                     finish(REQUEST_INTERVAL_MS);
                 }
@@ -100,8 +118,7 @@ public final class TdChatListLoader implements AutoCloseable {
                         finish(parseBackoff(error.message));
                     } else if (error != null && error.code == 404) {
                         // 404 is TDLib's normal end-of-list signal for LoadChats.
-                        loadingLists.remove(task.key);
-                        transientRetries.remove(task.key);
+                        markListCompleted(task.key);
                         finish(REQUEST_INTERVAL_MS);
                     } else {
                         // Do not silently abandon the first chat-list load on a transient
@@ -146,5 +163,6 @@ public final class TdChatListLoader implements AutoCloseable {
         tasks.clear();
         loadingLists.clear();
         transientRetries.clear();
+        completedLists.clear();
     }
 }
