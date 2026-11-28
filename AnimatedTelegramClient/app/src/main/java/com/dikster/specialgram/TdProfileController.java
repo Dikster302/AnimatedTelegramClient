@@ -15,6 +15,7 @@ public final class TdProfileController {
         void setProfile(TgProfile profile);
         void onPrivateChatUser(long userId, long chatId);
         void onProfileUser(TdApi.User user, long chatId);
+        void onProfilePhotos(long userId,TdApi.ChatPhotos photos);
     }
 
     private final TdUserActionsController userActions;
@@ -53,6 +54,11 @@ public final class TdProfileController {
                 listener.onProfileUser(user, chatId);
             }
 
+            @Override public void onPhotos(long userId,TdApi.ChatPhotos photos){
+                if(session.isCurrent(generation)&&session.isActiveUser(userId))
+                    listener.onProfilePhotos(userId,photos);
+            }
+
             @Override public void onFullInfo(long userId, TdApi.UserFullInfo info) {
                 if (!session.isCurrent(generation) || !session.isActiveUser(userId)) return;
                 TgProfile current = listener.profile();
@@ -68,7 +74,7 @@ public final class TdProfileController {
                         current.getAvatarPath(), current.getUsername(), current.getStatus(),
                         current.isOnline(), current.isPremium(), current.isVerified(),
                         info.groupInCommonCount,birthday,info.giftCount,info.canBeCalled,
-                        info.supportsVideoCalls,current.getGifts(),current.getUserId()));
+                        info.supportsVideoCalls,current.getGifts(),current.getUserId(),current.getPhotoPaths()));
                 userActions.loadProfileGifts(userId,new TdUserActionsController.GiftsListener(){
                     @Override public void onGifts(TdApi.ReceivedGifts received){
                         if(!session.isCurrent(generation)||!session.isActiveUser(userId))return;
