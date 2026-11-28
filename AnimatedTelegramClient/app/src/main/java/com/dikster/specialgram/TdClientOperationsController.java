@@ -102,6 +102,23 @@ public final class TdClientOperationsController {
         });
     }
 
+    public void createBasicGroup(String title, long[] userIds, ContactListener callback) {
+        if (userIds == null || userIds.length == 0) {
+            listener.reportOperationError("Выбери хотя бы одного участника группы");
+            return;
+        }
+        userActions.createBasicGroup(userIds, title, new TdUserActionsController.Callback() {
+            @Override public void onResult(TdApi.Object result) {
+                if (!(result instanceof TdApi.Chat)) return;
+                TgChat mapped = chatRegistration.putChat((TdApi.Chat) result, false);
+                if (mapped != null && callback != null) callback.onReady(mapped);
+            }
+            @Override public void onError(TdApi.Error error) {
+                listener.reportOperationError(error == null ? "Не удалось создать группу" : error.message);
+            }
+        });
+    }
+
     public void openSavedMessages(ContactListener callback) {
         Long userId = listener.myUserId();
         if (userId == null) {
