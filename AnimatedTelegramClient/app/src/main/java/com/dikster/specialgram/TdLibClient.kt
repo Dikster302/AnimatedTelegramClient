@@ -247,7 +247,7 @@ class TdLibClient(context:Context) {
 
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
  private fun onUpdate(o:TdApi.Object) { when(o) {
-  is TdApi.UpdateAuthorizationState -> onAuth(o.authorizationState)
+  is TdApi.UpdateAuthorizationState -> authorizationStateRouter.onState(o.authorizationState)
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateChatActiveStories -> updateChatStories(o.activeStories)
@@ -283,14 +283,20 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { animatedMessageController.schedule(o.message.chatId,newId,it) } }
  } }
- private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
-  is TdApi.AuthorizationStateWaitTdlibParameters -> send(TdAuthorizationController.createParameters(app,BuildConfig.TELEGRAM_API_ID,BuildConfig.TELEGRAM_API_HASH))
-  is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
-  is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
-  is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
-  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; pushRegistrationController.onAuthorized(); loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
-  is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
- } }
+ private val authorizationStateRouter = TdAuthorizationStateRouter(
+  app, BuildConfig.TELEGRAM_API_ID, BuildConfig.TELEGRAM_API_HASH,
+  object : TdAuthorizationStateRouter.Listener {
+   override fun onAuthChanged(state:Auth) { _auth.value=state }
+   override fun onSend(function:TdApi.Function<*>) { send(function) }
+   override fun onAuthorized() {
+    pushRegistrationController.onAuthorized()
+    loadChats()
+    loadContacts()
+    loadPrivacySettings()
+    send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) }
+   }
+  }
+ )
  fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value === Auth.Ready) }
  fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdAuthorizationController.processPushNotification(payload)) }
  fun phone(v:String)=send(TdAuthorizationController.setPhoneNumber(v))
