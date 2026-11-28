@@ -5,10 +5,12 @@ import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import com.dikster.specialgram.data.ChatCacheRepository;
 
 /** Native Java TDLib client: owns state, update routing, request dispatch and all controllers. */
 public final class TdLibClient implements AutoCloseable {
     private final Context app;
+    private final ChatCacheRepository chatCacheRepository;
     private final TdLibClientState<Auth> auth = new TdLibClientState<>(Auth.Loading);
     private final TdLibClientState<List<TgChat>> chats = new TdLibClientState<>(Collections.emptyList());
     private final TdLibClientState<List<TgMessage>> messages = new TdLibClientState<>(Collections.emptyList());
@@ -71,6 +73,11 @@ public final class TdLibClient implements AutoCloseable {
 
     public TdLibClient(Context context) {
         app = context.getApplicationContext();
+        chatCacheRepository = new ChatCacheRepository(app);
+        chatCacheRepository.load(cached -> {
+            // Never let a late disk read overwrite a newer TDLib snapshot.
+            if (chats.getValue().isEmpty() && !cached.isEmpty()) setChats(cached);
+        });
         updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
         final TdStoryStateController[] storyStateRef = new TdStoryStateController[1];
 
@@ -371,6 +378,12 @@ public final class TdLibClient implements AutoCloseable {
         updateDispatchQueue.markReady();
     }
 
+    private void setChats(List<TgChat> value) {
+        List<TgChat> snapshot = value == null ? Collections.emptyList() : value;
+        chats.setValue(snapshot);
+        chatCacheRepository.replaceAll(snapshot);
+    }
+
     private void dispatchUpdate(TdApi.Object update) {
         if (messageStateController.handle(update) || fileStateController.handle(update)) return;
         updateStateController.route(update);
@@ -456,5 +469,8 @@ public final class TdLibClient implements AutoCloseable {
     public void replyToStory(long chatId, int storyId, String text) { operationsController.replyToStory(chatId, storyId, text); }
     public void sendAnimated(long id, String text, Long reply) { operationsController.sendAnimated(id, text, reply); }
 
-    @Override public void close() { lifecycleController.close(); }
+    @Override public void close() {
+        lifecycleController.close();
+        chatCacheRepository.close();
+    }
 }
