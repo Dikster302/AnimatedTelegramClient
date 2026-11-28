@@ -166,6 +166,8 @@ public final class NativeSettingsPanelView extends LinearLayout {
         String name=account==null?"Мой аккаунт Telegram":account.getName();
         NativeAvatarView avatar=new NativeAvatarView(getContext(),account==null?"":account.getAvatarPath(),
                 first(name),0,60,false,false,false,panelLightColor);
+        avatar.setContentDescription("Фотография профиля. Нажмите, чтобы изменить");
+        avatar.setOnClickListener(v->{if(listener!=null)listener.onPickProfilePhoto();});
         accountRow.addView(avatar,new LayoutParams(dp(60),dp(60)));
         LinearLayout labels=vertical();LinearLayout.LayoutParams lp=new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f);
         lp.leftMargin=dp(14);accountRow.addView(labels,lp);
@@ -269,6 +271,8 @@ public final class NativeSettingsPanelView extends LinearLayout {
         NativeAvatarView avatar=new NativeAvatarView(getContext(),
                 account==null?"":account.getAvatarPath(),first(name),0,92,
                 false,false,false,panelLightColor);
+        avatar.setContentDescription("Фотография профиля. Нажмите, чтобы изменить");
+        avatar.setOnClickListener(v->{if(listener!=null)listener.onPickProfilePhoto();});
         LinearLayout.LayoutParams avatarParams=new LayoutParams(dp(92),dp(92));
         avatarParams.topMargin=-dp(42);
         identity.addView(avatar,avatarParams);
@@ -582,7 +586,7 @@ public final class NativeSettingsPanelView extends LinearLayout {
     private EditText edit(String value,String hint,boolean single){
         EditText input=new EditText(getContext());input.setText(value);input.setHint(hint);
         input.setTextColor(textColor);input.setHintTextColor(mutedColor);input.setTextSize(15);
-        input.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        input.setBackgroundTintList(android.content.res.ColorStateList.valueOf(mutedColor));
         input.setSingleLine(single);return input;
     }
     private LinearLayout vertical(){LinearLayout v=new LinearLayout(getContext());v.setOrientation(VERTICAL);return v;}
