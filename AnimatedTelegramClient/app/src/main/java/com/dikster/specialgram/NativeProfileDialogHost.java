@@ -38,7 +38,7 @@ import java.util.List;
 
 /** Full-screen native profile and dedicated Telegram-style QR page. */
 public final class NativeProfileDialogHost extends FrameLayout {
-    public interface Listener { void onClose(); void onToggleMute(TgChat chat, boolean muted); }
+    public interface Listener { void onClose(); void onToggleMute(TgChat chat, boolean muted); void onOpenGiftCatalog(TgProfile profile); }
     private final Dialog dialog;
     private final Listener listener;
     private TgChat currentChat;
@@ -162,7 +162,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
                             ?"Пользователь ограничил входящие звонки"
                             :"Вызовы пока не подключены: требуется аудиомодуль и экран соединения";
                     Toast.makeText(getContext(),message,Toast.LENGTH_SHORT).show();
-                }else{activeTab="Подарки";render();}
+                }else{if(listener!=null)listener.onOpenGiftCatalog(currentProfile);}
             });
         }
         body.addView(actions);
