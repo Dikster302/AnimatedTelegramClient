@@ -134,10 +134,18 @@ public final class TdLibClient implements AutoCloseable {
         client = TdClientFactory.create(new TdClientFactory.Listener() {
             @Override public void onUpdate(TdApi.Object update) { updateDispatchQueue.accept(update); }
             @Override public void onUpdateError(Throwable error) {
-                auth.setValue(new Auth.Error(error.getMessage() == null ? "TDLib error" : error.getMessage()));
+                // Ошибка обработки отдельного update не означает потерю авторизации.
+                // Не переводим весь интерфейс в экран «Не удалось подключиться»:
+                // TDLib продолжает присылать следующие обновления.
+                String message = error == null || error.getMessage() == null
+                        ? "Unknown TDLib update callback error" : error.getMessage();
+                DiagnosticsJournal.record(app, "UpdateCallback", -1, message);
+                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
+                        .recordException(new IllegalStateException("TDLib update callback failed: " + message, error));
             }
             @Override public void onFatalError(Throwable error) {
-                auth.setValue(new Auth.Error(error.getMessage() == null ? "TDLib error" : error.getMessage()));
+                // Только фатальная ошибка клиента действительно завершает подключение.
+                auth.setValue(new Auth.Error(error.getMessage() == null ? "TDLib fatal error" : error.getMessage()));
             }
         });
         TdRequestDispatcher dispatcher = new TdRequestDispatcher(app, client);
