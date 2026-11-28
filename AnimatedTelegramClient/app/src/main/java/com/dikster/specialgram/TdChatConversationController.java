@@ -8,11 +8,14 @@ import java.util.Map;
 
 /** Owns generation-safe chat opening, history pagination and in-chat search. */
 public final class TdChatConversationController {
+    public interface CacheCallback { void onLoaded(List<TgMessage> messages); }
+
     public interface Listener {
         List<TgChat> chats();
         void setChats(List<TgChat> chats);
         List<TgMessage> messages();
         void setMessages(List<TgMessage> messages);
+        void loadCachedMessages(long chatId, CacheCallback callback);
         void setSearchResults(List<TgMessage> messages);
         TgMessage mapMessage(TdApi.Message message, long readMarker);
         void enqueueViewedMessages(long chatId, long[] messageIds);
@@ -34,6 +37,10 @@ public final class TdChatConversationController {
         final int generation = session.open(chatId);
         listener.setSearchResults(new ArrayList<>());
         listener.setMessages(new ArrayList<>());
+        listener.loadCachedMessages(chatId, cached -> {
+            if (isCurrent(chatId, generation) && listener.messages().isEmpty() && !cached.isEmpty())
+                listener.setMessages(new ArrayList<>(cached));
+        });
 
         history.loadChat(chatId, new TdChatHistoryController.Callback() {
             @Override public void onResult(TdApi.Object result) {
