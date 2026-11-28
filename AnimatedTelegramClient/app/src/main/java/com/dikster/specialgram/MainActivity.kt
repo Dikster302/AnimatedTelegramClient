@@ -1023,32 +1023,33 @@ private fun ConversationScreen(
                 }
             }
         } else {
-            LazyColumn(
-                state = listState, modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
-            ) {
-                itemsIndexed(visibleMessages, key = { _, message -> message.id }) { index, message ->
-                    val previous = visibleMessages.getOrNull(index - 1)
-                    val next = visibleMessages.getOrNull(index + 1)
-                    val startsDay = !messageSearchOpen && (previous == null || !isSameMessageDay(previous.date, message.date))
-                    val continuesGroup = previous != null && previous.outgoing == message.outgoing &&
-                        isSameMessageDay(previous.date, message.date) && message.date - previous.date < 300
-                    val continuesAfter = next != null && next.outgoing == message.outgoing &&
-                        isSameMessageDay(next.date, message.date) && next.date - message.date < 300
-                    if (startsDay) MessageDateDivider(message.date)
-                    Spacer(Modifier.height(if (continuesGroup) 2.dp else 6.dp))
-                    AnimatedVisibility(visible = true, enter = fadeIn() + slideInVertically(initialOffsetY = { it / 5 })) {
-                        MessageBubble(
-                            message,
-                            onLongPress = { selectedMessage = message },
-                            onReaction = { emoji -> onReactToMessage(message, emoji) },
-                            groupedWithPrevious = continuesGroup,
-                            groupedWithNext = continuesAfter
-                        )
-                    }
+            val listAppearance = LocalAppearance.current
+            val loadOlderAction = onLoadOlderMessages
+            val reactionAction = onReactToMessage
+            val messageListListener = remember(loadOlderAction, reactionAction) {
+                object : NativeMessageListView.Listener {
+                    override fun onLongPress(message: TgMessage) { selectedMessage = message }
+                    override fun onReaction(message: TgMessage, emoji: String) { reactionAction(message, emoji) }
+                    override fun onLoadOlder() = loadOlderAction()
                 }
             }
+            AndroidView(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                factory = { context ->
+                    NativeMessageListView(context, chat.id, visibleMessages, messageSearchOpen,
+                        messageSearchIndex, listAppearance.text.toArgb(), listAppearance.muted.toArgb(),
+                        listAppearance.accent.toArgb(), listAppearance.incoming.toArgb(),
+                        listAppearance.outgoing.toArgb(), listAppearance.panel.toArgb(),
+                        listAppearance.bubbleRadius, messageListListener)
+                },
+                update = { view ->
+                    view.update(chat.id, visibleMessages, messageSearchOpen, messageSearchIndex,
+                        listAppearance.text.toArgb(), listAppearance.muted.toArgb(),
+                        listAppearance.accent.toArgb(), listAppearance.incoming.toArgb(),
+                        listAppearance.outgoing.toArgb(), listAppearance.panel.toArgb(),
+                        listAppearance.bubbleRadius, messageListListener)
+                }
+            )
         }
 
         val sendAction = onSend
