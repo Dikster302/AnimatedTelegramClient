@@ -18,8 +18,10 @@ public final class NativeChatFoldersView extends HorizontalScrollView {
     private final LinearLayout content;
 
     public NativeChatFoldersView(Context context,String selected,int text,int muted,int accent,Listener listener){
-        super(context);setHorizontalScrollBarEnabled(false);
-        content=new LinearLayout(context);content.setGravity(Gravity.CENTER_VERTICAL);
+        super(context);setHorizontalScrollBarEnabled(false);setFillViewport(false);
+        setOverScrollMode(OVER_SCROLL_NEVER);
+        content=new LinearLayout(context);content.setOrientation(LinearLayout.HORIZONTAL);
+        content.setGravity(Gravity.CENTER_VERTICAL);
         content.setPadding(dp(8),dp(2),dp(8),dp(2));addView(content,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
         update(selected,text,muted,accent,listener);
     }
@@ -32,9 +34,11 @@ public final class NativeChatFoldersView extends HorizontalScrollView {
             boolean active=folder.equals(selected);
             LinearLayout item=new LinearLayout(getContext());item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER_HORIZONTAL);
+            item.setMinimumWidth(dp(68));
             item.setPadding(dp(10),dp(7),dp(10),dp(7));
             TextView label=new TextView(getContext());label.setText(folder);
             label.setTextColor(active?accentColor:mutedColor);label.setTextSize(14);
+            label.setSingleLine(true);label.setIncludeFontPadding(false);
             if(active)label.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
             item.addView(label);
             android.view.View underline=new android.view.View(getContext());
