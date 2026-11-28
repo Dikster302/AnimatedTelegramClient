@@ -1,9 +1,7 @@
 package com.dikster.specialgram
 import android.content.Context
 import android.os.Build
-import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
-import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
@@ -88,23 +86,11 @@ class TdLibClient(context:Context) {
  private val animatedMessageSendController = TdAnimatedMessageSendController(
   animatedMessageController,confirmedIds,pendingEdits,Runnable { clearOperationError() })
 
- private val client=Client.create(
-  { o -> onUpdate(o) },
-  { e ->
-   FirebaseCrashlytics.getInstance().apply {
-    setCustomKey("tdlib_callback", "update_error")
-    recordException(IllegalStateException("TDLib update callback failed"))
-   }
-   _auth.value=Auth.Error(e.message ?: "TDLib error")
-  },
-  { e ->
-   FirebaseCrashlytics.getInstance().apply {
-    setCustomKey("tdlib_callback", "fatal_error")
-    recordException(IllegalStateException("TDLib fatal callback failed"))
-   }
-   _auth.value=Auth.Error(e.message ?: "TDLib error")
-  }
- )
+ private val client=TdClientFactory.create(object : TdClientFactory.Listener {
+  override fun onUpdate(update:TdApi.Object) { onUpdate(update) }
+  override fun onUpdateError(error:Throwable) { _auth.value=Auth.Error(error.message ?: "TDLib error") }
+  override fun onFatalError(error:Throwable) { _auth.value=Auth.Error(error.message ?: "TDLib error") }
+ })
  private val userFullInfoQueue = TdUserFullInfoQueue(
   TdUserFullInfoQueue.Requester { function, callback ->
    send(function,
