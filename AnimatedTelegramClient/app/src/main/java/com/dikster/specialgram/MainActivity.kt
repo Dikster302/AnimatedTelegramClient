@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
@@ -1400,43 +1401,34 @@ private fun AuthScreen(
     title: String, subtitle: String, value: String, onValue: (String) -> Unit,
     button: String, onSubmit: () -> Unit, secret: Boolean = false
 ) {
-    Column(
-        Modifier.fillMaxSize().background(LocalAppearance.current.background).padding(horizontal = 26.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-    ) {
-        Image(painter = painterResource(R.drawable.ic_launcher_foreground), contentDescription = "Specialgram", modifier = Modifier.size(92.dp))
-        Spacer(Modifier.height(25.dp))
-        Text(title, color = LocalAppearance.current.text, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(8.dp))
-        Text(subtitle, color = LocalAppearance.current.muted, fontSize = 14.sp)
-        Spacer(Modifier.height(24.dp))
-        OutlinedTextField(
-            value = value, onValueChange = onValue, modifier = Modifier.fillMaxWidth(),
-            singleLine = true, visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = LocalAppearance.current.muted,
-                focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text
-            )
-        )
-        Spacer(Modifier.height(17.dp))
-        Button(onClick = onSubmit, enabled = value.isNotBlank(), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-            Text(button, modifier = Modifier.padding(vertical = 5.dp))
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            NativeEntryPanel(context, title, subtitle, value, button, secret,
+                appearance.background.toArgb(), appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb(), onValue, onSubmit)
+        },
+        update = { panel ->
+            panel.update(title, subtitle, value, button, secret,
+                appearance.background.toArgb(), appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb(), onValue, onSubmit)
         }
-    }
+    )
 }
 
 @Composable
 private fun CenterPanel(title: String, subtitle: String) {
-    Column(
-        Modifier.fillMaxSize().background(LocalAppearance.current.background).padding(28.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-    ) {
-        CircularProgressIndicator(color = LocalAppearance.current.accent, strokeWidth = 3.dp, modifier = Modifier.size(42.dp))
-        Spacer(Modifier.height(22.dp))
-        Text(title, color = LocalAppearance.current.text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(8.dp))
-        Text(subtitle, color = LocalAppearance.current.muted, fontSize = 13.sp)
-    }
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxSize(),
+        factory = { context ->
+            NativeEntryPanel.loading(context, title, subtitle,
+                appearance.background.toArgb(), appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb())
+        },
+        update = { }
+    )
 }
 
 @Composable
