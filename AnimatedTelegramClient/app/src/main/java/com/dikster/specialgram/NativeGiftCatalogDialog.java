@@ -48,7 +48,7 @@ public final class NativeGiftCatalogDialog {
             for(TgGiftOption gift:gifts){
                 LinearLayout row=new LinearLayout(context);row.setGravity(Gravity.CENTER_VERTICAL);
                 row.setPadding(dp(context,12),dp(context,10),dp(context,12),dp(context,10));
-                row.setBackground(round(0x332FFFFFFF,dp(context,16)));
+                row.setBackground(round(0x33FFFFFF,dp(context,16)));
                 LinearLayout.LayoutParams rp=wrap();rp.bottomMargin=dp(context,8);list.addView(row,rp);
                 TextView emoji=label(context,gift.getEmoji(),Color.WHITE,30,false);
                 emoji.setGravity(Gravity.CENTER);
