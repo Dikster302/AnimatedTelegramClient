@@ -149,7 +149,7 @@ public final class MainActivity extends Activity {
                     headerWallpaper,screenBg,screenPanel,screenText(),screenMuted(),ACCENT,screenPanelLight);
             if(chatsView==null){
                 chatsView=new NativeChatsScreenView(this,state,chatListener());
-                root.removeAllViews();root.addView(chatsView,new FrameLayout.LayoutParams(-1,-1));
+                setScreenWithTransition(chatsView, false);
             }else chatsView.update(state,chatListener());
         }else{
             chatsView=null;
@@ -162,11 +162,28 @@ public final class MainActivity extends Activity {
                 conversationView=new NativeConversationScreenView(this,selectedChat,chats,messages,search,
                         profile,videoNoteShape,error,screenBackground(),chatBackground(),panel,panelLight,screenText(),screenMuted(),
                         accentColor(),INCOMING,OUTGOING,bubbleRadius,conversationListener());
-                root.removeAllViews();root.addView(conversationView,new FrameLayout.LayoutParams(-1,-1));
+                setScreenWithTransition(conversationView, true);
             }else conversationView.update(selectedChat,chats,messages,search,profile,videoNoteShape,error,
                     screenBackground(),chatBackground(),panel,panelLight,screenText(),screenMuted(),accentColor(),INCOMING,OUTGOING,
                     bubbleRadius,conversationListener());
         }
+    }
+
+    /**
+     * Consistent lightweight screen transition. The incoming screen is faded and
+     * translated a few dp; animations are hardware-friendly and short enough not
+     * to delay navigation or interfere with chat scrolling.
+     */
+    private void setScreenWithTransition(View screen, boolean fromRight){
+        if(screen==null)return;
+        screen.setAlpha(0f);
+        screen.setTranslationX(dp(fromRight?18:-12));
+        root.removeAllViews();
+        root.addView(screen,new FrameLayout.LayoutParams(-1,-1));
+        screen.animate().cancel();
+        screen.animate().alpha(1f).translationX(0f).setDuration(220L)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f))
+                .start();
     }
 
     private boolean isLightTheme(){return "Светлая".equalsIgnoreCase(themeName);}
@@ -199,9 +216,7 @@ public final class MainActivity extends Activity {
 
     private void showLoading(String title,String subtitle){
         chatsView=null;conversationView=null;
-        root.removeAllViews();
-        root.addView(NativeEntryPanel.loading(this,title,subtitle,BG,TEXT,MUTED,ACCENT),
-                new FrameLayout.LayoutParams(-1,-1));
+        setScreenWithTransition(NativeEntryPanel.loading(this,title,subtitle,BG,TEXT,MUTED,ACCENT), false);
     }
     private void showAuth(String title,String subtitle,String value,String button,boolean secret,
                           Runnable submit,java.util.function.Consumer<String> changed,String error){
@@ -211,9 +226,8 @@ public final class MainActivity extends Activity {
             ((NativeEntryPanel)old).update(title,subtitle,value,button,secret,BG,TEXT,MUTED,ACCENT,
                     changed,submit,error);return;
         }
-        root.removeAllViews();
-        root.addView(new NativeEntryPanel(this,title,subtitle,value,button,secret,BG,TEXT,MUTED,
-                ACCENT,changed,submit,error),new FrameLayout.LayoutParams(-1,-1));
+        setScreenWithTransition(new NativeEntryPanel(this,title,subtitle,value,button,secret,BG,TEXT,MUTED,
+                ACCENT,changed,submit,error), false);
     }
 
     private NativeChatsScreenView.Listener chatListener(){
