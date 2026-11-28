@@ -15,6 +15,7 @@ public final class TdMessageStateController {
         List<TgChat> chats();
         List<TgMessage> messages();
         void setMessages(List<TgMessage> messages);
+        void deleteMessages(long chatId, List<Long> messageIds);
         TgMessage mapMessage(TdApi.Message message, long readMarker);
         void enqueueViewedMessages(long chatId, long[] messageIds);
     }
@@ -43,6 +44,7 @@ public final class TdMessageStateController {
                 List<TgMessage> messages = new ArrayList<>();
                 for (TgMessage message : listener.messages())
                     if (!deleted.contains(message.getId())) messages.add(message);
+                listener.deleteMessages(value.chatId, new ArrayList<>(deleted));
                 listener.setMessages(messages);
             }
             return true;
