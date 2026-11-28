@@ -307,7 +307,7 @@ class TdLibClient(context:Context) {
   userActions.loadProfile(chatId,object : TdUserActionsController.ProfileListener {
    override fun onChat(chat:TdApi.Chat) {
     val kind=when(chat.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((chat.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
-    _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
+    _profile.value=TgProfile(chatId,chat.title,kind,"","",_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "", "","Статус неизвестен",false,false,false,0)
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
      activeProfileUserId=userId
@@ -352,7 +352,7 @@ class TdLibClient(context:Context) {
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
   userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
    override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,kind="Личный чат")) }
+    if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,"",0,0,"","Личный чат",false,"",false,false,0L,false,false,false,false,false)) }
    }
    override fun onError(error:TdApi.Error) { }
   })
