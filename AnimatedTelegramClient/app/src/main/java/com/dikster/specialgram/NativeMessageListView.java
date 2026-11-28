@@ -113,7 +113,6 @@ public final class NativeMessageListView extends LinearLayout {
         private final FrameLayout dateHolder;
         private final View gap;
         private final NativeMessageBubbleView bubble;
-        private int dateValue=Integer.MIN_VALUE;
         MessageRow(Context context){
             super(context);setOrientation(VERTICAL);
             setPadding(dp(10),0,dp(10),0);
@@ -138,12 +137,9 @@ public final class NativeMessageListView extends LinearLayout {
                     &&next.getDate()-message.getDate()<300;
             if(startsDay){
                 dateHolder.setVisibility(VISIBLE);
-                if(dateValue!=message.getDate()){
-                    dateHolder.removeAllViews();
-                    dateHolder.addView(NativeTextRows.messageDateDivider(getContext(),message.getDate(),panelColor));
-                    dateValue=message.getDate();
-                }
-            }else{dateHolder.setVisibility(GONE);dateValue=Integer.MIN_VALUE;dateHolder.removeAllViews();}
+                dateHolder.removeAllViews();
+                dateHolder.addView(NativeTextRows.messageDateDivider(getContext(),message.getDate(),panelColor));
+            }else{dateHolder.setVisibility(GONE);dateHolder.removeAllViews();}
             gap.setLayoutParams(new LayoutParams(1,dp(groupedPrevious?2:6)));
             NativeMessageBubbleView.Listener rowListener = new NativeMessageBubbleView.Listener() {
                 @Override public void onLongPress() {
