@@ -72,6 +72,7 @@ public final class TdLibClient implements AutoCloseable {
     public TdLibClient(Context context) {
         app = context.getApplicationContext();
         updateDispatchQueue = new TdUpdateDispatchQueue(this::dispatchUpdate);
+        final TdStoryStateController[] storyStateRef = new TdStoryStateController[1];
 
         animatedMessageController = new TdAnimatedMessageController((function, callback) ->
                 send(function, callback == null ? null : callback::onResult, null, true));
@@ -89,7 +90,7 @@ public final class TdLibClient implements AutoCloseable {
             }
         }, result -> {
             if (result instanceof TdApi.ChatActiveStories)
-                storyStateController.updateChatStories((TdApi.ChatActiveStories) result);
+                storyStateRef[0].updateChatStories((TdApi.ChatActiveStories) result);
         });
 
         TdMessageMappingController mapping = new TdMessageMappingController(
@@ -207,7 +208,7 @@ public final class TdLibClient implements AutoCloseable {
 
         storyContentQueue = new TdStoryContentQueue((function, callback) ->
                 send(function, callback::onResult, callback::onError, false),
-                (story, viewed) -> storyStateController.updateStory(story, viewed));
+                (story, viewed) -> storyStateRef[0].updateStory(story, viewed));
 
         storyStateController = new TdStoryStateController(new TdStoryStateController.Listener() {
             @Override public List<TgChat> chats() { return chats.getValue(); }
@@ -222,6 +223,7 @@ public final class TdLibClient implements AutoCloseable {
                 fileDownloadQueue.enqueue(file.id);
             }
         });
+        storyStateRef[0] = storyStateController;
 
         storyActions = new TdStoryActionsController((function, callback) ->
                 send(function, callback == null ? null : callback::onResult,
