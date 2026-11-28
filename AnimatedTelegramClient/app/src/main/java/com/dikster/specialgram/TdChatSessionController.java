@@ -25,7 +25,6 @@ public final class TdChatSessionController {
         return sessionGeneration;
     }
     public synchronized void close() {
-        Long previous = activeChat;
         activeChat = null;
         sessionGeneration++;
         searchGeneration++;
