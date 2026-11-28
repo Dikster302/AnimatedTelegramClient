@@ -151,7 +151,7 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   },
   TdContactsController.Listener { user ->
-   if(user is TdApi.User) updateContact(user)
+   if(user is TdApi.User) { updateContact(user); updateChatUser(user) }
   }
  )
  private val chatListLoader = TdChatListLoader(
@@ -300,7 +300,7 @@ class TdLibClient(context:Context) {
   if(c.type is TdApi.ChatTypePrivate) {
    val userId=(c.type as TdApi.ChatTypePrivate).userId
    userToChat[userId]=c.id
-   send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) updateChatUser(u) }
+   contactsController.enqueueUser(userId)
   }
   if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
  }

@@ -35,6 +35,7 @@ public final class TdContactsController {
     private final Set<Long> queued = new HashSet<>();
     private boolean loading;
     private boolean inFlight;
+    private boolean contactsRequested;
     private boolean closed;
 
     public TdContactsController(Requester requester, Listener listener) {
@@ -42,30 +43,30 @@ public final class TdContactsController {
         this.listener = listener;
     }
 
-    public synchronized void load() {
-        if (closed || loading) return;
-        loading = true;
-        pending.clear();
-        queued.clear();
+    public void load() {
+        synchronized (this) {
+            if (closed || contactsRequested) return;
+            contactsRequested = true;
+        }
         requester.send(new TdApi.GetContacts(), new Callback() {
             @Override public void onResult(TdApi.Object result) {
-                if (!(result instanceof TdApi.Users)) {
-                    finish();
-                    return;
-                }
-                synchronized (TdContactsController.this) {
-                    if (closed) return;
-                    for (long id : ((TdApi.Users) result).userIds) {
-                        if (queued.add(id)) pending.addLast(id);
-                    }
-                }
-                scheduleNext(0L);
+                if (!(result instanceof TdApi.Users)) return;
+                for (long id : ((TdApi.Users) result).userIds) enqueueUser(id);
             }
-
-            @Override public void onError(TdApi.Error error) {
-                finish();
-            }
+            @Override public void onError(TdApi.Error error) { }
         });
+    }
+
+    /** Adds a user lookup to the same paced queue used by the contacts screen. */
+    public void enqueueUser(long userId) {
+        boolean shouldSchedule;
+        synchronized (this) {
+            if (closed || !queued.add(userId)) return;
+            pending.addLast(userId);
+            loading = true;
+            shouldSchedule = !inFlight;
+        }
+        if (shouldSchedule) scheduleNext(0L);
     }
 
     private void scheduleNext(long delayMs) {
