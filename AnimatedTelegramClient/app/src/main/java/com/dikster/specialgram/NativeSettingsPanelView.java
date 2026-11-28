@@ -202,7 +202,13 @@ public final class NativeSettingsPanelView extends LinearLayout {
     }
 
     private void renderCover(){
-        paragraph("Выбери, что будет отображаться в верхней части списка чатов.");
+        paragraph("Обложка используется только как предпросмотр. На главном экране список чатов остаётся со стандартным тёмным фоном.");
+        NativeHeaderWallpaperView coverPreview=new NativeHeaderWallpaperView(getContext(),headerWallpaper,panelColor);
+        coverPreview.setContentDescription("Предпросмотр выбранной обложки Specialgram");
+        LinearLayout.LayoutParams previewParams=match();
+        previewParams.height=dp(132);
+        previewParams.bottomMargin=dp(12);
+        body.addView(coverPreview,previewParams);
         cover("Стандартная","Обычный фон Telegram",headerWallpaper==null,
                 ()->{if(listener!=null)listener.onClearHeaderWallpaper();});
         cover("Космос","Градиент со звёздами","preset:cosmic".equals(headerWallpaper),
