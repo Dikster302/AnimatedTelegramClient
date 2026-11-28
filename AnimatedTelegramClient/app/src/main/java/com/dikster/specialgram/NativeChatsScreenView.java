@@ -134,7 +134,11 @@ public final class NativeChatsScreenView extends FrameLayout {
     private void renderHeader(){
         if(wallpaperView==null){
             wallpaperView=new NativeHeaderWallpaperView(getContext(),selectedTab==0?state.headerWallpaper:null,state.panel);
-            headerHost.addView(wallpaperView,0,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+            // A MATCH_PARENT child inside a WRAP_CONTENT FrameLayout can consume
+            // the remaining screen height and leave contentHost with zero height.
+            // Keep the wallpaper constrained to the header area only.
+            headerHost.addView(wallpaperView,0,new FrameLayout.LayoutParams(
+                    LayoutParams.MATCH_PARENT,dp(136)));
         }else wallpaperView.update(selectedTab==0?state.headerWallpaper:null,state.panel);
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
