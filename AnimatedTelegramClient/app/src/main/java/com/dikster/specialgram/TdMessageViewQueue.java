@@ -72,14 +72,18 @@ public final class TdMessageViewQueue implements AutoCloseable {
     private void sendActive(){
         final long chatId;final long[] ids;
         synchronized(this){if(closed||!inFlight)return;chatId=activeChat;ids=activeIds;}
-        requester.send(new TdApi.ViewMessages(chatId,ids,null,true),new Callback(){
-            @Override public void onResult(TdApi.Object result){complete(REQUEST_GAP_MS,false,false);}
-            @Override public void onError(TdApi.Error error){
-                boolean retry=error!=null&&error.code==429;
-                long delay=retry?retryDelay(error.message):REQUEST_GAP_MS;
-                complete(delay,retry,true);
-            }
-        });
+        try {
+            requester.send(new TdApi.ViewMessages(chatId,ids,null,true),new Callback(){
+                @Override public void onResult(TdApi.Object result){complete(REQUEST_GAP_MS,false,false);}
+                @Override public void onError(TdApi.Error error){
+                    boolean retry=error!=null&&error.code==429;
+                    long delay=retry?retryDelay(error.message):REQUEST_GAP_MS;
+                    complete(delay,retry,true);
+                }
+            });
+        } catch (RuntimeException failure) {
+            complete(REQUEST_GAP_MS,false,true);
+        }
     }
 
     private void complete(long delay,boolean retry,boolean failed){
