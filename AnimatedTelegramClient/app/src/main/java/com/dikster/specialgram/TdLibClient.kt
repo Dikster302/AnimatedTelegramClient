@@ -75,6 +75,18 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val accountActions = TdAccountActionsController(
+  TdAccountActionsController.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) })
+  },
+  object : TdAccountActionsController.Listener {
+   override fun onAccountUser(user:TdApi.User) { updateAccount(user) }
+   override fun onBioUpdated(bio:String) { _account.value=_account.value?.copy(bio=bio) }
+   override fun onValidationError(message:String) { _operationError.value=message }
+  }
+ )
  private val chatHistoryController = TdChatHistoryController(
   TdChatHistoryController.Requester { function, callback ->
    send(function,
@@ -507,14 +519,10 @@ class TdLibClient(context:Context) {
  }
  fun clearOperationError() { _operationError.value=null }
   fun updateMyProfile(firstName:String,lastName:String,bio:String) {
-  val first=firstName.trim(); val last=lastName.trim(); val about=bio.trim().replace("\n"," ")
-  if(first.isBlank()) { _operationError.value="Имя не может быть пустым"; return }
-  if(first.length>64 || last.length>64) { _operationError.value="Имя и фамилия должны быть не длиннее 64 символов"; return }
-  send(TdApi.SetName(first,last)) { result -> if(result is TdApi.Ok) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
-  send(TdApi.SetBio(about)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetUserFullInfo(myUserId!!)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") } }
+  accountActions.updateProfile(firstName,lastName,bio,myUserId ?: 0L)
  }
  fun setMyProfilePhoto(path:String) {
-  send(TdApi.SetProfilePhoto(TdApi.InputChatPhotoStatic(TdApi.InputFileLocal(path)),false)) { result -> if(result is TdApi.Ok && myUserId!=null) send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  accountActions.setProfilePhoto(path,myUserId ?: 0L)
  }
 fun reportOperationError(text:String) {
   FirebaseCrashlytics.getInstance().apply {
