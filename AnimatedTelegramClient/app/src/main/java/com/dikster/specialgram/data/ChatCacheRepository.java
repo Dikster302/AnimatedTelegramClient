@@ -3,8 +3,11 @@ package com.dikster.specialgram.data;
 import android.content.Context;
 
 import androidx.room.Room;
+import androidx.room.migration.Migration;
+import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import com.dikster.specialgram.TgChat;
+import com.dikster.specialgram.TgMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,15 +17,25 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * Disk cache for the chat list. All database work is serialized off the UI/TDLib
- * callback threads. Writes are coalesced so a burst of TDLib updates persists
- * only the newest complete snapshot.
- */
+/** Кэш чатов и истории сообщений. Все операции БД выполняются в одном фоновом потоке. */
 public final class ChatCacheRepository implements AutoCloseable {
-    public interface LoadCallback {
-        void onLoaded(List<TgChat> chats);
-    }
+    public interface LoadCallback { void onLoaded(List<TgChat> chats); }
+    public interface MessagesCallback { void onLoaded(List<TgMessage> messages); }
+
+    private static final Migration MIGRATION_1_2 = new Migration(1, 2) {
+        @Override public void migrate(SupportSQLiteDatabase db) {
+            db.execSQL("CREATE TABLE IF NOT EXISTS cached_messages ("
+                    + "chatId INTEGER NOT NULL, messageId INTEGER NOT NULL, text TEXT, "
+                    + "outgoing INTEGER NOT NULL, date INTEGER NOT NULL, read INTEGER NOT NULL, "
+                    + "videoShape TEXT, videoPath TEXT, replyToMessageId INTEGER NOT NULL, "
+                    + "replyToText TEXT, reactionsJson TEXT, photoPath TEXT, mediaKind TEXT, "
+                    + "mediaPath TEXT, mediaName TEXT, mediaMimeType TEXT, mediaDuration INTEGER NOT NULL, "
+                    + "mediaSize INTEGER NOT NULL, pinned INTEGER NOT NULL, "
+                    + "PRIMARY KEY(chatId, messageId))");
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_cached_messages_chatId_date "
+                    + "ON cached_messages (chatId, date)");
+        }
+    };
 
     private final SpecialgramDatabase database;
     private final ExecutorService io = Executors.newSingleThreadExecutor(task -> {
@@ -36,13 +49,14 @@ public final class ChatCacheRepository implements AutoCloseable {
 
     public ChatCacheRepository(Context context) {
         database = Room.databaseBuilder(context.getApplicationContext(),
-                SpecialgramDatabase.class, "specialgram-cache.db").build();
+                SpecialgramDatabase.class, "specialgram-cache.db")
+                .addMigrations(MIGRATION_1_2)
+                .build();
     }
 
     public void load(LoadCallback callback) {
         if (callback == null || closed.get()) return;
-        io.execute(() -> {
-            if (closed.get()) return;
+        execute(() -> {
             List<ChatEntity> rows = database.chatDao().getAll();
             List<TgChat> result = new ArrayList<>(rows.size());
             for (ChatEntity row : rows) result.add(row.toModel());
@@ -50,7 +64,38 @@ public final class ChatCacheRepository implements AutoCloseable {
         });
     }
 
-    /** Replaces the snapshot atomically; rapid updates collapse to the newest one. */
+    public void loadMessages(long chatId, MessagesCallback callback) {
+        if (callback == null || closed.get()) return;
+        execute(() -> {
+            List<MessageEntity> rows = database.chatDao().getMessages(chatId);
+            List<TgMessage> result = new ArrayList<>(rows.size());
+            for (MessageEntity row : rows) result.add(row.toModel());
+            callback.onLoaded(Collections.unmodifiableList(result));
+        });
+    }
+
+    /** Сохраняет/обновляет только переданные сообщения, не затрагивая старые страницы. */
+    public void upsertMessages(long chatId, List<TgMessage> messages) {
+        if (closed.get() || messages == null || messages.isEmpty()) return;
+        List<MessageEntity> rows = new ArrayList<>(messages.size());
+        for (TgMessage message : messages)
+            if (message != null) rows.add(MessageEntity.from(chatId, message));
+        if (rows.isEmpty()) return;
+        execute(() -> database.chatDao().upsertMessages(rows));
+    }
+
+    public void deleteMessages(long chatId, List<Long> messageIds) {
+        if (closed.get() || messageIds == null || messageIds.isEmpty()) return;
+        List<Long> ids = new ArrayList<>(messageIds);
+        execute(() -> database.chatDao().deleteMessages(chatId, ids));
+    }
+
+    public void clearMessages(long chatId) {
+        if (closed.get()) return;
+        execute(() -> database.chatDao().clearMessages(chatId));
+    }
+
+    /** Заменяет полный снимок списка чатов; быстрые обновления объединяются. */
     public void replaceAll(List<TgChat> chats) {
         if (closed.get()) return;
         List<ChatEntity> snapshot = new ArrayList<>();
@@ -58,6 +103,12 @@ public final class ChatCacheRepository implements AutoCloseable {
             if (chat != null) snapshot.add(ChatEntity.from(chat));
         pendingSnapshot.set(Collections.unmodifiableList(snapshot));
         scheduleWrite();
+    }
+
+    private void execute(Runnable task) {
+        if (closed.get()) return;
+        try { io.execute(() -> { if (!closed.get()) task.run(); }); }
+        catch (RuntimeException ignored) { }
     }
 
     private void scheduleWrite() {
@@ -86,11 +137,8 @@ public final class ChatCacheRepository implements AutoCloseable {
     @Override public void close() {
         if (!closed.compareAndSet(false, true)) return;
         pendingSnapshot.set(null);
-        try {
-            io.execute(database::close);
-        } catch (RuntimeException ignored) {
-            database.close();
-        }
+        try { io.execute(database::close); }
+        catch (RuntimeException ignored) { database.close(); }
         io.shutdown();
     }
 }
