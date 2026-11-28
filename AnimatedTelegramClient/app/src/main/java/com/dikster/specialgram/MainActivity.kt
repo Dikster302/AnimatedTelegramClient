@@ -1128,13 +1128,8 @@ private fun ProfileInfoLine(label: String, value: String) {
     )
 }
 
-private fun isSameMessageDay(first: Int, second: Int): Boolean {
-    if (first <= 0 || second <= 0) return false
-    val a = Calendar.getInstance().apply { timeInMillis = first.toLong() * 1000L }
-    val b = Calendar.getInstance().apply { timeInMillis = second.toLong() * 1000L }
-    return a.get(Calendar.YEAR) == b.get(Calendar.YEAR) &&
-        a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR)
-}
+private fun isSameMessageDay(first: Int, second: Int): Boolean =
+    NativeTextRows.isSameMessageDay(first, second)
 
 @Composable
 private fun MessageDateDivider(timestamp: Int) {

@@ -57,6 +57,15 @@ public final class NativeTextRows {
         return outer;
     }
 
+    public static boolean isSameMessageDay(int first, int second) {
+        Calendar a = Calendar.getInstance();
+        Calendar b = Calendar.getInstance();
+        a.setTimeInMillis(first * 1000L);
+        b.setTimeInMillis(second * 1000L);
+        return a.get(Calendar.YEAR) == b.get(Calendar.YEAR)
+                && a.get(Calendar.DAY_OF_YEAR) == b.get(Calendar.DAY_OF_YEAR);
+    }
+
     private static String formatMessageDate(int timestamp) {
         Date date = new Date(timestamp * 1000L);
         Calendar today = Calendar.getInstance();
