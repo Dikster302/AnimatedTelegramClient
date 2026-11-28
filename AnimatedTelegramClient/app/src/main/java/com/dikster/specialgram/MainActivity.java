@@ -280,6 +280,12 @@ public final class MainActivity extends Activity {
             @Override public void onTogglePinned(TgChat chat){td.toggleChatPinned(chat.getId(),!chat.isPinned(),chat.getArchived());}
             @Override public void onToggleUnread(TgChat chat){td.toggleChatUnread(chat.getId(),!chat.isMarkedAsUnread());}
             @Override public void onToggleMute(TgChat chat){td.toggleChatMuted(chat.getId(),!chat.isMuted());}
+            @Override public void onPreviewChat(TgChat chat){
+                td.loadChatPreview(chat.getId(),messages->runOnUiThread(()->{
+                    NativeChatPreviewDialog.show(MainActivity.this,chat,messages,
+                            screenText(),screenMuted(),accentColor(),panelColor(),accentColor());
+                }));
+            }
         };
     }
 
