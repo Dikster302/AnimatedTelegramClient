@@ -47,10 +47,7 @@ class TdLibClient(context:Context) {
    if(result is TdApi.ChatActiveStories) updateChatStories(result)
   }
  )
- private var registeredPushToken:String?=null
- private val pushRegistrationInFlight=AtomicBoolean(false)
  private var myUserId:Long?=null
- private var pendingPushToken:String?=app.getSharedPreferences("push",Context.MODE_PRIVATE).getString("fcm_token",null)
  private var myPhotoFileId:Int?=null
  private var activeProfileUserId:Long?=null
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
@@ -76,6 +73,15 @@ class TdLibClient(context:Context) {
     recordException(IllegalStateException("TDLib fatal callback failed"))
    }
    _auth.value=Auth.Error(e.message ?: "TDLib error")
+  }
+ )
+ private val pushRegistrationController = TdPushRegistrationController(
+  app,
+  TdPushRegistrationController.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
   }
  )
  private val privacyController = TdPrivacyController(
@@ -160,17 +166,10 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateWaitPhoneNumber -> _auth.value=Auth.Phone
   is TdApi.AuthorizationStateWaitCode -> _auth.value=Auth.Code
   is TdApi.AuthorizationStateWaitPassword -> _auth.value=Auth.Password
-  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; pendingPushToken?.let { registerPushToken(it) }; loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
+  is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; pushRegistrationController.onAuthorized(); loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
- fun updatePushToken(token:String) { if(token.isBlank()) return; pendingPushToken=token; app.getSharedPreferences("push",Context.MODE_PRIVATE).edit().putString("fcm_token",token).apply(); if(_auth.value is Auth.Ready) registerPushToken(token) }
- private fun registerPushToken(token:String) {
-  if(token.isBlank() || token==registeredPushToken || !pushRegistrationInFlight.compareAndSet(false,true)) return
-  send(TdApi.RegisterDevice(TdApi.DeviceTokenFirebaseCloudMessaging(token,true), longArrayOf()),
-   handler={ registeredPushToken=token; pushRegistrationInFlight.set(false) },
-   onError={ pushRegistrationInFlight.set(false) },
-   reportErrorToUi=false)
- }
+ fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value is Auth.Ready) }
  fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdApi.ProcessPushNotification(payload)) }
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
@@ -642,6 +641,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){pushRegistrationController.close();contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
