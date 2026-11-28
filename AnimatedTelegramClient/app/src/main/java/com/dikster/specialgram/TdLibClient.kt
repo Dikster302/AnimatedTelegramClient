@@ -348,83 +348,51 @@ class TdLibClient(context:Context) {
    }
   }
  )
- fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value === Auth.Ready) }
- fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdAuthorizationController.processPushNotification(payload)) }
- fun phone(v:String)=send(TdAuthorizationController.setPhoneNumber(v))
- fun code(v:String)=send(TdAuthorizationController.checkCode(v))
- fun password(v:String)=send(TdAuthorizationController.checkPassword(v))
- fun loadChats() {
-  chatListLoader.load(TdApi.ChatListMain(),false)
-  chatListLoader.load(TdApi.ChatListArchive(),true)
- }
- fun archiveChat(id:Long,archived:Boolean) { chatActions.archive(id,archived) }
- fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) { chatActions.togglePinned(id,isPinned,archived) }
- fun toggleChatUnread(id:Long,isUnread:Boolean) { chatActions.toggleUnread(id,isUnread) }
- fun toggleChatMuted(id:Long,isMuted:Boolean) { chatActions.toggleMuted(id,isMuted) }
- fun openProfile(chatId:Long) { profileController.openProfile(chatId) }
- fun loadContacts() { contactsController.load() }
+ fun updatePushToken(token:String) { operationsController.updatePushToken(token) }
+ fun processPushPayload(payload:String) { operationsController.processPushPayload(payload) }
+ fun phone(v:String) { operationsController.phone(v) }
+ fun code(v:String) { operationsController.code(v) }
+ fun password(v:String) { operationsController.password(v) }
+ fun loadChats() { operationsController.loadChats() }
+ fun archiveChat(id:Long,archived:Boolean) { operationsController.archiveChat(id,archived) }
+ fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) { operationsController.toggleChatPinned(id,isPinned,archived) }
+ fun toggleChatUnread(id:Long,isUnread:Boolean) { operationsController.toggleChatUnread(id,isUnread) }
+ fun toggleChatMuted(id:Long,isMuted:Boolean) { operationsController.toggleChatMuted(id,isMuted) }
+ fun openProfile(chatId:Long) { operationsController.openProfile(chatId) }
+ fun loadContacts() { operationsController.loadContacts() }
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
-  userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
-   override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Chat) { chatRegistrationController.putChat(result,false); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,"",0,0,"","Личный чат",false,"",false,false,0L,false,false,false,false,false)) }
-   }
-   override fun onError(error:TdApi.Error) { }
-  })
+  operationsController.openContact(userId) { chat -> onReady(chat) }
  }
-
- fun loadPrivacySettings() { privacyController.loadAll() }
- fun setLastSeenPrivacy(value:String) { privacyController.set(TdPrivacyController.STATUS,value) }
- fun setPhonePrivacy(value:String) { privacyController.set(TdPrivacyController.PHONE,value) }
- fun setPhotoPrivacy(value:String) { privacyController.set(TdPrivacyController.PHOTO,value) }
- fun closeProfile() { profileController.closeProfile() }
- fun openStory(chatId:Long,storyId:Int) {
-  storyActions.open(chatId,storyId)
-  storyStateController.markViewed(chatId,storyId)
- }
- fun closeStory(chatId:Long,storyId:Int) { storyActions.close(chatId,storyId) }
- fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") { storyActions.react(chatId,storyId,emoji) }
- fun postPhotoStory(path:String,caption:String="") {
-  clearOperationError()
-  val userId=myUserId
-  if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
-  storyActions.postPhoto(userId,path,caption)
- }
- fun postVideoStory(path:String,duration:Double) {
-  clearOperationError()
-  val userId=myUserId
-  if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
-  storyActions.postVideo(userId,path,duration)
- }
- fun openChat(id:Long) { chatConversationController.openChat(id) }
- fun closeChat() { chatConversationController.closeChat() }
- fun searchChatMessages(chatId:Long,query:String) { chatConversationController.searchChatMessages(chatId,query) }
- fun loadOlderMessages(chatId:Long) { chatConversationController.loadOlderMessages(chatId) }
- fun clearOperationError() { operationErrorController.clear() }
-  fun updateMyProfile(firstName:String,lastName:String,bio:String) {
-  accountActions.updateProfile(firstName,lastName,bio,myUserId ?: 0L)
- }
- fun setMyProfilePhoto(path:String) {
-  accountActions.setProfilePhoto(path,myUserId ?: 0L)
- }
-fun reportOperationError(text:String) { operationErrorController.report(text) }
- fun sendPhoto(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendPhoto(chatId,path,caption) }
-  fun sendDocument(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendDocument(chatId,path,caption) }
-  fun sendVideo(chatId:Long,path:String,shape:String) { clearOperationError(); messageActions.sendVideo(chatId,path,shape) }
- fun reactToMessage(chatId:Long,messageId:Long,emoji:String) {
-  clearOperationError()
-  val chosen=_messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
-  messageActions.react(chatId,messageId,emoji,chosen)
- }
- fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) { clearOperationError(); messageActions.forward(fromChatId,toChatId,messageId) }
- fun pinMessage(chatId:Long,messageId:Long,pin:Boolean) { clearOperationError(); messageActions.pin(chatId,messageId,pin) }
- fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) { clearOperationError(); messageActions.delete(chatId,messageId,revoke) }
- fun clearHistory(chatId:Long,revoke:Boolean) { clearOperationError(); messageActions.clearHistory(chatId,revoke) }
- fun editMessage(chatId:Long,messageId:Long,text:String) { clearOperationError(); messageActions.editText(chatId,messageId,text) }
- fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { clearOperationError(); messageActions.sendText(id,text,replyToMessageId) }
- fun replyToStory(chatId:Long,storyId:Int,text:String) { clearOperationError(); messageActions.replyToStory(chatId,storyId,text) }
- fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) {
-  animatedMessageSendController.send(id,text,replyToMessageId)
- }
+ fun loadPrivacySettings() { operationsController.loadPrivacySettings() }
+ fun setLastSeenPrivacy(value:String) { operationsController.setLastSeenPrivacy(value) }
+ fun setPhonePrivacy(value:String) { operationsController.setPhonePrivacy(value) }
+ fun setPhotoPrivacy(value:String) { operationsController.setPhotoPrivacy(value) }
+ fun closeProfile() { operationsController.closeProfile() }
+ fun openStory(chatId:Long,storyId:Int) { operationsController.openStory(chatId,storyId) }
+ fun closeStory(chatId:Long,storyId:Int) { operationsController.closeStory(chatId,storyId) }
+ fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") { operationsController.reactToStory(chatId,storyId,emoji) }
+ fun postPhotoStory(path:String,caption:String="") { operationsController.postPhotoStory(path,caption) }
+ fun postVideoStory(path:String,duration:Double) { operationsController.postVideoStory(path,duration) }
+ fun openChat(id:Long) { operationsController.openChat(id) }
+ fun closeChat() { operationsController.closeChat() }
+ fun searchChatMessages(chatId:Long,query:String) { operationsController.searchChatMessages(chatId,query) }
+ fun loadOlderMessages(chatId:Long) { operationsController.loadOlderMessages(chatId) }
+ fun clearOperationError() { operationsController.clearOperationError() }
+ fun updateMyProfile(firstName:String,lastName:String,bio:String) { operationsController.updateMyProfile(firstName,lastName,bio) }
+ fun setMyProfilePhoto(path:String) { operationsController.setMyProfilePhoto(path) }
+ fun reportOperationError(text:String) { operationsController.reportOperationError(text) }
+ fun sendPhoto(chatId:Long,path:String,caption:String="") { operationsController.sendPhoto(chatId,path,caption) }
+ fun sendDocument(chatId:Long,path:String,caption:String="") { operationsController.sendDocument(chatId,path,caption) }
+ fun sendVideo(chatId:Long,path:String,shape:String) { operationsController.sendVideo(chatId,path,shape) }
+ fun reactToMessage(chatId:Long,messageId:Long,emoji:String) { operationsController.reactToMessage(chatId,messageId,emoji) }
+ fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) { operationsController.forwardMessage(fromChatId,toChatId,messageId) }
+ fun pinMessage(chatId:Long,messageId:Long,pin:Boolean) { operationsController.pinMessage(chatId,messageId,pin) }
+ fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) { operationsController.deleteMessage(chatId,messageId,revoke) }
+ fun clearHistory(chatId:Long,revoke:Boolean) { operationsController.clearHistory(chatId,revoke) }
+ fun editMessage(chatId:Long,messageId:Long,text:String) { operationsController.editMessage(chatId,messageId,text) }
+ fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { operationsController.sendPlain(id,text,replyToMessageId) }
+ fun replyToStory(chatId:Long,storyId:Int,text:String) { operationsController.replyToStory(chatId,storyId,text) }
+ fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) { operationsController.sendAnimated(id,text,replyToMessageId) }
 
  private val requestDispatcher = TdRequestDispatcher(app, client)
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
@@ -447,5 +415,21 @@ fun reportOperationError(text:String) { operationErrorController.report(text) }
   Runnable { storyContentQueue.close() },
   Runnable { storyQueue.close() })
  fun close() { lifecycleController.close() }
+ private val operationsController = TdClientOperationsController(
+  object : TdClientOperationsController.Listener {
+   override fun myUserId():Long? = myUserId
+   override fun isAuthorized():Boolean = _auth.value === Auth.Ready
+   override fun sendAuthorization(function:TdApi.Function<*>) { send(function) }
+   override fun findChat(chatId:Long):TgChat? = _chats.value.firstOrNull { it.id==chatId }
+   override fun isReactionChosen(messageId:Long,emoji:String):Boolean =
+    _messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
+   override fun clearOperationError() { operationErrorController.clear() }
+   override fun reportOperationError(message:String) { operationErrorController.report(message) }
+  },
+  pushRegistrationController,chatListLoader,chatActions,profileController,contactsController,
+  userActions,chatRegistrationController,privacyController,storyActions,storyStateController,
+  chatConversationController,accountActions,messageActions,animatedMessageSendController,
+  operationErrorController)
+
  
 }
