@@ -58,11 +58,8 @@ public final class NativeStoryViewerView extends LinearLayout {
                                  int storyCount, Listener listener) {
         super(context);
         setOrientation(VERTICAL);
-        setPadding(dp(14), dp(8), dp(14), dp(10));
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(Color.rgb(9, 11, 18));
-        background.setCornerRadius(dp(20));
-        setBackground(background);
+        setPadding(dp(14), dp(24), dp(14), dp(12));
+        setBackgroundColor(Color.BLACK);
 
         LinearLayout header = new LinearLayout(context);
         header.setGravity(Gravity.CENTER_VERTICAL);
