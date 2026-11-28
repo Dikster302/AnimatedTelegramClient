@@ -74,7 +74,8 @@ public final class NativeChatsHeaderView extends LinearLayout {
         listener=callback;
         title.setText(tab==0?"Specialgram":tab==1?"Контакты":tab==2?"Настройки":tab==3?"Профиль":"Звонки");
         title.setTextColor(textColor);moreButton.setTextColor(textColor);premiumEmoji.setTextColor(textColor);
-        premiumEmoji.setVisibility(tab==0?VISIBLE:GONE);
+        title.setVisibility(tab==0?GONE:VISIBLE);
+        premiumEmoji.setVisibility(tab==0?GONE:VISIBLE);
     }
 
     private void showMenu(View anchor) {
