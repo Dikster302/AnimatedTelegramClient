@@ -353,7 +353,7 @@ public final class TdLibClient implements AutoCloseable {
             @Override public boolean isReactionChosen(long messageId, String emoji) {
                 for (TgMessage item : messages.getValue()) if (item.getId() == messageId)
                     for (TgReaction reaction : item.getReactions())
-                        if (reaction.getEmoji().equals(emoji) && reaction.isChosen()) return true;
+                        if (reaction.getEmoji().equals(emoji) && reaction.getChosen()) return true;
                 return false;
             }
             @Override public void clearOperationError() { operationErrorController.clear(); }
