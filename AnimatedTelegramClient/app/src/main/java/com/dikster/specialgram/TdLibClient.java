@@ -383,9 +383,8 @@ public final class TdLibClient implements AutoCloseable {
             }
             @Override public void onProfilePhotoDownloaded(long userId,int photoIndex,String path){
                 TgProfile current=profile.getValue();
-                if(current!=null&&current.getUserId()==userId){
-                    profile.setValue(current.withPhotoPath(photoIndex,path));return;
-                }
+                if(current!=null&&current.getUserId()==userId)
+                    profile.setValue(current.withPhotoPath(photoIndex,path));
                 TgAccount own=account.getValue();
                 if(myUserId!=null&&myUserId==userId&&own!=null)
                     account.setValue(own.withPhotoPath(photoIndex,path));
@@ -599,7 +598,8 @@ public final class TdLibClient implements AutoCloseable {
         if(forProfile){
             TgProfile latest=profile.getValue();
             if(latest!=null&&latest.getUserId()==userId)profile.setValue(latest.withPhotoPaths(paths));
-        }else{
+        }
+        if(forAccount){
             TgAccount latest=account.getValue();
             if(latest!=null&&myUserId!=null&&myUserId==userId)account.setValue(latest.withPhotoPaths(paths));
         }
