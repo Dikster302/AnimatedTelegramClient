@@ -1,6 +1,8 @@
 name: Build Android APK
 on:
-  # APK packaging is manual only; normal branch updates must not create APKs.
+  push:
+    branches:
+      - migration/android-java-native
   workflow_dispatch:
 permissions:
   contents: read
