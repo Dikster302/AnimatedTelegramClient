@@ -43,7 +43,9 @@ public final class TdUserStateController {
             if (profile != null && profile.getChatId() == chatId) {
                 updatedProfile = new TgProfile(profile.getChatId(), profile.getName(), profile.getKind(),
                         profile.getPhone(), profile.getBio(), profile.getAvatarPath(), profile.getUsername(),
-                        status, online, profile.isPremium(), profile.isVerified(), profile.getCommonGroups());
+                        status, online, profile.isPremium(), profile.isVerified(), profile.getCommonGroups(),
+                        profile.getBirthdate(), profile.getGiftCount(), profile.canBeCalled(),
+                        profile.supportsVideoCalls(), profile.getGifts(), profile.getUserId());
             }
         }
         return new State(updatedChats, updatedContacts, updatedProfile);
