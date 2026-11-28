@@ -48,7 +48,7 @@ public final class NativeSettingsPanelView extends LinearLayout {
         void onSelectCosmicCover();
     }
 
-    private static final String[] THEMES={"Telegram","Midnight","Aurora","Rose","Космос"};
+    private static final String[] THEMES={"Telegram","Светлая","Midnight","Aurora","Rose","Космос"};
     private static final String[] ACCENTS={"По теме","Синий","Фиолетовый","Мятный","Розовый"};
     private static final String[] WALLPAPERS={"По теме","Глубокая ночь","Океан","Сумерки"};
     private final LinearLayout root;
