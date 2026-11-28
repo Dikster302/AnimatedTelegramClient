@@ -33,6 +33,7 @@ public final class TdFileDownloadQueue {
             Executors.newSingleThreadScheduledExecutor();
     private final ArrayDeque<Integer> pending = new ArrayDeque<>();
     private final Set<Integer> requested = new HashSet<>();
+    private final Set<Integer> completed = new HashSet<>();
     private final Map<Integer, Integer> retries = new HashMap<>();
     private boolean inFlight;
     private boolean closed;
@@ -44,7 +45,7 @@ public final class TdFileDownloadQueue {
     public void enqueue(int fileId) {
         boolean schedule;
         synchronized (this) {
-            if (closed || fileId <= 0 || !requested.add(fileId)) return;
+            if (closed || fileId <= 0 || completed.contains(fileId) || !requested.add(fileId)) return;
             pending.addLast(fileId);
             schedule = !inFlight;
             if (schedule) inFlight = true;
@@ -54,6 +55,7 @@ public final class TdFileDownloadQueue {
 
     public synchronized void markCompleted(int fileId) {
         requested.remove(fileId);
+        completed.add(fileId);
         retries.remove(fileId);
         pending.removeIf(id -> id == fileId);
     }
@@ -121,6 +123,7 @@ public final class TdFileDownloadQueue {
         closed = true;
         pending.clear();
         requested.clear();
+        completed.clear();
         retries.clear();
         inFlight = false;
         scheduler.shutdownNow();
