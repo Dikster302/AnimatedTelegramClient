@@ -397,7 +397,9 @@ class TdLibClient(context:Context) {
  private val requestGateway = TdRequestGateway(requestDispatcher,
   TdRequestGateway.Listener { message -> _operationError.value=message })
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
-  requestGateway.send(f,handler,onError,reportErrorToUi)
+  val resultHandler=handler?.let { callback -> TdRequestGateway.ResultHandler { result -> callback(result) } }
+  val errorHandler=onError?.let { callback -> TdRequestGateway.ErrorHandler { error -> callback(error) } }
+  requestGateway.send(f,resultHandler,errorHandler,reportErrorToUi)
  }
 
  private val lifecycleController = TdClientLifecycleController(client,
