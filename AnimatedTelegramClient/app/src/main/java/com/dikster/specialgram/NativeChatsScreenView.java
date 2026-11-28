@@ -469,11 +469,23 @@ public final class NativeChatsScreenView extends FrameLayout {
                 state.account==null?"":state.account.getAvatarPath(),first(name),0L,104,
                 false,false,false,state.panelLight);
         avatar.setContentDescription("Открыть фотографии профиля");
-        avatar.setOnClickListener(v->{
+        Runnable openMyPhotos=()->{
             if(state.account!=null&&!state.account.getPhotoPaths().isEmpty())
                 NativePhotoGalleryDialog.show(getContext(),state.account.getPhotoPaths(),0);
             else if(state.account!=null&&!state.account.getAvatarPath().isEmpty())
                 NativePhotoGalleryDialog.show(getContext(),Collections.singletonList(state.account.getAvatarPath()),0);
+        };
+        avatar.setOnClickListener(v->openMyPhotos.run());
+        final float[] avatarTouchStart={0f};
+        avatar.setOnTouchListener((v,event)->{
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){
+                avatarTouchStart[0]=event.getY();return false;
+            }
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP
+                    &&event.getY()-avatarTouchStart[0]>dp(24)){
+                openMyPhotos.run();return true;
+            }
+            return false;
         });
         profilePanel.addView(avatar,new LinearLayout.LayoutParams(dp(104),dp(104)));
         TextView accountName=new TextView(getContext());accountName.setText(name);
