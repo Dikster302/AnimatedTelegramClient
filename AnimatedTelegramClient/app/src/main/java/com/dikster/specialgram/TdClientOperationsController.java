@@ -88,6 +88,21 @@ public final class TdClientOperationsController {
     public void toggleChatUnread(long id, boolean unread) { chatActions.toggleUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { chatActions.toggleMuted(id, muted); }
     public void openProfile(long chatId) { profile.openProfile(chatId); }
+    public void loadAvailableGifts(TdUserActionsController.AvailableGiftsListener callback) {
+        userActions.loadAvailableGifts(callback);
+    }
+    public void sendGift(long userId,long giftId,TdUserActionsController.Callback callback) {
+        listener.clearOperationError();
+        userActions.sendGift(userId,giftId,new TdUserActionsController.Callback(){
+            @Override public void onResult(TdApi.Object result){
+                if(callback!=null)callback.onResult(result);
+            }
+            @Override public void onError(TdApi.Error error){
+                listener.reportOperationError(error==null?"Не удалось отправить подарок":error.message);
+                if(callback!=null)callback.onError(error);
+            }
+        });
+    }
     public void loadContacts() { contacts.load(); }
 
     public void openContact(long userId, ContactListener callback) {
