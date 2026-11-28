@@ -121,8 +121,8 @@ public final class TdChatConversationController {
         session.markLoading(chatId);
         history.loadOlder(chatId, oldest.getId(), new TdChatHistoryController.Callback() {
             @Override public void onResult(TdApi.Object result) {
-                if (session.getSessionGeneration() != generation) return;
                 session.clearLoading(chatId);
+                if (session.getSessionGeneration() != generation) return;
                 if (!isActive(chatId) || !(result instanceof TdApi.Messages)) return;
                 TdApi.Message[] loaded = ((TdApi.Messages) result).messages;
                 if (loaded.length == 0) {
@@ -151,7 +151,7 @@ public final class TdChatConversationController {
                 if (loaded.length < 50 || resolved.size() == current.size()) session.markExhausted(chatId);
             }
             @Override public void onError(TdApi.Error error) {
-                if (session.getSessionGeneration() == generation) session.clearLoading(chatId);
+                session.clearLoading(chatId);
             }
         });
     }
