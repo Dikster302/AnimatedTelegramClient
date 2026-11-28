@@ -2,7 +2,7 @@ package com.dikster.specialgram;
 
 import org.drinkless.tdlib.TdApi;
 import java.util.Map;
-import kotlin.Pair;
+
 
 /** Bridges TDLib message conversion to the application's current reply and download state. */
 public final class TdMessageMappingController {
@@ -12,12 +12,12 @@ public final class TdMessageMappingController {
     }
 
     private final Listener listener;
-    private final Map<Integer, Pair<Long, Long>> videoFileToMessage;
-    private final Map<Integer, Pair<Long, Long>> mediaFileToMessage;
+    private final Map<Integer, TdPair<Long, Long>> videoFileToMessage;
+    private final Map<Integer, TdPair<Long, Long>> mediaFileToMessage;
 
     public TdMessageMappingController(Listener listener,
-                                      Map<Integer, Pair<Long, Long>> videoFileToMessage,
-                                      Map<Integer, Pair<Long, Long>> mediaFileToMessage) {
+                                      Map<Integer, TdPair<Long, Long>> videoFileToMessage,
+                                      Map<Integer, TdPair<Long, Long>> mediaFileToMessage) {
         if (listener == null) throw new IllegalArgumentException("listener == null");
         this.listener = listener;
         this.videoFileToMessage = videoFileToMessage;
@@ -27,7 +27,7 @@ public final class TdMessageMappingController {
     public TgMessage map(TdApi.Message message, long readMarker) {
         return TdMessageMapper.map(message, readMarker, listener::replyText,
                 (file, messageId, kind) -> {
-                    Pair<Long, Long> key = new Pair<>(message.chatId, messageId);
+                    TdPair<Long, Long> key = new TdPair<>(message.chatId, messageId);
                     if ("video".equals(kind) || "videoNote".equals(kind))
                         videoFileToMessage.put(file.id, key);
                     mediaFileToMessage.put(file.id, key);
