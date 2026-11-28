@@ -228,7 +228,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             LinearLayout.LayoutParams hintParams=wrap();hintParams.leftMargin=dp(14);hintParams.topMargin=dp(10);
             contentCard.addView(hint,hintParams);
             for(int i=0;i<currentProfile.getGifts().size();i++){
-                TextView item=label("🎁  "+currentProfile.getGifts().get(i),textColor,14,false);
+                TextView item=label(currentProfile.getGifts().get(i),textColor,14,false);
                 item.setMaxLines(4);item.setPadding(dp(14),dp(12),dp(14),dp(12));
                 contentCard.addView(item,wrap());
                 if(i<currentProfile.getGifts().size()-1){View divider=new View(getContext());divider.setBackgroundColor(0x22FFFFFF);
