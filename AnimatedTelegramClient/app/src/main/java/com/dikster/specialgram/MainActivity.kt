@@ -1291,7 +1291,7 @@ private fun MessageBubble(
                     Text("📎", fontSize = 27.sp); Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(message.mediaName.ifBlank { "Файл" }, color = LocalAppearance.current.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("${formatFileSize(message.mediaSize)} · ${if (message.mediaPath.isBlank()) "Загрузка…" else "Открыть файл"}", color = LocalAppearance.current.muted, fontSize = 11.sp)
+                        Text("${MediaPreparation.formatFileSize(message.mediaSize)} · ${if (message.mediaPath.isBlank()) "Загрузка…" else "Открыть файл"}", color = LocalAppearance.current.muted, fontSize = 11.sp)
                     }
                 }
                 if (message.text.isNotBlank() && !message.text.startsWith("📎")) Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
@@ -1426,42 +1426,10 @@ private fun AudioMessagePlayer(path: String, title: String, duration: Int) {
         }) { Text(if (playing) "Ⅱ" else "▶", color = LocalAppearance.current.accent, fontSize = 22.sp) }
         Column(Modifier.weight(1f)) {
             Text(title.ifBlank { "Аудиосообщение" }, color = LocalAppearance.current.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (path.isBlank()) "Загрузка…" else if (prepared) formatDuration(duration) else "Подготовка аудио…", color = LocalAppearance.current.muted, fontSize = 11.sp)
+            Text(if (path.isBlank()) "Загрузка…" else if (prepared) MediaPreparation.formatDuration(duration) else "Подготовка аудио…", color = LocalAppearance.current.muted, fontSize = 11.sp)
         }
     }
 }
-private fun formatDuration(seconds: Int): String {
-    val safe = seconds.coerceAtLeast(0)
-    return "%d:%02d".format(Locale.getDefault(), safe / 60, safe % 60)
-}
-private fun formatFileSize(bytes: Long): String {
-    if (bytes <= 0L) return "Файл"
-    val kb = bytes / 1024.0
-    return if (kb < 1024) "%.0f КБ".format(Locale.getDefault(), kb) else "%.1f МБ".format(Locale.getDefault(), kb / 1024.0)
-}
-private fun openDownloadedMedia(context: android.content.Context, path: String, mimeType: String) {
-    if (path.isBlank()) { android.widget.Toast.makeText(context, "Файл ещё загружается", android.widget.Toast.LENGTH_SHORT).show(); return }
-    runCatching {
-        val file = File(path); require(file.exists()) { "Файл ещё не загружен" }
-        val uri = FileProvider.getUriForFile(context, context.packageName + ".fileprovider", file)
-        context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, mimeType.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
-    }.onFailure { android.widget.Toast.makeText(context, "Не удалось открыть файл: ${it.message ?: "нет подходящего приложения"}", android.widget.Toast.LENGTH_LONG).show() }
-}
-private fun prepareOutgoingMedia(context: android.content.Context, uri: Uri, prefix: String, maxBytes: Long): File {
-    val resolver = context.contentResolver
-    val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }?.substringAfterLast('/')?.take(100)
-    val extension = name?.substringAfterLast('.', "")?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }?.let { ".$it" } ?: ""
-    val target = File(context.cacheDir, "${prefix}_${System.currentTimeMillis()}$extension")
-    resolver.openInputStream(uri)?.use { input ->
-        target.outputStream().use { output ->
-            val buffer = ByteArray(64 * 1024); var total = 0L
-            while (true) { val count = input.read(buffer); if (count < 0) break; total += count; require(total <= maxBytes) { "Файл превышает лимит ${maxBytes / (1024 * 1024)} МБ" }; output.write(buffer, 0, count) }
-        }
-    } ?: error("Не удалось открыть выбранный файл")
-    require(target.length() > 0L) { "Выбран пустой файл" }
-    return target
-}
-
 private fun avatarColor(id: Long): Color {
     val colors = listOf(Color(0xFF5B8DEF), Color(0xFF8E6AC8), Color(0xFF26A69A), Color(0xFFE28B55), Color(0xFFCC6688))
     return colors[kotlin.math.abs(id % colors.size).toInt()]

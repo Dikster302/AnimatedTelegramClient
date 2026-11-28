@@ -205,6 +205,19 @@ public final class MediaPreparation {
         return target;
     }
 
+    public static String formatDuration(int seconds) {
+        int safe = Math.max(0, seconds);
+        return String.format(Locale.getDefault(), "%d:%02d", safe / 60, safe % 60);
+    }
+
+    public static String formatFileSize(long bytes) {
+        if (bytes <= 0L) return "Файл";
+        double kb = bytes / 1024.0;
+        return kb < 1024.0
+                ? String.format(Locale.getDefault(), "%.0f КБ", kb)
+                : String.format(Locale.getDefault(), "%.1f МБ", kb / 1024.0);
+    }
+
     public static void openDownloadedMedia(Context context, String path, String mimeType) {
         if (path == null || path.isEmpty()) {
             Toast.makeText(context, "Файл ещё загружается", Toast.LENGTH_SHORT).show();
