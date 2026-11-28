@@ -42,27 +42,17 @@ public final class NativeChatsHeaderView extends LinearLayout {
         setPadding(dp(8),dp(3),dp(8),dp(3));
         this.themeName=themeName==null?"Telegram":themeName;
 
-        menuButton=text(context,"≡",0xFF8A9AA9,32,true);
-        menuButton.setGravity(Gravity.CENTER);
-        menuButton.setContentDescription("Меню Specialgram");
-        addView(menuButton,new LayoutParams(dp(44),dp(46)));
-        menuButton.setOnClickListener(this::showMenu);
-
         title=text(context,"Specialgram",textColor,20,true);
         title.setSingleLine(true);
         title.setContentDescription("Specialgram");
-        addView(title,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        addView(title,new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f));
 
         View spacer=new View(context);
         addView(spacer,new LayoutParams(0,1,1f));
 
         searchButton=new SearchButton(context,textColor);
-        searchButton.setContentDescription("Поиск");
-        searchButton.setFocusable(true);
-        searchButton.setClickable(true);
-        addView(searchButton,new LayoutParams(dp(44),dp(46)));
-        searchButton.setOnClickListener(v->{if(this.listener!=null)this.listener.onSearch();});
-
+        searchButton.setVisibility(GONE);
         overflowButton=text(context,"⋮",textColor,25,true);
         overflowButton.setGravity(Gravity.CENTER);
         overflowButton.setContentDescription("Дополнительные действия");
@@ -78,12 +68,9 @@ public final class NativeChatsHeaderView extends LinearLayout {
         listener=callback;
         title.setText(tab==0?"Specialgram":tab==1?"Контакты":tab==2?"Настройки":tab==3?"Профиль":"Звонки");
         title.setTextColor(textColor);
-        menuButton.setTextColor(0xFF8A9AA9);
         overflowButton.setTextColor(0xFF8A9AA9);
-        searchButton.setColor(0xFF8A9AA9);
         searchButton.setVisibility(tab==0?VISIBLE:GONE);
         overflowButton.setVisibility(tab==0?VISIBLE:GONE);
-        menuButton.setContentDescription(tab==0?"Открыть меню":"Назад или меню");
     }
 
     private void showMenu(View anchor) {
