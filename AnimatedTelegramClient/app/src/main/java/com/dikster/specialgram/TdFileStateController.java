@@ -21,6 +21,7 @@ public final class TdFileStateController {
         TgAccount account();
         void setAccount(TgAccount account);
         void markDownloadCompleted(int fileId);
+        boolean isMyPhotoFile(int fileId);
     }
 
     private final Listener listener;
@@ -28,20 +29,17 @@ public final class TdFileStateController {
     private final Map<Integer, Pair<Long, Long>> videoFileToMessage;
     private final Map<Integer, Pair<Long, Long>> mediaFileToMessage;
     private final Map<Integer, Pair<Long, Integer>> storyFileToKey;
-    private final Integer myPhotoFileId;
 
     public TdFileStateController(Listener listener,
                                  Map<Integer, Long> fileToChat,
                                  Map<Integer, Pair<Long, Long>> videoFileToMessage,
                                  Map<Integer, Pair<Long, Long>> mediaFileToMessage,
-                                 Map<Integer, Pair<Long, Integer>> storyFileToKey,
-                                 Integer myPhotoFileId) {
+                                 Map<Integer, Pair<Long, Integer>> storyFileToKey) {
         this.listener = listener;
         this.fileToChat = fileToChat;
         this.videoFileToMessage = videoFileToMessage;
         this.mediaFileToMessage = mediaFileToMessage;
         this.storyFileToKey = storyFileToKey;
-        this.myPhotoFileId = myPhotoFileId;
     }
 
     public boolean handle(TdApi.Object update) {
@@ -80,7 +78,7 @@ public final class TdFileStateController {
             listener.setStories(stories);
         }
 
-        if (myPhotoFileId != null && myPhotoFileId == file.id) {
+        if (listener.isMyPhotoFile(file.id)) {
             TgAccount account = listener.account();
             if (account != null) listener.setAccount(copyAvatar(account, file.local.path));
         }
