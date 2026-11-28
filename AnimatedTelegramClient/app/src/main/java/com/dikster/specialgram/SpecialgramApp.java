@@ -4,19 +4,20 @@ import android.app.Application;
 
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.firebase.messaging.FirebaseMessaging;
+import com.dikster.specialgram.td.TgClient;
 
 /** Android process entry point. TDLib remains the shared messaging engine. */
 public final class SpecialgramApp extends Application {
-    private TdLibClient td;
+    private TgClient tgClient;
 
     public TdLibClient getTd() {
-        return td;
+        return tgClient.client();
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        td = new TdLibClient(this);
+        tgClient = TgClient.initialize(this);
 
         FirebaseCrashlytics crashlytics = FirebaseCrashlytics.getInstance();
         crashlytics.setCrashlyticsCollectionEnabled(true);
@@ -24,6 +25,6 @@ public final class SpecialgramApp extends Application {
         crashlytics.setCustomKey("diagnostics_scope", "crashes_and_technical_errors_only");
 
         FirebaseMessaging.getInstance().getToken()
-                .addOnSuccessListener(token -> td.updatePushToken(token));
+                .addOnSuccessListener(token -> getTd().updatePushToken(token));
     }
 }
