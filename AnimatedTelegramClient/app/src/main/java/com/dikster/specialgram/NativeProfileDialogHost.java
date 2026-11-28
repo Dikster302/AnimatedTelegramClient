@@ -143,6 +143,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             action.setGravity(Gravity.CENTER);
             LinearLayout.LayoutParams ap=new LinearLayout.LayoutParams(0,LayoutParams.WRAP_CONTENT,1);
             ap.leftMargin=dp(3);ap.rightMargin=dp(3);
+            if(index==2&&currentProfile!=null&&!currentProfile.canBeCalled())action.setAlpha(0.55f);
             actions.addView(action,ap);
             TextView icon=label(glyphs[i],accentColor,22,true);
             icon.setGravity(Gravity.CENTER);
@@ -154,8 +155,12 @@ public final class NativeProfileDialogHost extends FrameLayout {
             action.setOnClickListener(v->{
                 if(index==0)dialog.dismiss();
                 else if(index==1){if(listener!=null)listener.onToggleMute(currentChat,!currentChat.isMuted());}
-                else if(index==2)Toast.makeText(getContext(),"Звонки будут доступны после подключения модуля вызовов",Toast.LENGTH_SHORT).show();
-                else Toast.makeText(getContext(),"Подарки появятся после подключения каталога подарков",Toast.LENGTH_SHORT).show();
+                else if(index==2){
+                    String message=currentProfile!=null&&!currentProfile.canBeCalled()
+                            ?"Пользователь ограничил входящие звонки"
+                            :"Вызовы пока не подключены: требуется аудиомодуль и экран соединения";
+                    Toast.makeText(getContext(),message,Toast.LENGTH_SHORT).show();
+                }else{activeTab="Подарки";render();}
             });
         }
         body.addView(actions);
@@ -167,6 +172,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
             addInfo(info,"Имя пользователя","@"+currentProfile.getUsername());
         if(currentProfile!=null&&!empty(currentProfile.getBio()))
             addInfo(info,"О себе",currentProfile.getBio());
+        if(currentProfile!=null&&!empty(currentProfile.getBirthdate())){
+            addInfo(info,"День рождения",currentProfile.getBirthdate());
+            String age=calculateAge(currentProfile.getBirthdate());
+            if(!age.isEmpty())addInfo(info,"Возраст",age);
+        }
         if(currentProfile!=null&&currentProfile.getCommonGroups()>0)
             addInfo(info,"Общие группы",String.valueOf(currentProfile.getCommonGroups()));
         addInfo(info,"ID",String.valueOf(currentChat.getId()));
@@ -192,7 +202,22 @@ public final class NativeProfileDialogHost extends FrameLayout {
         body.addView(tabsScroll,new LinearLayout.LayoutParams(-1,dp(44)));
         LinearLayout contentCard=cardColumn();
         List<TgMessage> sectionMessages=messagesForTab(activeTab);
-        if(sectionMessages.isEmpty()){
+        if("Подарки".equals(activeTab)&&currentProfile!=null&&!currentProfile.getGifts().isEmpty()){
+            TextView hint=label("Подарки в профиле · "+currentProfile.getGiftCount(),mutedColor,11,false);
+            LinearLayout.LayoutParams hintParams=wrap();hintParams.leftMargin=dp(14);hintParams.topMargin=dp(10);
+            contentCard.addView(hint,hintParams);
+            for(int i=0;i<currentProfile.getGifts().size();i++){
+                TextView item=label("🎁  "+currentProfile.getGifts().get(i),textColor,14,false);
+                item.setMaxLines(4);item.setPadding(dp(14),dp(12),dp(14),dp(12));
+                contentCard.addView(item,wrap());
+                if(i<currentProfile.getGifts().size()-1){View divider=new View(getContext());divider.setBackgroundColor(0x22FFFFFF);
+                    contentCard.addView(divider,new LinearLayout.LayoutParams(-1,dp(1)));}
+            }
+        }else if("Подарки".equals(activeTab)&&currentProfile!=null&&currentProfile.getGiftCount()>0){
+            TextView emptyText=label("В профиле указано подарков: "+currentProfile.getGiftCount()+". Список пока недоступен.",mutedColor,13,false);
+            emptyText.setGravity(Gravity.CENTER);emptyText.setPadding(dp(12),dp(16),dp(12),dp(16));
+            contentCard.addView(emptyText,wrap());
+        }else if(sectionMessages.isEmpty()){
             TextView emptyIcon=label("▧",mutedColor,28,true);emptyIcon.setGravity(Gravity.CENTER);
             contentCard.addView(emptyIcon,wrap());
             TextView emptyText=label(emptyTextFor(activeTab),mutedColor,13,false);
@@ -362,8 +387,23 @@ public final class NativeProfileDialogHost extends FrameLayout {
     private String profileName(){return currentProfile!=null&&!empty(currentProfile.getName())?currentProfile.getName():currentChat.getTitle();}
     private String formatPhone(String phone){
         String digits=phone==null?"":phone.replaceAll("\\D","");
+        if(digits.length()==11&&digits.startsWith("8"))digits="7"+digits.substring(1);
+        if(digits.length()==10)digits="7"+digits;
         if(digits.length()==11&&digits.startsWith("7"))return "+7 ("+digits.substring(1,4)+") "+digits.substring(4,7)+"-"+digits.substring(7,9)+"-"+digits.substring(9,11);
         return phone;
+    }
+    private String calculateAge(String birthday){
+        try{
+            String[] parts=birthday.split("\\.");
+            if(parts.length!=3)return "";
+            int day=Integer.parseInt(parts[0]),month=Integer.parseInt(parts[1]),year=Integer.parseInt(parts[2]);
+            java.util.Calendar birth=new java.util.GregorianCalendar(year,month-1,day);
+            java.util.Calendar now=java.util.Calendar.getInstance();
+            if(birth.after(now))return "";
+            int age=now.get(java.util.Calendar.YEAR)-year;
+            if(now.get(java.util.Calendar.DAY_OF_YEAR)<birth.get(java.util.Calendar.DAY_OF_YEAR))age--;
+            return age>=0?String.valueOf(age):"";
+        }catch(Exception ignored){return "";}
     }
     private TextView label(String value,int color,int size,boolean bold){
         TextView v=new TextView(getContext());v.setText(value==null?"":value);v.setTextColor(color);v.setTextSize(size);
