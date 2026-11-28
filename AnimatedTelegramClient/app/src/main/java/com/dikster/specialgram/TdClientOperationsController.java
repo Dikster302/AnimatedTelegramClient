@@ -7,6 +7,8 @@ public final class TdClientOperationsController {
     public interface Listener {
         Long myUserId();
         boolean isAuthorized();
+        void sendAuthorization(TdApi.Function<?> function);
+        TgChat findChat(long chatId);
         boolean isReactionChosen(long messageId, String emoji);
         void onContactReady(TgChat chat);
         void clearOperationError();
@@ -71,8 +73,7 @@ public final class TdClientOperationsController {
     public void password(String value) { sendAuthorization(TdAuthorizationController.checkPassword(value)); }
 
     private void sendAuthorization(TdApi.Function<?> function) {
-        // Authorization functions are sent by the owning Kotlin bridge.
-        listener.reportOperationError("Authorization request dispatcher is not connected");
+        listener.sendAuthorization(function);
     }
 
     public void loadChats() {
@@ -95,11 +96,8 @@ public final class TdClientOperationsController {
                 if (!(result instanceof TdApi.Chat)) return;
                 TdApi.Chat chat = (TdApi.Chat) result;
                 chatRegistration.putChat(chat, false);
-                TgChat mapped = null;
-                // The registration controller publishes the canonical mapped chat.
-                mapped = new TgChat(chat.id, chat.title, "", 0, 0, "", "Личный чат",
-                        false, "", false, false, 0L, false, false, false, false, false);
-                listener.onContactReady(mapped);
+                TgChat mapped = listener.findChat(chat.id);
+                if (mapped != null) listener.onContactReady(mapped);
             }
             @Override public void onError(TdApi.Error error) { }
         });
