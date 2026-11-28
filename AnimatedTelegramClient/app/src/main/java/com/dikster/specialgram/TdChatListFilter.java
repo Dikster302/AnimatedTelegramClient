@@ -23,14 +23,18 @@ public final class TdChatListFilter {
                     && !preview.toLowerCase(Locale.ROOT).contains(needle)) continue;
             if (unreadOnly && chat.getUnreadCount() <= 0) continue;
             boolean archived = chat.getArchived();
-            String kind = chat.getKind() == null ? "" : chat.getKind();
+            String kind = chat.getKind() == null ? "" : chat.getKind().trim().toLowerCase(Locale.ROOT);
+            boolean isPrivate = kind.contains("лич") || kind.contains("секрет")
+                    || kind.contains("private") || kind.contains("secret");
+            boolean isChannel = kind.contains("канал") || kind.contains("channel");
+            boolean isGroup = kind.contains("груп") || kind.contains("group")
+                    || kind.contains("супергруп") || kind.contains("supergroup");
             boolean matches;
             switch (selected) {
                 case "Архив": matches = archived; break;
-                case "Личные": matches = !archived &&
-                        ("Личный чат".equals(kind) || "Секретный чат".equals(kind)); break;
-                case "Группы": matches = !archived && "Группа".equals(kind); break;
-                case "Каналы": matches = !archived && "Канал".equals(kind); break;
+                case "Личные": matches = !archived && isPrivate; break;
+                case "Группы": matches = !archived && isGroup && !isChannel; break;
+                case "Каналы": matches = !archived && isChannel; break;
                 default: matches = !archived; break;
             }
             if (matches) result.add(chat);
