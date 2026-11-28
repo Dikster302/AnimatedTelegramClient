@@ -10,7 +10,6 @@ public final class TdClientOperationsController {
         Long myUserId();
         boolean isAuthorized();
         void sendAuthorization(TdApi.Function<?> function);
-        TgChat findChat(long chatId);
         boolean isReactionChosen(long messageId, String emoji);
         void clearOperationError();
         void reportOperationError(String message);
@@ -96,8 +95,7 @@ public final class TdClientOperationsController {
             @Override public void onResult(TdApi.Object result) {
                 if (!(result instanceof TdApi.Chat)) return;
                 TdApi.Chat chat = (TdApi.Chat) result;
-                chatRegistration.putChat(chat, false);
-                TgChat mapped = listener.findChat(chat.id);
+                TgChat mapped = chatRegistration.putChat(chat, false);
                 if (mapped != null && callback != null) callback.onReady(mapped);
             }
             @Override public void onError(TdApi.Error error) { }
