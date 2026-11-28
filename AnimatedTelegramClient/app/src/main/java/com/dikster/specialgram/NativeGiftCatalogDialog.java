@@ -50,12 +50,12 @@ public final class NativeGiftCatalogDialog {
                 row.setPadding(dp(context,12),dp(context,10),dp(context,12),dp(context,10));
                 row.setBackground(round(0x332FFFFFFF,dp(context,16)));
                 LinearLayout.LayoutParams rp=wrap();rp.bottomMargin=dp(context,8);list.addView(row,rp);
-                TextView emoji=label(context,gift.getEmoji(),30, false);
+                TextView emoji=label(context,gift.getEmoji(),Color.WHITE,30,false);
                 emoji.setGravity(Gravity.CENTER);
                 row.addView(emoji,new LinearLayout.LayoutParams(dp(context,54),dp(context,54)));
                 LinearLayout details=new LinearLayout(context);details.setOrientation(LinearLayout.VERTICAL);
-                LinearLayout.LayoutParams dp=new LinearLayout.LayoutParams(0,-2,1);dp.leftMargin=dp(context,8);
-                row.addView(details,dp);
+                LinearLayout.LayoutParams detailsParams=new LinearLayout.LayoutParams(0,-2,1);detailsParams.leftMargin=dp(context,8);
+                row.addView(details,detailsParams);
                 TextView name=label(context,gift.isPremium()?"Подарок Premium":"Подарок",Color.WHITE,14,true);
                 details.addView(name,wrap());
                 String price="⭐ "+gift.getStarCount()+" Stars";
