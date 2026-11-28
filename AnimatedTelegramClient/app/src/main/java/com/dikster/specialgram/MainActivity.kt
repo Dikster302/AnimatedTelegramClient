@@ -403,10 +403,20 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = LocalAppearance.current.muted, fontSize = 12.sp)
             }
             if (filtered.isEmpty()) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено",
-                        color = LocalAppearance.current.muted)
-                }
+                val emptyAppearance = LocalAppearance.current
+                val emptyState = NativeChatEmptyStateView.ListState(
+                    chats.isEmpty(), query.isNotBlank() || unreadOnly || folder != "Все")
+                AndroidView(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    factory = { context ->
+                        NativeChatEmptyStateView(context, emptyState,
+                            emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
+                    },
+                    update = { view ->
+                        view.update(emptyState, emptyAppearance.text.toArgb(),
+                            emptyAppearance.muted.toArgb())
+                    }
+                )
             } else {
                 val openAction = onOpen
                 val archiveAction = onArchive
