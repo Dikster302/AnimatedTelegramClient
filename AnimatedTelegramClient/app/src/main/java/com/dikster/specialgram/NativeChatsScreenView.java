@@ -2,6 +2,7 @@ package com.dikster.specialgram;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -393,7 +394,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         @Override protected void onDraw(android.graphics.Canvas canvas){
             super.onDraw(canvas);
             paint.setColor(color);paint.setStyle(android.graphics.Paint.Style.STROKE);
-            paint.setStrokeWidth(dp(1.8f));paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            paint.setStrokeWidth(dp(2));paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
             paint.setStrokeJoin(android.graphics.Paint.Join.ROUND);
             float cx=getWidth()/2f,cy=getHeight()/2f,d=dp(20);
             android.graphics.RectF rect=new android.graphics.RectF(cx-d*.42f,cy-d*.34f,cx+d*.42f,cy+d*.30f);
