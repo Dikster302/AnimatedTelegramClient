@@ -84,7 +84,12 @@ class TdLibClient(context:Context) {
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
  private val userUpdateRouter = TdUserUpdateRouter(object : TdUserUpdateRouter.Listener {
-  override fun onUserStatus(userId:Long, status:TdApi.UserStatus) { refreshUserStatus(userId,status) }
+  override fun onUserStatus(userId:Long, status:TdApi.UserStatus) {
+   val state=TdUserStateController.refreshStatus(_chats.value,_contacts.value,_profile.value,userToChat,userId,status)
+   _chats.value=state.chats
+   _contacts.value=state.contacts
+   _profile.value=state.profile
+  }
   override fun onPrivacyRules(setting:TdApi.UserPrivacySetting, rules:TdApi.UserPrivacySettingRules) {
    when(setting) {
     is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=TdPrivacyController.label(rules)
@@ -93,9 +98,9 @@ class TdLibClient(context:Context) {
    }
   }
   override fun onUser(user:TdApi.User) {
-   updateUserProfile(user)
-   updateChatUser(user)
-   updateContact(user)
+   if(profileSession.isActiveUser(user.id)) _profile.value=TdUserMapper.updateProfile(user,_profile.value)
+   _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
+   _contacts.value=TdUserStateController.updateContact(_contacts.value,user)
    if(myUserId==user.id) updateAccount(user)
   }
  })
@@ -256,7 +261,7 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   },
   TdContactsController.Listener { user ->
-   if(user is TdApi.User) { updateContact(user); updateChatUser(user) }
+   if(user is TdApi.User) { _contacts.value=TdUserStateController.updateContact(_contacts.value,user); _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user) }
   }
  )
  private val chatListLoader = TdChatListLoader(
@@ -336,7 +341,8 @@ class TdLibClient(context:Context) {
    }
    override fun onUser(user:TdApi.User) {
     if(!profileSession.isCurrent(session) || !profileSession.isActiveUser(user.id)) return
-    updateUserProfile(user); updateChatUser(user)
+    if(profileSession.isActiveUser(user.id)) _profile.value=TdUserMapper.updateProfile(user,_profile.value)
+    _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
     val profilePhotoId=user.profilePhoto?.small?.id ?: 0
     if(profilePhotoId>0) { fileToChat[profilePhotoId]=chatId; fileDownloadQueue.enqueue(profilePhotoId) }
    }
@@ -353,21 +359,6 @@ class TdLibClient(context:Context) {
   myPhotoFileId=photoId.takeIf { it>0 }
   if(photoId>0) fileDownloadQueue.enqueue(photoId) else _account.value=_account.value?.copy(avatarPath="")
  }
- private fun updateUserProfile(user:TdApi.User) {
-  if(!profileSession.isActiveUser(user.id)) return
-  _profile.value=TdUserMapper.updateProfile(user,_profile.value)
- }
- private fun refreshUserStatus(userId:Long,status:TdApi.UserStatus) {
-  _contacts.value=_contacts.value.map { if(it.id==userId) it.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline) else it }
-  val chatId=userToChat[userId]
-  if(chatId!=null) _chats.value=_chats.value.map { if(it.id==chatId) it.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline) else it }
-  val current=_profile.value
-  if(current!=null && chatId==current.chatId) _profile.value=current.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline)
- }
- private fun updateContact(user:TdApi.User) {
-  val item=TdUserMapper.toContact(user)
-  _contacts.value=(_contacts.value.filterNot{it.id==user.id}+item).sortedBy{it.name.lowercase(java.util.Locale.getDefault())}
- }
  fun loadContacts() { contactsController.load() }
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
   userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
@@ -377,11 +368,6 @@ class TdLibClient(context:Context) {
    override fun onError(error:TdApi.Error) { }
   })
  }
- private fun updateChatUser(user:TdApi.User) {
-  val chatId=userToChat[user.id] ?: return
-  _chats.value=_chats.value.map { if(it.id==chatId) it.copy(status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium) else it }
- }
- private fun userStatusText(status:TdApi.UserStatus):String = TdUserStatusFormatter.format(status)
 
  fun loadPrivacySettings() { privacyController.loadAll() }
  fun setLastSeenPrivacy(value:String) { privacyController.set(TdPrivacyController.STATUS,value) }
