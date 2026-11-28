@@ -75,6 +75,23 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val messageActions = TdMessageActionsController(
+  TdMessageActionsController.Requester { function, callback ->
+   send(function,
+    handler={ callback?.onResult(it) },
+    onError={ callback?.onError(it) },
+    reportErrorToUi=false)
+  },
+  object : TdMessageActionsController.Listener {
+   override fun onMessageDeleted(messageId:Long) {
+    _messages.value=_messages.value.filterNot { it.id==messageId }
+   }
+   override fun onHistoryCleared(chatId:Long) {
+    if(activeChat==chatId) _messages.value=emptyList()
+    _chats.value=_chats.value.map { if(it.id==chatId) it.copy(preview="",lastDate=0,unreadCount=0) else it }
+   }
+  }
+ )
  private val pushRegistrationController = TdPushRegistrationController(
   app,
   TdPushRegistrationController.Requester { function, callback ->
@@ -513,95 +530,23 @@ fun reportOperationError(text:String) {
   }
   _operationError.value=text
  }
- fun sendPhoto(chatId:Long,path:String,caption:String="") {
-   clearOperationError()
-   val photo=TdApi.InputPhoto()
-   photo.photo=TdApi.InputFileLocal(path)
-   photo.thumbnail=null
-   photo.video=null
-   photo.addedStickerFileIds=intArrayOf()
-   photo.width=0
-   photo.height=0
-   val content=TdApi.InputMessagePhoto()
-   content.photo=photo
-   content.caption=TdApi.FormattedText(caption,null)
-   send(TdApi.SendMessage(chatId,null,null,null,null,content))
-  }
-  fun sendDocument(chatId:Long,path:String,caption:String="") {
-   clearOperationError()
-   val document=TdApi.InputDocument()
-   document.document=TdApi.InputFileLocal(path)
-   document.thumbnail=null
-   document.disableContentTypeDetection=false
-   val content=TdApi.InputMessageDocument()
-   content.document=document
-   content.caption=TdApi.FormattedText(caption,null)
-   send(TdApi.SendMessage(chatId,null,null,null,null,content))
-  }
-  fun sendVideo(chatId:Long,path:String,shape:String) {
-  clearOperationError()
-  val video=TdApi.InputVideo()
-  video.video=TdApi.InputFileLocal(path)
-  video.supportsStreaming=true
-  val content=TdApi.InputMessageVideo()
-  content.video=video
-  content.caption=TdApi.FormattedText(encodeVideoShape(shape),null)
-  send(TdApi.SendMessage(chatId,null,null,null,null,content))
- }
- private fun encodeVideoShape(shape:String):String {
-  val names=listOf("circle","square","rounded","heart","star","hexagon")
-  val bits=names.indexOf(shape).coerceAtLeast(0).toString(2).padStart(3,'0')
-  return "\u2063"+bits.map { if(it=='1') '\u200c' else '\u200b' }.joinToString("")+"\u2063"
- }
- private fun decodeVideoShape(caption:String):String {
-  val start=caption.indexOf('\u2063'); val end=if(start>=0) caption.indexOf('\u2063',start+1) else -1
-  if(start<0 || end<0) return "circle"
-  val bits=caption.substring(start+1,end).map { when(it) { '\u200c' -> '1'; '\u200b' -> '0'; else -> return "circle" } }.joinToString("")
-  return listOf("circle","square","rounded","heart","star","hexagon").getOrElse(bits.toIntOrNull(2) ?: 0) { "circle" }
- }
+ fun sendPhoto(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendPhoto(chatId,path,caption) }
+  fun sendDocument(chatId:Long,path:String,caption:String="") { clearOperationError(); messageActions.sendDocument(chatId,path,caption) }
+  fun sendVideo(chatId:Long,path:String,shape:String) { clearOperationError(); messageActions.sendVideo(chatId,path,shape) }
+ private fun encodeVideoShape(shape:String):String = TdMessageActionsController.encodeVideoShape(shape)
+ private fun decodeVideoShape(caption:String):String = TdMessageActionsController.decodeVideoShape(caption)
  fun reactToMessage(chatId:Long,messageId:Long,emoji:String) {
   clearOperationError()
   val chosen=_messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
-  if(chosen) send(TdApi.RemoveMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji)))
-  else send(TdApi.AddMessageReaction(chatId,messageId,TdApi.ReactionTypeEmoji(emoji),false,true))
+  messageActions.react(chatId,messageId,emoji,chosen)
  }
- fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) {
-  clearOperationError()
-  send(TdApi.ForwardMessages(toChatId,null,fromChatId,longArrayOf(messageId),null,false,false))
- }
- fun pinMessage(chatId:Long,messageId:Long,pin:Boolean) {
-  clearOperationError()
-  if(pin) send(TdApi.PinChatMessage(chatId,messageId,true,false))
-  else send(TdApi.UnpinChatMessage(chatId,messageId))
- }
- fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) {
-  clearOperationError()
-  send(TdApi.DeleteMessages(chatId,longArrayOf(messageId),revoke)) {
-   _messages.value=_messages.value.filterNot { it.id==messageId }
-  }
- }
- fun clearHistory(chatId:Long,revoke:Boolean) {
-  clearOperationError()
-  send(TdApi.DeleteChatHistory(chatId,false,revoke)) {
-   if(activeChat==chatId) _messages.value=emptyList()
-   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(preview="",lastDate=0,unreadCount=0) else it }
-  }
- }
- fun editMessage(chatId:Long,messageId:Long,text:String) {
-  val value=text.trim()
-  if(value.isEmpty()) return
-  clearOperationError()
-  send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
- }
- fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { val value=text.trim(); if(value.isEmpty())return; clearOperationError(); val reply=replyToMessageId?.let { TdApi.InputMessageReplyToMessage(it,null,0,null) }; send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true))) }
- fun replyToStory(chatId:Long,storyId:Int,text:String) {
-  val value=text.trim()
-  if(value.isEmpty()) return
-  clearOperationError()
-  val reply=TdApi.InputMessageReplyToStory(chatId,storyId)
-  val content=TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)
-  send(TdApi.SendMessage(chatId,null,reply,null,null,content))
- }
+ fun forwardMessage(fromChatId:Long,toChatId:Long,messageId:Long) { clearOperationError(); messageActions.forward(fromChatId,toChatId,messageId) }
+ fun pinMessage(chatId:Long,messageId:Long,pin:Boolean) { clearOperationError(); messageActions.pin(chatId,messageId,pin) }
+ fun deleteMessage(chatId:Long,messageId:Long,revoke:Boolean) { clearOperationError(); messageActions.delete(chatId,messageId,revoke) }
+ fun clearHistory(chatId:Long,revoke:Boolean) { clearOperationError(); messageActions.clearHistory(chatId,revoke) }
+ fun editMessage(chatId:Long,messageId:Long,text:String) { clearOperationError(); messageActions.editText(chatId,messageId,text) }
+ fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { clearOperationError(); messageActions.sendText(id,text,replyToMessageId) }
+ fun replyToStory(chatId:Long,storyId:Int,text:String) { clearOperationError(); messageActions.replyToStory(chatId,storyId,text) }
  fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) {
   val chars=text.trim().codePoints().toArray().map { String(Character.toChars(it)) }
   if(chars.isEmpty())return
