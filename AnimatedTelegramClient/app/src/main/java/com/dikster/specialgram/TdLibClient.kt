@@ -289,7 +289,7 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateReady -> { _auth.value=Auth.Ready; pushRegistrationController.onAuthorized(); loadChats(); loadContacts(); loadPrivacySettings(); send(TdApi.GetMe()) { me -> if(me is TdApi.User) updateAccount(me) } }
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
- fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value is Auth.Ready) }
+ fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value === Auth.Ready) }
  fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdAuthorizationController.processPushNotification(payload)) }
  fun phone(v:String)=send(TdAuthorizationController.setPhoneNumber(v))
  fun code(v:String)=send(TdAuthorizationController.checkCode(v))
