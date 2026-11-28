@@ -61,10 +61,12 @@ public final class NativeProfileDialogHost extends FrameLayout {
     }
 
     public void update(TgChat chat,TgProfile profile,List<TgMessage> messages,int text,int muted,int accent,int panel){
+        List<TgMessage> nextMessages=messages==null?Collections.emptyList():new ArrayList<>(messages);
         boolean changed=currentChat==null||!currentChat.equals(chat)
                 ||(currentProfile==null?profile!=null:!currentProfile.equals(profile))
+                ||!currentMessages.equals(nextMessages)
                 ||textColor!=text||mutedColor!=muted||accentColor!=accent||panelColor!=panel;
-        currentChat=chat;currentProfile=profile;currentMessages=messages==null?Collections.emptyList():new ArrayList<>(messages);textColor=text;mutedColor=muted;
+        currentChat=chat;currentProfile=profile;currentMessages=nextMessages;textColor=text;mutedColor=muted;
         accentColor=accent;panelColor=panel;
         if(changed)render();
     }
