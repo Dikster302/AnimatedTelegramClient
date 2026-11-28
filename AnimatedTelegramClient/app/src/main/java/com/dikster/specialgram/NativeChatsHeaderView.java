@@ -24,6 +24,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         void onOpenCalls();
         void onCreateGroup();
         void onSavedMessages();
+        void onOpenArchive();
     }
 
     private final TextView title;
@@ -87,6 +88,9 @@ public final class NativeChatsHeaderView extends LinearLayout {
         });
         menu.getMenu().add("＋ Создать группу").setOnMenuItemClickListener(item->{
             if(listener!=null)listener.onCreateGroup();return true;
+        });
+        menu.getMenu().add("▤ Архив").setOnMenuItemClickListener(item->{
+            if(listener!=null)listener.onOpenArchive();return true;
         });
         menu.getMenu().add("★ Избранное").setOnMenuItemClickListener(item->{
             if(listener!=null)listener.onSavedMessages();return true;
