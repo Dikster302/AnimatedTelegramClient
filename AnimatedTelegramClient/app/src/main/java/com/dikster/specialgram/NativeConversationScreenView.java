@@ -225,7 +225,7 @@ public final class NativeConversationScreenView extends FrameLayout {
 
     private void ensureProfileDialog(){
         if(profileHost==null){
-            profileHost=new NativeProfileDialogHost(getContext(),chat,profile,textColor,mutedColor,
+            profileHost=new NativeProfileDialogHost(getContext(),chat,profile,messages,textColor,mutedColor,
                     accentColor,panelLightColor,new NativeProfileDialogHost.Listener(){
                 @Override public void onClose(){
                 profileVisible=false;
@@ -238,7 +238,7 @@ public final class NativeConversationScreenView extends FrameLayout {
                 }
             });
             addView(profileHost,new FrameLayout.LayoutParams(dp(1),dp(1)));
-        }else profileHost.update(chat,profile,textColor,mutedColor,accentColor,panelLightColor);
+        }else profileHost.update(chat,profile,messages,textColor,mutedColor,accentColor,panelLightColor);
     }
 
     private void showMessageActions(TgMessage message){
