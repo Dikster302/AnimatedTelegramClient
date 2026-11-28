@@ -37,6 +37,9 @@ public interface ChatDao {
     void pruneMessagesForChat(long chatId, int maxCount);
 
     /** Общий предохранитель от бесконтрольного роста локальной базы. */
+    @Query("SELECT COUNT(*) FROM cached_messages")
+    int getCachedMessageCount();
+
     @Query("DELETE FROM cached_messages WHERE rowid NOT IN "
             + "(SELECT rowid FROM cached_messages ORDER BY date DESC, messageId DESC LIMIT :maxCount)")
     void pruneMessagesGlobally(int maxCount);
