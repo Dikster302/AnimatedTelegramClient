@@ -260,6 +260,7 @@ public final class TdLibClient implements AutoCloseable {
                             next.add(item.getId() == chatId ? TgModelStateController.clearHistoryPreview(item) : item);
                         chats.setValue(next);
                     }
+                    @Override public void onOperationError(String message) { reportOperationError(message); }
                 });
 
         messageStateController = new TdMessageStateController(new TdMessageStateController.Listener() {
