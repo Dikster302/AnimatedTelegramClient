@@ -163,10 +163,12 @@ public final class NativeChatsScreenView extends FrameLayout {
                 state.account,state.themeName,toolbarListener());
         if(selectedTab==0){ 
             if(chatSearch==null){
-                chatSearch=new NativeChatSearchBarView(getContext(),state.query,value->{if(listener!=null)listener.onQuery(value);});
+                chatSearch=new NativeChatSearchBarView(getContext(),state.query,state.text,state.muted,state.panelLight,
+                        value->{if(listener!=null)listener.onQuery(value);});
                 LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48));
                 p.setMargins(dp(12),dp(4),dp(12),dp(6));headerColumn.addView(chatSearch,p);
-            }else chatSearch.update(state.query,value->{if(listener!=null)listener.onQuery(value);});
+            }else chatSearch.update(state.query,state.text,state.muted,state.panelLight,
+                    value->{if(listener!=null)listener.onQuery(value);});
         }else if(chatSearch!=null&&chatSearch.getParent()==headerColumn){headerColumn.removeView(chatSearch);chatSearch=null;}
     }
 
@@ -177,7 +179,7 @@ public final class NativeChatsScreenView extends FrameLayout {
             @Override public void onToggleUnread(){unreadOnly=!unreadOnly;update(state,listener);}
             @Override public void onSearch(){if(selectedTab!=0){selectedTab=0;update(state,listener);}else if(chatSearch!=null)chatSearch.focusSearch();}
             @Override public void onToggleTheme(){
-                if(listener!=null)listener.onTheme("Midnight".equalsIgnoreCase(state.themeName)?"Telegram":"Midnight");
+                if(listener!=null)listener.onTheme("Midnight".equalsIgnoreCase(state.themeName)?"Светлая":"Midnight");
             }
             @Override public void onOpenCalls(){selectedTab=4;update(state,listener);}
             @Override public void onCreateGroup(){showCreateGroupDialog();}
