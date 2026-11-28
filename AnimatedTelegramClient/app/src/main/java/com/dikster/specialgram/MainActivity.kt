@@ -1102,14 +1102,14 @@ private fun ConversationScreen(
             factory = { context ->
                 NativeMessageComposerView(context, draft, replyingTo, chat.title,
                     composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
-                    composerAppearance.accent.toArgb(), composerAppearance.panel.toArgb(),
+                    composerAppearance.accent.toArgb(), composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f).toArgb(),
                     composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
                     composerListener)
             },
             update = { view ->
                 view.update(draft, replyingTo, chat.title,
                     composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
-                    composerAppearance.accent.toArgb(), composerAppearance.panel.toArgb(),
+                    composerAppearance.accent.toArgb(), composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f).toArgb(),
                     composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
                     composerListener)
             }
