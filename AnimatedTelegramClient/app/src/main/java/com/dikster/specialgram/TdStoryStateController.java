@@ -142,6 +142,6 @@ public final class TdStoryStateController {
         return new TgChat(c.getId(), c.getTitle(), c.getPreview(), c.getLastDate(),
                 c.getUnreadCount(), c.getAvatarPath(), c.getKind(), c.getArchived(),
                 c.getStatus(), c.isOnline(), c.isPremium(), c.getLastReadOutboxMessageId(),
-                hasStory, hasUnviewed, c.isPinned(), c.isMarkedAsUnread(), c.isMuted());
+                hasStory, hasUnviewed, c.isPinned(), c.isMarkedAsUnread(), c.isMuted(), c.getPinnedOrder());
     }
 }
