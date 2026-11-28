@@ -14,7 +14,7 @@ import android.widget.TextView;
 public final class NativeChatSearchBarView extends LinearLayout {
     public interface Listener { void onQuery(String value); }
     private final EditText input;
-    private final TextView clear;
+    private final TextView searchIcon,clear;
     private Listener listener;
     private boolean changing;
     private int textColor,mutedColor,panelColor;
@@ -24,8 +24,8 @@ public final class NativeChatSearchBarView extends LinearLayout {
         setPadding(dp(12),dp(4),dp(8),dp(4));
         this.textColor=textColor;this.mutedColor=mutedColor;this.panelColor=panelColor;
         GradientDrawable background=new GradientDrawable();background.setColor(panelColor);background.setCornerRadius(dp(18));setBackground(background);
-        TextView search=new TextView(context);search.setText("⌕");search.setTextColor(textColor);search.setTextSize(24);
-        addView(search,new LayoutParams(dp(30),dp(40)));
+        searchIcon=new TextView(context);searchIcon.setText("⌕");searchIcon.setTextColor(textColor);searchIcon.setTextSize(24);
+        addView(searchIcon,new LayoutParams(dp(30),dp(40)));
         input=new EditText(context);input.setSingleLine(true);input.setTextSize(15);
         input.setTextColor(textColor);input.setHintTextColor(mutedColor);input.setHint("Поиск");
         input.setPadding(dp(4),0,dp(4),0);input.setBackgroundColor(Color.TRANSPARENT);
@@ -50,7 +50,7 @@ public final class NativeChatSearchBarView extends LinearLayout {
     public void update(String query,int textColor,int mutedColor,int panelColor,Listener callback){
         this.textColor=textColor;this.mutedColor=mutedColor;this.panelColor=panelColor;
         GradientDrawable background=new GradientDrawable();background.setColor(panelColor);background.setCornerRadius(dp(18));setBackground(background);
-        input.setTextColor(textColor);input.setHintTextColor(mutedColor);
+        searchIcon.setTextColor(textColor);input.setTextColor(textColor);input.setHintTextColor(mutedColor);
         clear.setTextColor(mutedColor);
         listener=callback;
         if(!query.equals(input.getText().toString())){
