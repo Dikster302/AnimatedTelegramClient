@@ -332,23 +332,20 @@ class TdLibClient(context:Context) {
  fun setPhotoPrivacy(value:String) { privacyController.set(TdPrivacyController.PHOTO,value) }
  fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
-  val last=c.lastMessage
-  val preview=last?.let { TdMessageTextFormatter.preview(it.content) } ?: ""
-  val photoId=c.photo?.small?.id ?: 0
-  val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((c.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
-  val old=_chats.value.firstOrNull{it.id==c.id}
-  val mainPosition=c.positions.firstOrNull { it.list is TdApi.ChatListMain }
-  val archivePosition=c.positions.firstOrNull { it.list is TdApi.ChatListArchive }
-  val pinned=mainPosition?.isPinned == true || archivePosition?.isPinned == true
-  val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false,pinned,c.isMarkedAsUnread,c.notificationSettings.muteFor>0)
-  _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
+  val old=_chats.value.firstOrNull { it.id==c.id }
+  val item=TdChatMapper.map(c,archived,old)
+  _chats.value=(_chats.value.filterNot { it.id==c.id }+item).sortedByDescending { it.lastDate }
   storyQueue.enqueue(c.id)
-  if(c.type is TdApi.ChatTypePrivate) {
-   val userId=(c.type as TdApi.ChatTypePrivate).userId
+  val userId=TdChatMapper.privateUserId(c)
+  if(userId!=null) {
    userToChat[userId]=c.id
    contactsController.enqueueUser(userId)
   }
-  if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; fileDownloadQueue.enqueue(photoId) }
+  val photoId=TdChatMapper.photoFileId(c)
+  if(photoId>0 && item.avatarPath.isBlank()) {
+   fileToChat[photoId]=c.id
+   fileDownloadQueue.enqueue(photoId)
+  }
  }
  private fun updateChatStories(stories:TdApi.ChatActiveStories) {
   val hasStory=stories.stories.isNotEmpty()
