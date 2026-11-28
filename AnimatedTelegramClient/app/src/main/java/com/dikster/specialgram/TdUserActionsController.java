@@ -15,6 +15,7 @@ public final class TdUserActionsController {
         void onChat(TdApi.Chat chat);
         void onUser(TdApi.User user);
         void onFullInfo(long userId, TdApi.UserFullInfo info);
+        void onPhotos(long userId,TdApi.ChatPhotos photos);
     }
     public interface GiftsListener {
         void onGifts(TdApi.ReceivedGifts gifts);
@@ -44,6 +45,12 @@ public final class TdUserActionsController {
                         if (user instanceof TdApi.User) listener.onUser((TdApi.User) user);
                     }
                     @Override public void onError(TdApi.Error error) { }
+                });
+                requester.send(new TdApi.GetUserProfilePhotos(userId,0,100),new Callback(){
+                    @Override public void onResult(TdApi.Object photos){
+                        if(photos instanceof TdApi.ChatPhotos)listener.onPhotos(userId,(TdApi.ChatPhotos)photos);
+                    }
+                    @Override public void onError(TdApi.Error error){ }
                 });
                 requester.send(new TdApi.GetUserFullInfo(userId), new Callback() {
                     @Override public void onResult(TdApi.Object info) {
