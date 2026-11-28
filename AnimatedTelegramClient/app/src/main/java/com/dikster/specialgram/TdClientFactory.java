@@ -1,5 +1,7 @@
 package com.dikster.specialgram;
 
+import android.os.Handler;
+import android.os.Looper;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
@@ -15,16 +17,24 @@ public final class TdClientFactory {
     private TdClientFactory() { }
 
     public static Client create(Listener listener) {
+        Handler mainHandler = new Handler(Looper.getMainLooper());
         return Client.create(
-                update -> listener.onUpdate(update),
-                error -> {
+                update -> mainHandler.post(() -> {
+                    try {
+                        listener.onUpdate(update);
+                    } catch (Throwable error) {
+                        recordCallbackFailure("update_dispatch", error);
+                        listener.onUpdateError(error);
+                    }
+                }),
+                error -> mainHandler.post(() -> {
                     recordCallbackFailure("update_error", error);
                     listener.onUpdateError(error);
-                },
-                error -> {
+                }),
+                error -> mainHandler.post(() -> {
                     recordCallbackFailure("fatal_error", error);
                     listener.onFatalError(error);
-                });
+                }));
     }
 
     private static void recordCallbackFailure(String type, Throwable error) {
