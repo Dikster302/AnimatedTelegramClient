@@ -75,6 +75,13 @@ class TdLibClient(context:Context) {
    _auth.value=Auth.Error(e.message ?: "TDLib error")
   }
  )
+ private val userActions = TdUserActionsController(
+  TdUserActionsController.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) })
+  }
+ )
  private val accountActions = TdAccountActionsController(
   TdAccountActionsController.Requester { function, callback ->
    send(function,
@@ -237,24 +244,26 @@ class TdLibClient(context:Context) {
  fun toggleChatMuted(id:Long,isMuted:Boolean) { chatActions.toggleMuted(id,isMuted) }
  fun openProfile(chatId:Long) {
   activeProfileUserId=null
-  send(TdApi.GetChat(chatId)) { result ->
-   if(result is TdApi.Chat) {
-    val chat=result
+  userActions.loadProfile(chatId,object : TdUserActionsController.ProfileListener {
+   override fun onChat(chat:TdApi.Chat) {
     val kind=when(chat.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((chat.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
     _profile.value=TgProfile(chatId,chat.title,kind,avatarPath=_chats.value.firstOrNull{it.id==chatId}?.avatarPath ?: "")
     if(chat.type is TdApi.ChatTypePrivate) {
      val userId=(chat.type as TdApi.ChatTypePrivate).userId
      activeProfileUserId=userId
      userToChat[userId]=chatId
-     send(TdApi.GetUser(userId)) { u -> if(u is TdApi.User) {
-      updateUserProfile(u); updateChatUser(u)
-      val profilePhotoId=u.profilePhoto?.small?.id ?: 0
-      if(profilePhotoId>0) { fileToChat[profilePhotoId]=chatId; send(TdApi.DownloadFile(profilePhotoId,32,0,0,false)) }
-     } }
-     send(TdApi.GetUserFullInfo(userId)) { info -> if(info is TdApi.UserFullInfo) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount) }
     }
    }
-  }
+   override fun onUser(user:TdApi.User) {
+    if(activeProfileUserId!=user.id) return
+    updateUserProfile(user); updateChatUser(user)
+    val profilePhotoId=user.profilePhoto?.small?.id ?: 0
+    if(profilePhotoId>0) { fileToChat[profilePhotoId]=chatId; send(TdApi.DownloadFile(profilePhotoId,32,0,0,false)) }
+   }
+   override fun onFullInfo(userId:Long,info:TdApi.UserFullInfo) {
+    if(activeProfileUserId==userId) _profile.value=_profile.value?.copy(bio=info.bio?.text ?: "",commonGroups=info.groupInCommonCount)
+   }
+  })
  }
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
@@ -284,7 +293,12 @@ class TdLibClient(context:Context) {
  }
  fun loadContacts() { contactsController.load() }
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
-  send(TdApi.CreatePrivateChat(userId,false)) { result -> if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,kind="Личный чат")) } }
+  userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
+   override fun onResult(result:TdApi.Object) {
+    if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,kind="Личный чат")) }
+   }
+   override fun onError(error:TdApi.Error) { }
+  })
  }
  private fun updateChatUser(user:TdApi.User) {
   val chatId=userToChat[user.id] ?: return
