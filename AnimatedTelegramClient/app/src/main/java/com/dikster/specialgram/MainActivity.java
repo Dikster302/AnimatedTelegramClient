@@ -267,6 +267,7 @@ public final class MainActivity extends Activity {
             @Override public void onSearchMessages(String value){td.searchChatMessages(chatId(),value);}
             @Override public void onOpenProfile(){td.openProfile(chatId());}
             @Override public void onCloseProfile(){td.closeProfile();}
+            @Override public void onToggleMute(TgChat chat,boolean muted){td.toggleChatMuted(chat.getId(),muted);refreshNow();}
             @Override public void onBack(){closeConversation();}
             @Override public void onSend(String value,boolean animated,Long replyId){
                 if(animated)td.sendAnimated(chatId(),value,replyId);else td.sendPlain(chatId(),value,replyId);
