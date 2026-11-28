@@ -26,7 +26,8 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
 
     private static final Pattern RETRY_AFTER =
             Pattern.compile("retry after\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
-    private static final long NORMAL_DELAY_MS = 500L;
+    // Story lookups are deliberately paced to avoid flooding Telegram while a large chat list loads.
+    private static final long NORMAL_DELAY_MS = 2_500L;
     private static final long DEFAULT_BACKOFF_MS = 60_000L;
     private static final long MAX_BACKOFF_MS = 900_000L;
 
