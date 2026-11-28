@@ -28,7 +28,7 @@ public final class TdAccountActionsController {
     public void updateProfile(String firstName, String lastName, String bio, long userId) {
         String first = firstName == null ? "" : firstName.trim();
         String last = lastName == null ? "" : lastName.trim();
-        String about = bio == null ? "" : bio.trim().replace('\\n', ' ');
+        String about = bio == null ? "" : bio.trim().replace('\n', ' ');
         if (first.isEmpty()) {
             listener.onValidationError("Имя не может быть пустым");
             return;
