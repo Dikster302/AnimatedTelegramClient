@@ -140,8 +140,6 @@ public final class TdLibClient implements AutoCloseable {
                 String message = error == null || error.getMessage() == null
                         ? "Unknown TDLib update callback error" : error.getMessage();
                 DiagnosticsJournal.record(app, "UpdateCallback", -1, message);
-                com.google.firebase.crashlytics.FirebaseCrashlytics.getInstance()
-                        .recordException(new IllegalStateException("TDLib update callback failed: " + message, error));
             }
             @Override public void onFatalError(Throwable error) {
                 // Только фатальная ошибка клиента действительно завершает подключение.
@@ -171,8 +169,10 @@ public final class TdLibClient implements AutoCloseable {
         messageViewQueue = new TdMessageViewQueue((function, callback) ->
                 send(function, callback::onResult, callback::onError, false));
 
+        // Profile lookups are optional background requests. A missing user/full-info/gifts
+        // response must not raise the app-wide connection banner while opening a profile.
         userActions = new TdUserActionsController((function, callback) ->
-                send(function, callback::onResult, callback::onError, true));
+                send(function, callback::onResult, callback::onError, false));
 
         profileController = new TdProfileController(userActions, profileSession,
                 new TdProfileController.Listener() {
