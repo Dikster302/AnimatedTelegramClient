@@ -765,53 +765,21 @@ private fun SettingsLine(title: String, subtitle: String) {
 
 @Composable
 private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onTogglePinned: () -> Unit, onToggleUnread: () -> Unit, onToggleMute: () -> Unit, onClick: () -> Unit) {
-    var menu by remember { mutableStateOf(false) }
-    val initials = chat.title.trim().split(Regex("\\s+")).take(2).mapNotNull { it.firstOrNull()?.toString() }.joinToString("").uppercase()
-    val time = remember(chat.lastDate) {
-        if (chat.lastDate <= 0) "" else try {
-            val d = Date(chat.lastDate.toLong() * 1000L)
-            val today = Calendar.getInstance()
-            val messageDay = Calendar.getInstance().apply { time = d }
-            val sameDay = today.get(Calendar.YEAR) == messageDay.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == messageDay.get(Calendar.DAY_OF_YEAR)
-            val daysAgo = ((today.timeInMillis - messageDay.timeInMillis) / 86_400_000L).toInt()
-            when {
-                sameDay -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(d)
-                daysAgo == 1 -> "вчера"
-                daysAgo in 2..6 -> SimpleDateFormat("EEE", Locale.getDefault()).format(d)
-                else -> SimpleDateFormat("dd.MM.yy", Locale.getDefault()).format(d)
-            }
-        } catch (_: Exception) { "" }
-    }
-    Row(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = { menu = true }).padding(horizontal = 16.dp, vertical = if (compact) 5.dp else 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(path = chat.avatarPath, fallback = initials.ifBlank { "T" }, id = chat.id, size = 54, online = chat.isOnline, hasStory = chat.hasStory, storyViewed = !chat.hasUnviewedStory)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (chat.isPremium) Text("✦", color = Color(0xFFB58CFF), fontSize = 13.sp)
-                if (chat.isPinned) Text("📌", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 3.dp))
-                if (chat.isMuted) Text("🔕", fontSize = 11.sp, modifier = Modifier.padding(horizontal = 2.dp))
-                if (time.isNotBlank()) Text(time, color = if (chat.unreadCount > 0 || chat.isMarkedAsUnread) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chat.preview.ifBlank { chat.status.ifBlank { "Нет сообщений" } }, color = LocalAppearance.current.muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (chat.unreadCount > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    Box(Modifier.defaultMinSize(minWidth = 21.dp, minHeight = 21.dp).clip(CircleShape).background(LocalAppearance.current.accent).padding(horizontal = 6.dp), contentAlignment = Alignment.Center) {
-                        Text(if (chat.unreadCount > 99) "99+" else chat.unreadCount.toString(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+    val appearance = LocalAppearance.current
+    val panelColor = appearance.panel.copy(alpha = 1f - appearance.glass * 0.30f).toArgb()
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            NativeChatRowView(context, chat, compact, appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb(), panelColor,
+                onClick, onArchive, onTogglePinned, onToggleUnread, onToggleMute)
+        },
+        update = { view ->
+            view.update(chat, compact, appearance.text.toArgb(), appearance.muted.toArgb(),
+                appearance.accent.toArgb(), panelColor,
+                onClick, onArchive, onTogglePinned, onToggleUnread, onToggleMute)
         }
-        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text(if (chat.isPinned) "Открепить чат" else "Закрепить чат") }, onClick = { menu = false; onTogglePinned() })
-            DropdownMenuItem(text = { Text(if (chat.isMarkedAsUnread) "Отметить прочитанным" else "Отметить непрочитанным") }, onClick = { menu = false; onToggleUnread() })
-            DropdownMenuItem(text = { Text(if (chat.isMuted) "Включить уведомления" else "Отключить уведомления") }, onClick = { menu = false; onToggleMute() })
-            HorizontalDivider()
-            DropdownMenuItem(text = { Text(if (chat.archived) "Вернуть из архива" else "В архив") }, onClick = { menu = false; onArchive() })
-        }
-    }
+    )
 }
 
 @Composable
