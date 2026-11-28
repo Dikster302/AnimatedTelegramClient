@@ -622,12 +622,11 @@ private fun ConversationScreen(
         } else onSearchMessages("")
     }
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
-        if (operationError != null) AlertDialog(
-            onDismissRequest = onDismissOperationError,
-            title = { Text("Не удалось выполнить действие", color = LocalAppearance.current.text) },
-            text = { Text(operationError, color = LocalAppearance.current.muted) },
-            confirmButton = { TextButton(onClick = onDismissOperationError) { Text("Понятно") } }
-        )
+        LaunchedEffect(operationError) {
+            if (!operationError.isNullOrBlank()) {
+                NativeOperationErrorDialog.show(shapePickerContext, operationError, Runnable { onDismissOperationError() })
+            }
+        }
         val dialogAppearance = LocalAppearance.current
         val messageDialogContext = shapePickerContext
         val messageActionsListener = remember(chats, chat.id, onReactToMessage, onForwardMessage,
