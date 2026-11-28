@@ -12,7 +12,7 @@ public final class TdChatListFilter {
     public static List<TgChat> filter(List<TgChat> chats, String query,
                                      boolean newestFirst, boolean unreadOnly, String folder) {
         String needle = query == null ? "" : query.toLowerCase(Locale.ROOT);
-        String selected = folder == null ? "Все" : folder;
+        String selected = folder == null ? "Все чаты" : folder;
         List<TgChat> result = new ArrayList<>();
         if (chats == null) return result;
         for (TgChat chat : chats) {
@@ -31,10 +31,8 @@ public final class TdChatListFilter {
                     || kind.contains("супергруп") || kind.contains("supergroup");
             boolean matches;
             switch (selected) {
-                case "Архив": matches = archived; break;
-                case "Личные": matches = !archived && isPrivate; break;
-                case "Группы": matches = !archived && isGroup && !isChannel; break;
-                case "Каналы": matches = !archived && isChannel; break;
+                // Archive is a separate drawer, never a folder tab.
+                // Until real Telegram chat-filter metadata is loaded, show only the real all-chats list.
                 default: matches = !archived; break;
             }
             if (matches) result.add(chat);
