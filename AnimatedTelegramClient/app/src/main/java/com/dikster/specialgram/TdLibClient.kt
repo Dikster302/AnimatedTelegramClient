@@ -302,29 +302,6 @@ class TdLibClient(context:Context) {
  )
 
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
- private val updateRouter = TdUpdateRouter(object : TdUpdateRouter.Listener {
-  override fun onAuthorizationState(state:TdApi.AuthorizationState) { authorizationStateRouter.onState(state) }
-  override fun onNewChat(chat:TdApi.Chat) { chatRegistrationController.putChat(chat,false) }
-  override fun onChatTitle(chatId:Long,title:String) { _chats.value=TdChatStateController.updateTitle(_chats.value,chatId,title) }
-  override fun onChatActiveStories(stories:TdApi.ChatActiveStories) { storyStateController.updateChatStories(stories) }
-  override fun onStory(story:TdApi.Story) { storyStateController.updateStory(story,null) }
-  override fun onStoryDeleted(chatId:Long,storyId:Int) { storyStateController.deleteStory(chatId,storyId) }
-  override fun onChatLastMessage(chatId:Long,message:TdApi.Message?) { _chats.value=TdChatStateController.updatePreview(_chats.value,chatId,message) }
-  override fun onChatReadOutbox(chatId:Long,lastReadMessageId:Long) {
-   val state=TdChatStateController.updateOutboxRead(_chats.value,_messages.value,chatSession.activeChat,chatId,lastReadMessageId)
-   _chats.value=state.chats
-   _messages.value=state.messages
-  }
-  override fun onChatReadInbox(chatId:Long,unreadCount:Int) { _chats.value=TdChatStateController.updateUnreadCount(_chats.value,chatId,unreadCount) }
-  override fun onChatPosition(chatId:Long,position:TdApi.ChatPosition) { _chats.value=TdChatStateController.updatePinned(_chats.value,chatId,position) }
-  override fun onChatMarkedUnread(chatId:Long,markedUnread:Boolean) { _chats.value=TdChatStateController.updateMarkedUnread(_chats.value,chatId,markedUnread) }
-  override fun onChatNotificationSettings(chatId:Long,settings:TdApi.ChatNotificationSettings) { _chats.value=TdChatStateController.updateMuted(_chats.value,chatId,settings) }
-  override fun onOtherUpdate(update:TdApi.Object) { userUpdateRouter.route(update) }
- })
- private fun onUpdate(o:TdApi.Object) {
-  if(messageStateController.handle(o) || fileStateController.handle(o)) return
-  updateRouter.route(o)
- }
  private val authorizationStateRouter = TdAuthorizationStateRouter(
   app, BuildConfig.TELEGRAM_API_ID, BuildConfig.TELEGRAM_API_HASH,
   object : TdAuthorizationStateRouter.Listener {
@@ -339,6 +316,16 @@ class TdLibClient(context:Context) {
    }
   }
  )
+ private val updateStateController = TdUpdateStateController(object : TdUpdateStateController.State {
+  override fun chats():List<TgChat> = _chats.value
+  override fun setChats(chats:List<TgChat>) { _chats.value=chats }
+  override fun messages():List<TgMessage> = _messages.value
+  override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
+ },authorizationStateRouter,chatRegistrationController,storyStateController,chatSession,userUpdateRouter)
+ private fun onUpdate(o:TdApi.Object) {
+  if(messageStateController.handle(o) || fileStateController.handle(o)) return
+  updateStateController.route(o)
+ }
  fun updatePushToken(token:String) { operationsController.updatePushToken(token) }
  fun processPushPayload(payload:String) { operationsController.processPushPayload(payload) }
  fun phone(v:String) { operationsController.phone(v) }
