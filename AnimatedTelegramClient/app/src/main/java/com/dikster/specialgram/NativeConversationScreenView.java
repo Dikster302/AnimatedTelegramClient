@@ -17,6 +17,7 @@ public final class NativeConversationScreenView extends FrameLayout {
         void onSearchMessages(String query);
         void onOpenProfile();
         void onCloseProfile();
+        void onToggleMute(TgChat chat, boolean muted);
         void onBack();
         void onSend(String text,boolean animated,Long replyToMessageId);
         void onDeleteMessage(TgMessage message,boolean forEveryone);
@@ -225,11 +226,16 @@ public final class NativeConversationScreenView extends FrameLayout {
     private void ensureProfileDialog(){
         if(profileHost==null){
             profileHost=new NativeProfileDialogHost(getContext(),chat,profile,textColor,mutedColor,
-                    accentColor,panelLightColor,()->{
+                    accentColor,panelLightColor,new NativeProfileDialogHost.Listener(){
+                @Override public void onClose(){
                 profileVisible=false;
                 NativeProfileDialogHost old=profileHost;profileHost=null;
                 if(old!=null&&old.getParent()==this)removeView(old);
                 if(listener!=null)listener.onCloseProfile();
+                }
+                @Override public void onToggleMute(TgChat value,boolean muted){
+                    if(listener!=null)listener.onToggleMute(value,muted);
+                }
             });
             addView(profileHost,new FrameLayout.LayoutParams(dp(1),dp(1)));
         }else profileHost.update(chat,profile,textColor,mutedColor,accentColor,panelLightColor);
