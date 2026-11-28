@@ -15,13 +15,20 @@ object DiagnosticsJournal {
     private const val MAX_LINES = 300
 
     @Synchronized
-    fun record(context: Context, request: String, code: Int) {
+    fun record(context: Context, request: String, code: Int, message: String = "") {
         runCatching {
             val safeRequest = request.filter { it.isLetterOrDigit() || it == '_' }.take(64).ifBlank { "UnknownRequest" }
             val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
             val file = File(context.applicationContext.filesDir, FILE_NAME)
             val existing = if (file.exists()) file.readLines(Charsets.UTF_8) else emptyList()
-            val updated = (existing + "$timestamp | TDLib | $safeRequest | code=$code").takeLast(MAX_LINES)
+            val safeMessage = message
+                .replace(Regex("\\b\\d{5,}\\b"), "[number]")
+                .replace(Regex("[\\r\\n|]"), " ")
+                .filter { it.isLetterOrDigit() || it.isWhitespace() || it in "._:-[]" }
+                .take(120)
+                .trim()
+            val detail = if (safeMessage.isBlank()) "" else " | message=$safeMessage"
+            val updated = (existing + "$timestamp | TDLib | $safeRequest | code=$code$detail").takeLast(MAX_LINES)
             file.writeText(updated.joinToString("\n", postfix = "\n"), Charsets.UTF_8)
         }
     }

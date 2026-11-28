@@ -8,6 +8,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 
 data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false,val isPinned:Boolean=false,val isMarkedAsUnread:Boolean=false,val isMuted:Boolean=false)
 data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
@@ -34,6 +38,14 @@ class TdLibClient(context:Context) {
  private var chatSearchGeneration=0
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+ private val storyRequestQueue=ConcurrentLinkedQueue<Long>()
+ private val storyRequestsQueuedOrDone=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+ private val storyQueueScheduled=AtomicBoolean(false)
+ private val storyRequestInFlight=AtomicBoolean(false)
+ private val storyBackoffUntil=AtomicLong(0L)
+ private val storyScheduler=java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task -> Thread(task,"specialgram-story-queue").apply { isDaemon=true } }
+ private var registeredPushToken:String?=null
+ private val pushRegistrationInFlight=AtomicBoolean(false)
  private var myUserId:Long?=null
  private var pendingPushToken:String?=app.getSharedPreferences("push",Context.MODE_PRIVATE).getString("fcm_token",null)
  private var myPhotoFileId:Int?=null
@@ -110,7 +122,13 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
  fun updatePushToken(token:String) { if(token.isBlank()) return; pendingPushToken=token; app.getSharedPreferences("push",Context.MODE_PRIVATE).edit().putString("fcm_token",token).apply(); if(_auth.value is Auth.Ready) registerPushToken(token) }
- private fun registerPushToken(token:String) { send(TdApi.RegisterDevice(TdApi.DeviceTokenFirebaseCloudMessaging(token,true), longArrayOf())) }
+ private fun registerPushToken(token:String) {
+  if(token.isBlank() || token==registeredPushToken || !pushRegistrationInFlight.compareAndSet(false,true)) return
+  send(TdApi.RegisterDevice(TdApi.DeviceTokenFirebaseCloudMessaging(token,true), longArrayOf()),
+   handler={ registeredPushToken=token; pushRegistrationInFlight.set(false) },
+   onError={ pushRegistrationInFlight.set(false) },
+   reportErrorToUi=false)
+ }
  fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdApi.ProcessPushNotification(payload)) }
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
@@ -253,7 +271,7 @@ class TdLibClient(context:Context) {
   val pinned=mainPosition?.isPinned == true || archivePosition?.isPinned == true
   val item=TgChat(c.id,c.title,preview,last?.date ?: 0,c.unreadCount,old?.avatarPath ?: "",kind,archived,old?.status ?: "",old?.isOnline ?: false,old?.isPremium ?: false,c.lastReadOutboxMessageId,old?.hasStory ?: false,old?.hasUnviewedStory ?: false,pinned,c.isMarkedAsUnread,c.notificationSettings.muteFor>0)
   _chats.value=(_chats.value.filterNot{it.id==c.id}+item).sortedByDescending{it.lastDate}
-  send(TdApi.GetChatActiveStories(c.id)) { result -> if(result is TdApi.ChatActiveStories) updateChatStories(result) }
+  enqueueChatStories(c.id)
   if(c.type is TdApi.ChatTypePrivate) {
    val userId=(c.type as TdApi.ChatTypePrivate).userId
    userToChat[userId]=c.id
@@ -261,7 +279,52 @@ class TdLibClient(context:Context) {
   }
   if(photoId>0 && item.avatarPath.isBlank()) { fileToChat[photoId]=c.id; send(TdApi.DownloadFile(photoId,32,0,0,false)) }
  }
+ private fun enqueueChatStories(chatId:Long) {
+  if(!storyRequestsQueuedOrDone.add(chatId)) return
+  storyRequestQueue.offer(chatId)
+  scheduleNextStoryRequest(0L)
+ }
+ private fun scheduleNextStoryRequest(delayMs:Long) {
+  if(!storyQueueScheduled.compareAndSet(false,true)) return
+  runCatching {
+   storyScheduler.schedule({
+    storyQueueScheduled.set(false)
+    dispatchNextStoryRequest()
+   },delayMs,TimeUnit.MILLISECONDS)
+  }.onFailure { storyQueueScheduled.set(false) }
+ }
+ private fun dispatchNextStoryRequest() {
+  if(!storyRequestInFlight.compareAndSet(false,true)) return
+  val chatId=storyRequestQueue.poll()
+  if(chatId==null) { storyRequestInFlight.set(false); return }
+  val waitForBackoff=(storyBackoffUntil.get()-System.currentTimeMillis()).coerceAtLeast(0L)
+  if(waitForBackoff>0L) {
+   storyRequestQueue.offer(chatId)
+   storyRequestInFlight.set(false)
+   scheduleNextStoryRequest(waitForBackoff)
+   return
+  }
+  send(TdApi.GetChatActiveStories(chatId),
+   handler={ result ->
+    if(result is TdApi.ChatActiveStories) updateChatStories(result)
+    storyRequestInFlight.set(false)
+    scheduleNextStoryRequest(500L)
+   },
+   onError={ error ->
+    if(error.code==429) {
+     val retrySeconds=Regex("retry after\\s+(\\d+)",RegexOption.IGNORE_CASE)
+      .find(error.message)?.groupValues?.getOrNull(1)?.toLongOrNull() ?: 60L
+     val backoffMs=retrySeconds.coerceIn(60L,900L)*1000L
+     storyBackoffUntil.set(System.currentTimeMillis()+backoffMs)
+    }
+    storyRequestInFlight.set(false)
+    scheduleNextStoryRequest(if(error.code==429) (storyBackoffUntil.get()-System.currentTimeMillis()).coerceAtLeast(1000L) else 500L)
+   },
+   reportErrorToUi=false)
+ }
  private fun updateChatStories(stories:TdApi.ChatActiveStories) {
+  storyRequestsQueuedOrDone.add(stories.chatId)
+  storyRequestQueue.remove(stories.chatId)
   val hasStory=stories.stories.isNotEmpty()
   val hasUnviewed=stories.stories.any { it.storyId>stories.maxReadStoryId }
   _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory,hasUnviewedStory=hasUnviewed) else it }
@@ -624,17 +687,18 @@ fun reportOperationError(text:String) {
   }
   scheduler.schedule({scheduler.shutdown()},words.size*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
  }
- private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) {
+ private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
   client.send(f,Client.ResultHandler { r ->
    if(r is TdApi.Error) {
-    DiagnosticsJournal.record(app, f.javaClass.simpleName, r.code)
+    DiagnosticsJournal.record(app, f.javaClass.simpleName, r.code, r.message)
     FirebaseCrashlytics.getInstance().apply {
      log("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}")
      setCustomKey("tdlib_function", f.javaClass.simpleName)
      setCustomKey("tdlib_error_code", r.code)
      recordException(IllegalStateException("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}"))
     }
-    _operationError.value=r.message
+    onError?.invoke(r)
+    if(reportErrorToUi) _operationError.value=r.message
    } else handler?.invoke(r)
   })
  }
