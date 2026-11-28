@@ -1403,33 +1403,20 @@ private fun CenterPanel(title: String, subtitle: String) {
 
 @Composable
 private fun AudioMessagePlayer(path: String, title: String, duration: Int) {
-    var player by remember(path) { mutableStateOf<MediaPlayer?>(null) }
-    var prepared by remember(path) { mutableStateOf(false) }
-    var playing by remember(path) { mutableStateOf(false) }
-    var pendingPlay by remember(path) { mutableStateOf(false) }
-    DisposableEffect(path) {
-        if (path.isNotBlank()) {
-            val media = MediaPlayer()
-            runCatching {
-                media.setDataSource(path)
-                media.setOnPreparedListener { prepared = true; if (pendingPlay) { it.start(); playing = true; pendingPlay = false } }
-                media.setOnCompletionListener { playing = false; runCatching { it.seekTo(0) } }
-                media.prepareAsync(); player = media
-            }.onFailure { media.release() }
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.widthIn(min = 210.dp, max = 270.dp).padding(vertical = 3.dp),
+        factory = { context ->
+            NativeAudioMessagePlayerView(context, path, title, duration,
+                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb())
+        },
+        update = { view ->
+            view.update(path, title, duration, appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb())
         }
-        onDispose { runCatching { player?.release() }; player = null }
-    }
-    Row(Modifier.widthIn(min = 210.dp, max = 270.dp).padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(enabled = path.isNotBlank(), onClick = {
-            val media = player ?: return@IconButton
-            if (!prepared) pendingPlay = true else if (playing) { media.pause(); playing = false } else { media.start(); playing = true }
-        }) { Text(if (playing) "Ⅱ" else "▶", color = LocalAppearance.current.accent, fontSize = 22.sp) }
-        Column(Modifier.weight(1f)) {
-            Text(title.ifBlank { "Аудиосообщение" }, color = LocalAppearance.current.text, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (path.isBlank()) "Загрузка…" else if (prepared) MediaPreparation.formatDuration(duration) else "Подготовка аудио…", color = LocalAppearance.current.muted, fontSize = 11.sp)
-        }
-    }
+    )
 }
+
 private fun avatarColor(id: Long): Color {
     val colors = listOf(Color(0xFF5B8DEF), Color(0xFF8E6AC8), Color(0xFF26A69A), Color(0xFFE28B55), Color(0xFFCC6688))
     return colors[kotlin.math.abs(id % colors.size).toInt()]
