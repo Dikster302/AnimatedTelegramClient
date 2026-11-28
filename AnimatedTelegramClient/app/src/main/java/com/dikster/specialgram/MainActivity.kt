@@ -463,7 +463,9 @@ private fun HeaderWallpaper(uri: String?, modifier: Modifier = Modifier) {
         factory = { context -> NativeHeaderWallpaperView(context, uri, panelColor) },
         update = { view -> view.update(uri, panelColor) }
     )
-}@Composable
+}
+
+@Composable
 private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (String) -> Unit, onOpen: (TgContact) -> Unit) {
     val appearance = LocalAppearance.current
     val listener = remember(onQuery, onOpen) {
@@ -485,7 +487,9 @@ private fun ContactsPanel(contacts: List<TgContact>, query: String, onQuery: (St
                 appearance.panelLight.toArgb(), listener)
         }
     )
-}@Composable
+}
+
+@Composable
 private fun SettingsPanel(
     account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit,
     glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit,
@@ -693,7 +697,9 @@ private fun PrivacyChoiceSection(title:String,current:String,onSelect:(String)->
         update = { view -> NativeSettingsRows.updatePrivacy(view, view.context, title, current,
             appearance.text.toArgb(), appearance.muted.toArgb(), { value -> onSelect(value) }) }
     )
-}@Composable
+}
+
+@Composable
 private fun SettingsNavigationRow(title: String, subtitle: String, onClick: () -> Unit) {
     val appearance = LocalAppearance.current
     AndroidView(
@@ -703,7 +709,9 @@ private fun SettingsNavigationRow(title: String, subtitle: String, onClick: () -
         update = { view -> NativeSettingsRows.updateNavigation(view, view.context, title, subtitle,
             appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
     )
-}@Composable
+}
+
+@Composable
 private fun CoverChoice(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
     val appearance = LocalAppearance.current
     AndroidView(
@@ -713,7 +721,9 @@ private fun CoverChoice(title: String, subtitle: String, selected: Boolean, onCl
         update = { view -> NativeSettingsRows.updateCoverChoice(view, view.context, title, subtitle,
             selected, appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
     )
-}@Composable
+}
+
+@Composable
 private fun SettingsLine(title: String, subtitle: String) {
     val appearance = LocalAppearance.current
     AndroidView(
@@ -723,7 +733,9 @@ private fun SettingsLine(title: String, subtitle: String) {
         update = { view -> NativeSettingsRows.updateSetting(view, view.context, title, subtitle,
             appearance.text.toArgb(), appearance.muted.toArgb()) }
     )
-}@Composable
+}
+
+@Composable
 private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onTogglePinned: () -> Unit, onToggleUnread: () -> Unit, onToggleMute: () -> Unit, onClick: () -> Unit) {
     val appearance = LocalAppearance.current
     val panelColor = appearance.panel.copy(alpha = 1f - appearance.glass * 0.30f).toArgb()
