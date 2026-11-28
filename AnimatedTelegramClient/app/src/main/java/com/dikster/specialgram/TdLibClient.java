@@ -380,7 +380,7 @@ public final class TdLibClient implements AutoCloseable {
 
     private void setChats(List<TgChat> value) {
         List<TgChat> snapshot = value == null ? Collections.emptyList() : value;
-        setChats(snapshot);
+        chats.setValue(snapshot);
         chatCacheRepository.replaceAll(snapshot);
     }
 
