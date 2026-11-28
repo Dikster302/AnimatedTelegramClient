@@ -37,7 +37,7 @@ public final class TdChatHistoryController {
             case "Медиа": filter=new TdApi.SearchMessagesFilterPhotoAndVideo();break;
             case "Файлы": filter=new TdApi.SearchMessagesFilterDocument();break;
             case "Ссылки": filter=new TdApi.SearchMessagesFilterUrl();break;
-            case "Голосовые": filter=new TdApi.SearchMessagesFilterVoiceAndVideoNote();break;
+            case "Голосовые": filter=new TdApi.SearchMessagesFilterVoiceNote();break;
             case "GIF": filter=new TdApi.SearchMessagesFilterAnimation();break;
             case "Избранное": filter=new TdApi.SearchMessagesFilterPinned();break;
             default: filter=new TdApi.SearchMessagesFilterEmpty();break;
