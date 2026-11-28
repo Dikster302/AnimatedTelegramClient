@@ -291,7 +291,8 @@ public final class NativeSettingsPanelView extends LinearLayout {
                 TextView verified=text("✓ ПОДТВЕРЖДЁН",0xFF6DCBFF,10,true);
                 verified.setPadding(dp(8),dp(4),dp(8),dp(4));
                 verified.setBackground(round(withAlpha(0xFF54B9F5,0.16f),20));
-                LinearLayout.LayoutParams verifiedParams=match();
+                LinearLayout.LayoutParams verifiedParams=new LayoutParams(
+                        LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT);
                 verifiedParams.leftMargin=dp(6);
                 badges.addView(verified,verifiedParams);
             }
