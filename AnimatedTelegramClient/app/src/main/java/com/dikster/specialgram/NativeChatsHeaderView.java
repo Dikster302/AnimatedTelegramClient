@@ -42,7 +42,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         setPadding(dp(8),dp(3),dp(8),dp(3));
         this.themeName=themeName==null?"Telegram":themeName;
 
-        menuButton=text(context,"☰",textColor,25,true);
+        menuButton=text(context,"≡",0xFF8A9AA9,32,true);
         menuButton.setGravity(Gravity.CENTER);
         menuButton.setContentDescription("Меню Specialgram");
         addView(menuButton,new LayoutParams(dp(44),dp(46)));
@@ -78,9 +78,9 @@ public final class NativeChatsHeaderView extends LinearLayout {
         listener=callback;
         title.setText(tab==0?"Specialgram":tab==1?"Контакты":tab==2?"Настройки":tab==3?"Профиль":"Звонки");
         title.setTextColor(textColor);
-        menuButton.setTextColor(textColor);
-        overflowButton.setTextColor(textColor);
-        searchButton.setColor(textColor);
+        menuButton.setTextColor(0xFF8A9AA9);
+        overflowButton.setTextColor(0xFF8A9AA9);
+        searchButton.setColor(0xFF8A9AA9);
         searchButton.setVisibility(tab==0?VISIBLE:GONE);
         overflowButton.setVisibility(tab==0?VISIBLE:GONE);
         menuButton.setContentDescription(tab==0?"Открыть меню":"Назад или меню");
