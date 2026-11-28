@@ -1,8 +1,6 @@
 package com.dikster.specialgram;
 import android.content.Context;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -31,15 +29,14 @@ public final class DiagnosticsJournal {
             File file = new File(context.getApplicationContext().getFilesDir(), FILE_NAME);
             List<String> lines = new ArrayList<>();
             if (file.isFile()) {
-                String[] parts = new String(readAll(file), StandardCharsets.UTF_8).split("\\r?\\n");
+                String existing = new String(java.nio.file.Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
+                String[] parts = existing.split("\\r?\\n");
                 int start = Math.max(0, parts.length - (MAX_LINES - 1));
                 for (int i = start; i < parts.length; i++) if (!parts[i].isEmpty()) lines.add(parts[i]);
             }
             lines.add(timestamp + " | TDLib | " + safeRequest + " | code=" + code + detail);
             if (lines.size() > MAX_LINES) lines = lines.subList(lines.size() - MAX_LINES, lines.size());
-            StringBuilder output = new StringBuilder();
-            for (String line : lines) output.append(line).append('\n');
-            writeAll(file, output.toString().getBytes(StandardCharsets.UTF_8));
+            java.nio.file.Files.write(file.toPath(), (String.join("\n", lines) + "\n").getBytes(StandardCharsets.UTF_8));
         } catch (Exception ignored) { }
     }
 
@@ -47,7 +44,7 @@ public final class DiagnosticsJournal {
         try {
             File file = new File(context.getApplicationContext().getFilesDir(), FILE_NAME);
             if (!file.isFile()) return "";
-            byte[] bytes = readAll(file);
+            byte[] bytes = java.nio.file.Files.readAllBytes(file.toPath());
             int start = Math.max(0, bytes.length - MAX_READ_BYTES);
             return new String(bytes, start, bytes.length - start, StandardCharsets.UTF_8);
         } catch (Exception ignored) { return ""; }
@@ -56,24 +53,7 @@ public final class DiagnosticsJournal {
     public static synchronized void clear(Context context) {
         try {
             File file = new File(context.getApplicationContext().getFilesDir(), FILE_NAME);
-            if (file.isFile() && !file.delete()) throw new java.io.IOException("Unable to delete journal");
+            if (file.isFile()) java.nio.file.Files.deleteIfExists(file.toPath());
         } catch (Exception ignored) { }
-    }
-
-    private static byte[] readAll(File file) throws java.io.IOException {
-        try (FileInputStream input = new FileInputStream(file);
-             java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream()) {
-            byte[] buffer = new byte[4096];
-            int count;
-            while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
-            return output.toByteArray();
-        }
-    }
-
-    private static void writeAll(File file, byte[] bytes) throws java.io.IOException {
-        try (FileOutputStream output = new FileOutputStream(file, false)) {
-            output.write(bytes);
-            output.flush();
-        }
     }
 }
