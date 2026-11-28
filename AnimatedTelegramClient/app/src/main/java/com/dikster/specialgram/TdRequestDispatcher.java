@@ -24,16 +24,22 @@ public final class TdRequestDispatcher {
         client.send(function, result -> {
             if (result instanceof TdApi.Error) {
                 TdApi.Error error = (TdApi.Error) result;
-                DiagnosticsJournal.record(app, function.getClass().getSimpleName(),
-                        error.code, error.message);
-                FirebaseCrashlytics.getInstance().log("TDLib request failed: "
-                        + function.getClass().getSimpleName() + ", code=" + error.code);
-                FirebaseCrashlytics.getInstance().setCustomKey(
-                        "tdlib_function", function.getClass().getSimpleName());
-                FirebaseCrashlytics.getInstance().setCustomKey("tdlib_error_code", error.code);
-                FirebaseCrashlytics.getInstance().recordException(new IllegalStateException(
-                        "TDLib request failed: " + function.getClass().getSimpleName()
-                                + ", code=" + error.code));
+                if (!isExpectedTerminalError(function, error)) {
+                    DiagnosticsJournal.record(app, function.getClass().getSimpleName(),
+                            error.code, error.message);
+                    FirebaseCrashlytics.getInstance().log("TDLib request failed: "
+                            + function.getClass().getSimpleName() + ", code=" + error.code);
+                    FirebaseCrashlytics.getInstance().setCustomKey(
+                            "tdlib_function", function.getClass().getSimpleName());
+                    FirebaseCrashlytics.getInstance().setCustomKey("tdlib_error_code", error.code);
+                    // Flood-control responses are recoverable and are handled by request queues.
+                    // Keep them in the local journal, but don't pollute Crashlytics as exceptions.
+                    if (error.code != 429) {
+                        FirebaseCrashlytics.getInstance().recordException(new IllegalStateException(
+                                "TDLib request failed: " + function.getClass().getSimpleName()
+                                        + ", code=" + error.code));
+                    }
+                }
             }
             if (listener == null) return;
             if (result instanceof TdApi.Error) {
@@ -42,5 +48,20 @@ public final class TdRequestDispatcher {
                 listener.onResult(result);
             }
         });
+    }
+
+    /**
+     * TDLib uses 404 from LoadChats to signal that the requested chat list is exhausted.
+     * Story lookups can also legitimately fail when the current account cannot access
+     * stories for a particular chat. Neither condition is an application crash.
+     */
+    private static boolean isExpectedTerminalError(TdApi.Function<?> function, TdApi.Error error) {
+        if (error == null) return false;
+        if (function instanceof TdApi.LoadChats && error.code == 404) return true;
+        return function instanceof TdApi.GetChatActiveStories
+                && error.code == 400
+                && error.message != null
+                && error.message.toLowerCase(java.util.Locale.ROOT)
+                        .contains("cant access the chat");
     }
 }
