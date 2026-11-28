@@ -15,17 +15,22 @@ public final class TdAnimatedMessageController implements AutoCloseable {
     public interface SendListener {
         void onSent(TdApi.Message message, List<String> characters);
     }
+    public interface TextProgressListener {
+        void onTextProgress(long chatId, long messageId, String text);
+    }
 
     private static final long STEP_DELAY_MS = 180L;
     private final Requester requester;
+    private final TextProgressListener progressListener;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(task -> {
         Thread thread = new Thread(task, "specialgram-animated-message");
         thread.setDaemon(true);
         return thread;
     });
 
-    public TdAnimatedMessageController(Requester requester) {
+    public TdAnimatedMessageController(Requester requester, TextProgressListener progressListener) {
         this.requester = requester;
+        this.progressListener = progressListener;
     }
 
     public void sendAnimated(long chatId, String text, Long replyToMessageId, SendListener listener) {
@@ -47,16 +52,27 @@ public final class TdAnimatedMessageController implements AutoCloseable {
 
     public void schedule(long chatId, long messageId, List<String> characters) {
         if (characters == null || characters.size() < 2) return;
-        for (int i = 1; i < characters.size(); i++) {
+        scheduleStep(chatId, messageId, characters, 1);
+    }
+
+    /** Отправляет каждое изменение только после подтверждения предыдущего TDLib-запроса. */
+    private void scheduleStep(long chatId, long messageId, List<String> characters, int index) {
+        scheduler.schedule(() -> {
             StringBuilder builder = new StringBuilder();
-            for (int j = 0; j <= i; j++) builder.append(characters.get(j));
-            final String value = builder.toString();
-            scheduler.schedule(() -> {
-                TdApi.InputMessageText content = new TdApi.InputMessageText(
-                        new TdApi.FormattedText(value, null), null, true);
-                requester.send(new TdApi.EditMessageText(chatId, messageId, null, content), null);
-            }, i * STEP_DELAY_MS, TimeUnit.MILLISECONDS);
-        }
+            for (int i = 0; i <= index; i++) builder.append(characters.get(i));
+            String value = builder.toString();
+
+            if (progressListener != null)
+                progressListener.onTextProgress(chatId, messageId, value);
+
+            TdApi.InputMessageText content = new TdApi.InputMessageText(
+                    new TdApi.FormattedText(value, null), null, true);
+            requester.send(new TdApi.EditMessageText(chatId, messageId, null, content), result -> {
+                if (result instanceof TdApi.Error) return;
+                if (index + 1 < characters.size())
+                    scheduleStep(chatId, messageId, characters, index + 1);
+            });
+        }, STEP_DELAY_MS, TimeUnit.MILLISECONDS);
     }
 
     @Override public void close() {
