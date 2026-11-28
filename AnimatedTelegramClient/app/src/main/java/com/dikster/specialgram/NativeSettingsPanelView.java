@@ -245,11 +245,11 @@ public final class NativeSettingsPanelView extends LinearLayout {
         brand.setLetterSpacing(0.18f);
         cover.addView(brand);
         TextView coverTitle=text("ТВОЙ ПРОФИЛЬ",Color.WHITE,22,true);
-        LinearLayout.LayoutParams titleParams=wrap();
+        LinearLayout.LayoutParams titleParams=match();
         titleParams.topMargin=dp(28);
         cover.addView(coverTitle,titleParams);
         TextView coverSubtitle=text("Личное пространство Telegram",0xFFDCE8FF,12,false);
-        LinearLayout.LayoutParams subtitleParams=wrap();
+        LinearLayout.LayoutParams subtitleParams=match();
         subtitleParams.topMargin=dp(3);
         cover.addView(coverSubtitle,subtitleParams);
         LinearLayout.LayoutParams coverParams=match();
@@ -275,7 +275,7 @@ public final class NativeSettingsPanelView extends LinearLayout {
         identityText.addView(displayName);
         TextView handle=text(empty(username)?"Имя пользователя не задано":"@"+username,
                 accentColor,14,true);
-        LinearLayout.LayoutParams handleParams=wrap();
+        LinearLayout.LayoutParams handleParams=match();
         handleParams.topMargin=dp(3);
         identityText.addView(handle,handleParams);
         if(account!=null&&(account.isPremium()||account.isVerified())){
@@ -291,11 +291,11 @@ public final class NativeSettingsPanelView extends LinearLayout {
                 TextView verified=text("✓ ПОДТВЕРЖДЁН",0xFF6DCBFF,10,true);
                 verified.setPadding(dp(8),dp(4),dp(8),dp(4));
                 verified.setBackground(round(withAlpha(0xFF54B9F5,0.16f),20));
-                LinearLayout.LayoutParams verifiedParams=wrap();
+                LinearLayout.LayoutParams verifiedParams=match();
                 verifiedParams.leftMargin=dp(6);
                 badges.addView(verified,verifiedParams);
             }
-            LinearLayout.LayoutParams badgeParams=wrap();
+            LinearLayout.LayoutParams badgeParams=match();
             badgeParams.topMargin=dp(7);
             identityText.addView(badges,badgeParams);
         }
@@ -380,7 +380,7 @@ public final class NativeSettingsPanelView extends LinearLayout {
         row.addView(caption);
         TextView content=text(value,textColor,14,false);
         content.setLineSpacing(dp(2),1f);
-        LinearLayout.LayoutParams valueParams=wrap();
+        LinearLayout.LayoutParams valueParams=match();
         valueParams.topMargin=dp(4);
         row.addView(content,valueParams);
         parent.addView(row,match());
