@@ -36,10 +36,12 @@ public final class TdProfileController {
                 if (!session.isCurrent(generation)) return;
                 TgChat currentChat = listener.findChat(chatId);
                 String avatar = currentChat == null ? "" : currentChat.getAvatarPath();
+                long userId = chat.type instanceof TdApi.ChatTypePrivate
+                        ? ((TdApi.ChatTypePrivate) chat.type).userId : 0L;
                 listener.setProfile(new TgProfile(chatId, chat.title, TdChatMapper.profileKind(chat.type),
-                        "", "", avatar, "", "Статус неизвестен", false, false, false, 0));
-                if (chat.type instanceof TdApi.ChatTypePrivate) {
-                    long userId = ((TdApi.ChatTypePrivate) chat.type).userId;
+                        "", "", avatar, "", "Статус неизвестен", false, false, false, 0,
+                        "",0,false,false,java.util.Collections.emptyList(),userId));
+                if (userId != 0L) {
                     session.setActiveUser(userId);
                     listener.onPrivateChatUser(userId, chatId);
                 }
@@ -66,7 +68,7 @@ public final class TdProfileController {
                         current.getAvatarPath(), current.getUsername(), current.getStatus(),
                         current.isOnline(), current.isPremium(), current.isVerified(),
                         info.groupInCommonCount,birthday,info.giftCount,info.canBeCalled,
-                        info.supportsVideoCalls,current.getGifts()));
+                        info.supportsVideoCalls,current.getGifts(),current.getUserId()));
                 userActions.loadProfileGifts(userId,new TdUserActionsController.GiftsListener(){
                     @Override public void onGifts(TdApi.ReceivedGifts received){
                         if(!session.isCurrent(generation)||!session.isActiveUser(userId))return;
