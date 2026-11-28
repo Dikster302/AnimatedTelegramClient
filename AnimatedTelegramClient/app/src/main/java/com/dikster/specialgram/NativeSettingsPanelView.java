@@ -128,6 +128,12 @@ public final class NativeSettingsPanelView extends LinearLayout {
         super.onDetachedFromWindow();
     }
 
+    public void openAccountPage(){
+        page="account";
+        render();
+        backCallback.setEnabled(true);
+    }
+
     private void render(){
         root.removeAllViews();body.removeAllViews();
         if(!"main".equals(page)){
