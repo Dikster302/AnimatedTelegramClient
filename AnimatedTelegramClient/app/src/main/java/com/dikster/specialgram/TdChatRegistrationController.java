@@ -38,7 +38,7 @@ public final class TdChatRegistrationController {
         chats.sort(Comparator.comparingInt(TgChat::getLastDate).reversed());
         listener.setChats(chats);
 
-        listener.enqueueChatStories(source.id);
+        if (previous == null) listener.enqueueChatStories(source.id);
         Long userId = TdChatMapper.privateUserId(source);
         if (userId != null) listener.onPrivateChatUser(userId, source.id);
 
