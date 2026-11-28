@@ -78,6 +78,9 @@ public final class NativeProfileDialogHost extends FrameLayout {
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);}
         dialog.show();
         if(w!=null)w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
+        setAlpha(0f);setTranslationY(dp(18));setScaleX(.985f);setScaleY(.985f);
+        animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(230L)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
         requestSection(activeTab);
     }
 
