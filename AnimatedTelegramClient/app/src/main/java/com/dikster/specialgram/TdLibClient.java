@@ -293,7 +293,7 @@ public final class TdLibClient implements AutoCloseable {
             @Override public void refreshCachedMessage(long chatId, long messageId) {
                 send(new TdApi.GetMessage(chatId, messageId), result -> {
                     if (result instanceof TdApi.Message) {
-                        TgMessage refreshed = mapping.map((TdApi.Message) result, 0L);
+                        TgMessage refreshed = mapping.map((TdApi.Message) result, readMarkerForChat(chatId));
                         chatCacheRepository.upsertMessages(chatId, Collections.singletonList(refreshed));
                     }
                 }, null, false);
@@ -403,6 +403,9 @@ public final class TdLibClient implements AutoCloseable {
             @Override public void setChats(List<TgChat> value) { TdLibClient.this.setChats(value); }
             @Override public List<TgMessage> messages() { return messages.getValue(); }
             @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
+            @Override public void markCachedMessagesRead(long chatId, long lastReadMessageId) {
+                chatCacheRepository.markOutgoingMessagesRead(chatId, lastReadMessageId);
+            }
         }, authorizationStateRouter, chatRegistrationController, storyStateController,
                 chatSession, userUpdateRouter);
         lifecycleController = new TdClientLifecycleController(client,
@@ -428,6 +431,12 @@ public final class TdLibClient implements AutoCloseable {
                 operationErrorController);
 
         updateDispatchQueue.markReady();
+    }
+
+    private long readMarkerForChat(long chatId) {
+        for (TgChat chat : chats.getValue())
+            if (chat.getId() == chatId) return chat.getLastReadOutboxMessageId();
+        return 0L;
     }
 
     private void setActiveMessages(List<TgMessage> value) {
