@@ -290,6 +290,10 @@ public final class MainActivity extends Activity {
                     }
                 });
             }
+            @Override public void onLoadProfileSection(TgChat chat,String tab,NativeProfileDialogHost.SectionCallback callback){
+                if(chat==null){if(callback!=null)callback.onResult(java.util.Collections.emptyList());return;}
+                td.searchProfileSection(chat.getId(),tab,callback::onResult);
+            }
             @Override public void onBack(){closeConversation();}
             @Override public void onSend(String value,boolean animated,Long replyId){
                 if(animated)td.sendAnimated(chatId(),value,replyId);else td.sendPlain(chatId(),value,replyId);
