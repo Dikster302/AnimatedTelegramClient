@@ -66,6 +66,7 @@ public final class NativeMessageListView extends LinearLayout {
         boolean listChanged=values==null?!messages.isEmpty():!messages.equals(values);
         boolean modeChanged=searchMode!=searching;
         int oldFirst=list.getFirstVisiblePosition();
+        long anchorId=oldFirst>=0&&oldFirst<messages.size()?messages.get(oldFirst).getId():0L;
         View firstChild=list.getChildAt(0);
         int oldTop=firstChild==null?0:firstChild.getTop();
         boolean wasAtBottom=messages.isEmpty()||list.getLastVisiblePosition()>=messages.size()-2;
@@ -83,7 +84,12 @@ public final class NativeMessageListView extends LinearLayout {
                 }else if(chatChanged||wasAtBottom){
                     list.setSelection(messages.size()-1);
                 }else{
-                    list.setSelectionFromTop(Math.min(oldFirst,messages.size()-1),oldTop);
+                    int anchorIndex=-1;
+                    if(anchorId!=0L) for(int i=0;i<messages.size();i++) {
+                        if(messages.get(i).getId()==anchorId){anchorIndex=i;break;}
+                    }
+                    if(anchorIndex<0)anchorIndex=Math.min(oldFirst,messages.size()-1);
+                    list.setSelectionFromTop(anchorIndex,oldTop);
                 }
             });
         }else if(searching&&index>=0&&index<messages.size()&&index!=list.getSelectedItemPosition()){
