@@ -13,12 +13,26 @@ android {
         applicationId = "com.dikster.specialgram"
         minSdk = 24
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 3
+        versionName = "0.3.0"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild { cmake { cppFlags += listOf("-std=c++17") } }
         buildConfigField("String", "TELEGRAM_API_ID", "\"${providers.gradleProperty("TELEGRAM_API_ID").orElse(providers.environmentVariable("TELEGRAM_API_ID").orElse("")).get()}\"")
         buildConfigField("String", "TELEGRAM_API_HASH", "\"${providers.gradleProperty("TELEGRAM_API_HASH").orElse(providers.environmentVariable("TELEGRAM_API_HASH").orElse("")).get()}\"")
+    }
+    signingConfigs {
+        create("release") {
+            storeFile = file(providers.environmentVariable("ANDROID_KEYSTORE_PATH").orElse("release-key.jks").get())
+            storePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orElse("").get()
+            keyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orElse("specialgram").get()
+            keyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orElse("").get()
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+        }
     }
     buildFeatures { compose = true; buildConfig = true }
     externalNativeBuild { cmake { path = file("CMakeLists.txt"); version = "3.22.1" } }
