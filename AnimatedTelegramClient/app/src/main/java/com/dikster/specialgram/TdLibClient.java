@@ -317,8 +317,7 @@ public final class TdLibClient implements AutoCloseable {
             }
         });
         chatListLoader = new TdChatListLoader((function, callback) ->
-                send(function, callback::onResult, callback::onError, false),
-                (chat, archived) -> chatRegistrationController.putChat(chat, archived));
+                send(function, callback::onResult, callback::onError, false));
 
         if (BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank())
             auth.setValue(new Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets."));
