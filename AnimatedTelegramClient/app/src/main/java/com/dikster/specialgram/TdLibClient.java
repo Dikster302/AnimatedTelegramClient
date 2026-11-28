@@ -207,7 +207,10 @@ public final class TdLibClient implements AutoCloseable {
                     @Override public List<TgChat> chats() { return chats.getValue(); }
                     @Override public void setChats(List<TgChat> value) { TdLibClient.this.setChats(value); }
                     @Override public List<TgMessage> messages() { return messages.getValue(); }
-                    @Override public void setMessages(List<TgMessage> value) { messages.setValue(value); }
+                    @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
+                    @Override public void loadCachedMessages(long chatId, TdChatConversationController.CacheCallback callback) {
+                        chatCacheRepository.loadMessages(chatId, callback::onLoaded);
+                    }
                     @Override public void setSearchResults(List<TgMessage> value) { searchResults.setValue(value); }
                     @Override public TgMessage mapMessage(TdApi.Message value, long marker) {
                         return mapping.map(value, marker);
@@ -259,6 +262,8 @@ public final class TdLibClient implements AutoCloseable {
                         callback == null ? null : callback::onError, false),
                 new TdMessageActionsController.Listener() {
                     @Override public void onMessageDeleted(long id) {
+                        Long activeChat = chatSession.getActiveChat();
+                        if (activeChat != null) chatCacheRepository.deleteMessages(activeChat, Collections.singletonList(id));
                         List<TgMessage> next = new ArrayList<>();
                         for (TgMessage item : messages.getValue()) if (item.getId() != id) next.add(item);
                         messages.setValue(next);
@@ -266,6 +271,7 @@ public final class TdLibClient implements AutoCloseable {
                     @Override public void onHistoryCleared(long chatId) {
                         if (Objects.equals(chatSession.getActiveChat(), chatId))
                             messages.setValue(Collections.emptyList());
+                        chatCacheRepository.clearMessages(chatId);
                         List<TgChat> next = new ArrayList<>();
                         for (TgChat item : chats.getValue())
                             next.add(item.getId() == chatId ? TgModelStateController.clearHistoryPreview(item) : item);
@@ -278,7 +284,8 @@ public final class TdLibClient implements AutoCloseable {
             @Override public Long activeChatId() { return chatSession.getActiveChat(); }
             @Override public List<TgChat> chats() { return chats.getValue(); }
             @Override public List<TgMessage> messages() { return messages.getValue(); }
-            @Override public void setMessages(List<TgMessage> value) { messages.setValue(value); }
+            @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
+            @Override public void deleteMessages(long chatId, List<Long> ids) { chatCacheRepository.deleteMessages(chatId, ids); }
             @Override public TgMessage mapMessage(TdApi.Message value, long marker) { return mapping.map(value, marker); }
             @Override public void enqueueViewedMessages(long chatId, long[] ids) { messageViewQueue.enqueue(chatId, ids); }
         }, animatedMessageController, confirmedIds, pendingEdits);
@@ -290,7 +297,7 @@ public final class TdLibClient implements AutoCloseable {
             @Override public TgProfile profile() { return profile.getValue(); }
             @Override public void setProfile(TgProfile value) { profile.setValue(value); }
             @Override public List<TgMessage> messages() { return messages.getValue(); }
-            @Override public void setMessages(List<TgMessage> value) { messages.setValue(value); }
+            @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
             @Override public List<TgStory> stories() { return stories.getValue(); }
             @Override public void setStories(List<TgStory> value) { stories.setValue(value); }
             @Override public TgAccount account() { return account.getValue(); }
@@ -354,7 +361,7 @@ public final class TdLibClient implements AutoCloseable {
             @Override public List<TgChat> chats() { return chats.getValue(); }
             @Override public void setChats(List<TgChat> value) { TdLibClient.this.setChats(value); }
             @Override public List<TgMessage> messages() { return messages.getValue(); }
-            @Override public void setMessages(List<TgMessage> value) { messages.setValue(value); }
+            @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
         }, authorizationStateRouter, chatRegistrationController, storyStateController,
                 chatSession, userUpdateRouter);
         lifecycleController = new TdClientLifecycleController(client,
@@ -380,6 +387,13 @@ public final class TdLibClient implements AutoCloseable {
                 operationErrorController);
 
         updateDispatchQueue.markReady();
+    }
+
+    private void setActiveMessages(List<TgMessage> value) {
+        List<TgMessage> snapshot = value == null ? Collections.emptyList() : value;
+        messages.setValue(snapshot);
+        Long activeChat = chatSession.getActiveChat();
+        if (activeChat != null) chatCacheRepository.upsertMessages(activeChat, snapshot);
     }
 
     private void setChats(List<TgChat> value) {
