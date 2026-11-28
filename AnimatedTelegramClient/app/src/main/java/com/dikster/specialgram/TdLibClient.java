@@ -300,6 +300,24 @@ public final class TdLibClient implements AutoCloseable {
             }
             @Override public void replaceCachedMessage(long chatId, long oldMessageId, TgMessage confirmedMessage) {
                 chatCacheRepository.replaceMessageId(chatId, oldMessageId, confirmedMessage);
+                if (!Objects.equals(chatSession.getActiveChat(), chatId)) return;
+
+                // TDLib сначала публикует временное сообщение, а затем подтверждает его новым ID.
+                // Обновляем live-state атомарным снимком, чтобы временная запись не оставалась в UI.
+                LinkedHashMap<Long, TgMessage> reconciled = new LinkedHashMap<>();
+                for (TgMessage current : messages.getValue()) {
+                    if (current.getId() == oldMessageId || current.getId() == confirmedMessage.getId()) {
+                        reconciled.put(confirmedMessage.getId(), confirmedMessage);
+                    } else {
+                        reconciled.put(current.getId(), current);
+                    }
+                }
+                if (!reconciled.containsKey(confirmedMessage.getId()))
+                    reconciled.put(confirmedMessage.getId(), confirmedMessage);
+
+                List<TgMessage> next = new ArrayList<>(reconciled.values());
+                next.sort((left, right) -> Integer.compare(left.getDate(), right.getDate()));
+                setActiveMessages(next);
             }
             @Override public TgMessage mapMessage(TdApi.Message value, long marker) { return mapping.map(value, marker); }
             @Override public void enqueueViewedMessages(long chatId, long[] ids) { messageViewQueue.enqueue(chatId, ids); }
