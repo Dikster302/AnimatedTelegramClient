@@ -16,6 +16,10 @@ public final class TdUserActionsController {
         void onUser(TdApi.User user);
         void onFullInfo(long userId, TdApi.UserFullInfo info);
     }
+    public interface GiftsListener {
+        void onGifts(TdApi.ReceivedGifts gifts);
+        void onError(TdApi.Error error);
+    }
 
     private final Requester requester;
 
@@ -46,6 +50,32 @@ public final class TdUserActionsController {
                 });
             }
             @Override public void onError(TdApi.Error error) { }
+        });
+    }
+
+    public void loadProfileGifts(long userId, GiftsListener listener) {
+        TdApi.GetReceivedGifts request = new TdApi.GetReceivedGifts();
+        request.businessConnectionId = "";
+        request.ownerId = new TdApi.MessageSenderUser(userId);
+        request.collectionId = 0;
+        request.excludeUnsaved = true;
+        request.excludeSaved = false;
+        request.excludeUnlimited = false;
+        request.excludeUpgradable = false;
+        request.excludeNonUpgradable = false;
+        request.excludeUpgraded = false;
+        request.excludeWithoutColors = false;
+        request.excludeHosted = false;
+        request.sortByPrice = false;
+        request.offset = "";
+        request.limit = 50;
+        requester.send(request, new Callback() {
+            @Override public void onResult(TdApi.Object result) {
+                if (result instanceof TdApi.ReceivedGifts) listener.onGifts((TdApi.ReceivedGifts) result);
+            }
+            @Override public void onError(TdApi.Error error) {
+                if (listener != null) listener.onError(error);
+            }
         });
     }
 
