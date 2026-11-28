@@ -20,6 +20,25 @@ public final class TdChatRegistrationController {
         this.listener = listener;
     }
 
+    public void updatePhoto(long chatId, TdApi.ChatPhotoInfo photo) {
+        int fileId = photo == null || photo.small == null ? 0 : photo.small.id;
+        if (fileId <= 0) return;
+        List<TgChat> updated = new ArrayList<>(listener.chats().size());
+        boolean found = false;
+        for (TgChat chat : listener.chats()) {
+            if (chat.getId() == chatId) {
+                updated.add(new TgChat(chat.getId(), chat.getTitle(), chat.getPreview(),
+                        chat.getLastDate(), chat.getUnreadCount(), "", chat.getKind(),
+                        chat.getArchived(), chat.getStatus(), chat.isOnline(), chat.isPremium(),
+                        chat.getLastReadOutboxMessageId(), chat.getHasStory(), chat.getHasUnviewedStory(),
+                        chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder()));
+                found = true;
+            } else updated.add(chat);
+        }
+        if (found) listener.setChats(updated);
+        listener.onChatPhoto(fileId, chatId);
+    }
+
     public TgChat putChat(TdApi.Chat source, boolean archived) {
         TgChat previous = null;
         for (TgChat chat : listener.chats()) {
