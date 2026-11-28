@@ -10,7 +10,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/** Loads chat lists through one paced TDLib request queue to avoid request bursts. */
+/** Loads complete TDLib chat lists using the update-driven LoadChats API. */
 public final class TdChatListLoader implements AutoCloseable {
     public interface Callback {
         void onResult(TdApi.Object result);
@@ -19,10 +19,8 @@ public final class TdChatListLoader implements AutoCloseable {
     public interface Requester {
         void request(TdApi.Function<?> function, Callback callback);
     }
-    public interface ChatListener {
-        void onChat(TdApi.Chat chat, boolean archived);
-    }
 
+    private static final int PAGE_SIZE = 100;
     private static final long REQUEST_INTERVAL_MS = 150L;
     private static final long DEFAULT_BACKOFF_MS = 60_000L;
     private static final long MAX_BACKOFF_MS = 900_000L;
@@ -30,20 +28,17 @@ public final class TdChatListLoader implements AutoCloseable {
             Pattern.compile("retry after\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
 
     private static final class Task {
-        final TdApi.Function<?> function;
-        final boolean archived;
-        final long chatId;
-        Task(TdApi.Function<?> function, boolean archived, long chatId) {
-            this.function = function;
-            this.archived = archived;
-            this.chatId = chatId;
+        final TdApi.ChatList list;
+        final String key;
+        Task(TdApi.ChatList list, String key) {
+            this.list = list;
+            this.key = key;
         }
     }
 
     private final Requester requester;
-    private final ChatListener listener;
     private final ConcurrentLinkedQueue<Task> tasks = new ConcurrentLinkedQueue<>();
-    private final java.util.Set<Long> pendingChatIds = ConcurrentHashMap.newKeySet();
+    private final java.util.Set<String> loadingLists = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean scheduled = new AtomicBoolean(false);
     private final AtomicBoolean inFlight = new AtomicBoolean(false);
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
@@ -52,13 +47,15 @@ public final class TdChatListLoader implements AutoCloseable {
         return thread;
     });
 
-    public TdChatListLoader(Requester requester, ChatListener listener) {
+    public TdChatListLoader(Requester requester) {
+        if (requester == null) throw new IllegalArgumentException("requester == null");
         this.requester = requester;
-        this.listener = listener;
     }
 
     public void load(TdApi.ChatList list, boolean archived) {
-        tasks.offer(new Task(new TdApi.GetChats(list, 100), archived, 0L));
+        String key = archived ? "archive" : "main";
+        if (!loadingLists.add(key)) return;
+        tasks.offer(new Task(list, key));
         schedule(0L);
     }
 
@@ -82,23 +79,16 @@ public final class TdChatListLoader implements AutoCloseable {
             return;
         }
         try {
-            requester.request(task.function, new Callback() {
+            requester.request(new TdApi.LoadChats(task.list, PAGE_SIZE), new Callback() {
                 @Override public void onResult(TdApi.Object result) {
-                    try {
-                        if (result instanceof TdApi.Chats) {
-                            long[] ids = ((TdApi.Chats) result).chatIds;
-                            for (long id : ids) {
-                                if (pendingChatIds.add(id)) {
-                                    tasks.offer(new Task(new TdApi.GetChat(id), task.archived, id));
-                                }
-                            }
-                        } else if (result instanceof TdApi.Chat) {
-                            listener.onChat((TdApi.Chat) result, task.archived);
-                        }
-                    } finally {
-                        if (task.chatId != 0L) pendingChatIds.remove(task.chatId);
-                        finish(REQUEST_INTERVAL_MS);
+                    if (result instanceof TdApi.Ok) {
+                        // TDLib emits updateNewChat/updateChatPosition for each loaded page.
+                        // Keep loading until TDLib explicitly reports that the list is exhausted.
+                        tasks.offer(task);
+                    } else {
+                        loadingLists.remove(task.key);
                     }
+                    finish(REQUEST_INTERVAL_MS);
                 }
 
                 @Override public void onError(TdApi.Error error) {
@@ -106,13 +96,14 @@ public final class TdChatListLoader implements AutoCloseable {
                         tasks.offer(task);
                         finish(parseBackoff(error.message));
                     } else {
-                        if (task.chatId != 0L) pendingChatIds.remove(task.chatId);
+                        // 404 is TDLib's normal end-of-list signal for LoadChats.
+                        loadingLists.remove(task.key);
                         finish(REQUEST_INTERVAL_MS);
                     }
                 }
             });
         } catch (RuntimeException failure) {
-            if (task.chatId != 0L) pendingChatIds.remove(task.chatId);
+            loadingLists.remove(task.key);
             finish(REQUEST_INTERVAL_MS);
         }
     }
@@ -137,6 +128,6 @@ public final class TdChatListLoader implements AutoCloseable {
     @Override public void close() {
         executor.shutdownNow();
         tasks.clear();
-        pendingChatIds.clear();
+        loadingLists.clear();
     }
 }
