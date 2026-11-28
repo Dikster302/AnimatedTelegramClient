@@ -25,20 +25,21 @@ public final class NativeStoryViewerDialogHost extends FrameLayout {
     public NativeStoryViewerDialogHost(Context context,TgStory story,int position,int count,Listener listener){
         super(context);this.listener=listener;setVisibility(INVISIBLE);
         viewer=new NativeStoryViewerView(context,story,position,count,bridge());
-        dialog=new Dialog(context,android.R.style.Theme_Black_NoTitleBar);
+        dialog=new Dialog(context,android.R.style.Theme_Black_NoTitleBar_Fullscreen);
         dialog.setContentView(viewer);
         dialog.setOnDismissListener(d->{if(this.listener!=null)this.listener.onDismiss();});
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();
         Window window=dialog.getWindow();
         if(window!=null){
-            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
-            window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+            window.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
             WindowManager.LayoutParams params=window.getAttributes();
             params.width=WindowManager.LayoutParams.MATCH_PARENT;
-            params.height=dp(620);
-            params.gravity=Gravity.CENTER;
-            params.dimAmount=0.82f;
+            params.height=WindowManager.LayoutParams.MATCH_PARENT;
+            params.gravity=Gravity.FILL;
             window.setAttributes(params);
         }
     }
