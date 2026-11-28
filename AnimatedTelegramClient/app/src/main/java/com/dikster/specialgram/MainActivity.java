@@ -283,7 +283,7 @@ public final class MainActivity extends Activity {
             @Override public void onPreviewChat(TgChat chat){
                 td.loadChatPreview(chat.getId(),messages->runOnUiThread(()->{
                     NativeChatPreviewDialog.show(MainActivity.this,chat,messages,
-                            screenText(),screenMuted(),accentColor(),panelColor(),accentColor());
+                            screenText(),screenMuted(),accentColor(),screenPanel(),accentColor());
                 }));
             }
         };
