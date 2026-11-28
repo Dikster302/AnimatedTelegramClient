@@ -32,6 +32,9 @@ public final class TdUpdateStateController {
             @Override public void onChatTitle(long chatId, String title) {
                 state.setChats(TdChatStateController.updateTitle(state.chats(), chatId, title));
             }
+            @Override public void onChatPhoto(long chatId, TdApi.ChatPhotoInfo photo) {
+                chatRegistration.updatePhoto(chatId, photo);
+            }
             @Override public void onChatActiveStories(TdApi.ChatActiveStories value) {
                 stories.updateChatStories(value);
             }
