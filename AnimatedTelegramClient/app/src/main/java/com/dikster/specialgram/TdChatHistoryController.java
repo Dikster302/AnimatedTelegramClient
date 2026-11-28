@@ -31,6 +31,20 @@ public final class TdChatHistoryController {
                 0L, 0, 50, null), callback);
     }
 
+    public void searchProfileSection(long chatId,String tab,Callback callback) {
+        TdApi.SearchMessagesFilter filter;
+        switch(tab){
+            case "Медиа": filter=new TdApi.SearchMessagesFilterPhotoAndVideo();break;
+            case "Файлы": filter=new TdApi.SearchMessagesFilterDocument();break;
+            case "Ссылки": filter=new TdApi.SearchMessagesFilterUrl();break;
+            case "Голосовые": filter=new TdApi.SearchMessagesFilterVoiceAndVideoNote();break;
+            case "GIF": filter=new TdApi.SearchMessagesFilterAnimation();break;
+            case "Избранное": filter=new TdApi.SearchMessagesFilterPinned();break;
+            default: filter=new TdApi.SearchMessagesFilterEmpty();break;
+        }
+        requester.send(new TdApi.SearchChatMessages(chatId,null,"",null,0L,0,50,filter),callback);
+    }
+
     public void loadOlder(long chatId, long oldestMessageId, Callback callback) {
         requester.send(new TdApi.GetChatHistory(chatId, oldestMessageId, 0, 50, false), callback);
     }
