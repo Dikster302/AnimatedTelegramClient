@@ -177,7 +177,7 @@ public final class MainActivity extends Activity {
     private void setScreenWithTransition(View screen, boolean fromRight){
         if(screen==null)return;
         screen.setAlpha(0f);
-        screen.setTranslationX(dp(fromRight?18:-12));
+        screen.setTranslationX((fromRight?18f:-12f)*getResources().getDisplayMetrics().density);
         root.removeAllViews();
         root.addView(screen,new FrameLayout.LayoutParams(-1,-1));
         screen.animate().cancel();
