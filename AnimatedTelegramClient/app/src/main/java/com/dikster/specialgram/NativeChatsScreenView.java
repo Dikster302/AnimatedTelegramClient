@@ -100,6 +100,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private NativeSettingsPanelView settingsPanel;
     private LinearLayout profilePanel,callsPanel;
     private NativeStoryViewerDialogHost storyViewer;
+    private TextView composeButton;
     private TgStory viewingStory;
     private List<TgStory> orderedStories=Collections.emptyList();
 
@@ -141,6 +142,7 @@ public final class NativeChatsScreenView extends FrameLayout {
         else if(selectedTab==3)renderProfile();
         else if(selectedTab==4)renderCalls();
         else renderChats();
+        renderComposeButton();
         renderBottomNavigation();
         renderStoryViewer();
     }
@@ -232,6 +234,46 @@ public final class NativeChatsScreenView extends FrameLayout {
             }else chatList.update(filtered,state.compactChats,state.text,state.muted,state.accent,state.panel,chatListListener());
         }
     }
+    /** Floating compose action opens the contact picker, like Telegram's new-message flow. */
+    private void renderComposeButton(){
+        if(selectedTab!=0||"Архив".equals(folder)){
+            if(composeButton!=null&&composeButton.getParent()==contentHost)contentHost.removeView(composeButton);
+            composeButton=null;
+            return;
+        }
+        if(composeButton==null){
+            composeButton=new TextView(getContext());
+            composeButton.setText("✎");
+            composeButton.setTextSize(27);
+            composeButton.setTextColor(Color.WHITE);
+            composeButton.setGravity(Gravity.CENTER);
+            composeButton.setContentDescription("Новое сообщение");
+            GradientDrawable shape=new GradientDrawable();
+            shape.setShape(GradientDrawable.OVAL);
+            shape.setColor(state.accent);
+            composeButton.setBackground(shape);
+            composeButton.setElevation(dp(8));
+            composeButton.setFocusable(true);
+            composeButton.setClickable(true);
+            composeButton.setOnClickListener(v->{selectedTab=1;update(state,listener);});
+            FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(dp(56),dp(56),
+                    Gravity.RIGHT|Gravity.BOTTOM);
+            params.setMargins(0,0,dp(18),dp(18));
+            contentHost.addView(composeButton,params);
+            composeButton.setAlpha(0f);
+            composeButton.setScaleX(.88f);
+            composeButton.setScaleY(.88f);
+            composeButton.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180L)
+                    .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+        }else{
+            composeButton.setBackgroundTintList(null);
+            GradientDrawable shape=new GradientDrawable();
+            shape.setShape(GradientDrawable.OVAL);
+            shape.setColor(state.accent);
+            composeButton.setBackground(shape);
+        }
+    }
+
     private void renderContacts(){
         List<TgContact> filtered=new ArrayList<>();
         String q=state.contactsQuery.toLowerCase(java.util.Locale.ROOT);
