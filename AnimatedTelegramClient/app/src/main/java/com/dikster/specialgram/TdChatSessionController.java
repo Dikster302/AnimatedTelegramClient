@@ -20,7 +20,7 @@ public final class TdChatSessionController {
         activeChat = chatId;
         sessionGeneration++;
         searchGeneration++;
-        loadingChats.remove(chatId);
+        loadingChats.clear();
         exhaustedChats.remove(chatId);
         return sessionGeneration;
     }
@@ -29,7 +29,7 @@ public final class TdChatSessionController {
         activeChat = null;
         sessionGeneration++;
         searchGeneration++;
-        if (previous != null) loadingChats.remove(previous);
+        loadingChats.clear();
     }
     public synchronized int nextSearchGeneration() { return ++searchGeneration; }
     public boolean isLoading(long chatId) { return loadingChats.contains(chatId); }
