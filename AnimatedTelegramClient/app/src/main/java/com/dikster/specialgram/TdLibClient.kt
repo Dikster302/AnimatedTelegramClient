@@ -260,6 +260,19 @@ class TdLibClient(context:Context) {
    if(user is TdApi.User) { _contacts.value=TdUserStateController.updateContact(_contacts.value,user); _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user) }
   }
  )
+ private val chatRegistrationController = TdChatRegistrationController(object : TdChatRegistrationController.Listener {
+  override fun chats():List<TgChat> = _chats.value
+  override fun setChats(chats:List<TgChat>) { _chats.value=chats }
+  override fun enqueueChatStories(chatId:Long) { storyQueue.enqueue(chatId) }
+  override fun onPrivateChatUser(userId:Long,chatId:Long) {
+   userToChat[userId]=chatId
+   contactsController.enqueueUser(userId)
+  }
+  override fun onChatPhoto(fileId:Int,chatId:Long) {
+   fileToChat[fileId]=chatId
+   fileDownloadQueue.enqueue(fileId)
+  }
+ })
  private val chatListLoader = TdChatListLoader(
   TdChatListLoader.Requester { function, callback ->
    send(function,
@@ -267,13 +280,13 @@ class TdLibClient(context:Context) {
     onError={ callback.onError(it) },
     reportErrorToUi=false)
   },
-  TdChatListLoader.ChatListener { chat, archived -> putChat(chat,archived) }
+  TdChatListLoader.ChatListener { chat, archived -> chatRegistrationController.putChat(chat,archived) }
  )
 
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
  private fun onUpdate(o:TdApi.Object) { when(o) {
   is TdApi.UpdateAuthorizationState -> authorizationStateRouter.onState(o.authorizationState)
-  is TdApi.UpdateNewChat -> putChat(o.chat)
+  is TdApi.UpdateNewChat -> chatRegistrationController.putChat(o.chat,false)
   is TdApi.UpdateChatTitle -> _chats.value=TdChatStateController.updateTitle(_chats.value,o.chatId,o.title)
   is TdApi.UpdateChatActiveStories -> updateChatStories(o.activeStories)
   is TdApi.UpdateStory -> storyStateController.updateStory(o.story,null)
@@ -359,7 +372,7 @@ class TdLibClient(context:Context) {
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
   userActions.createPrivateChat(userId,object : TdUserActionsController.Callback {
    override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,"",0,0,"","Личный чат",false,"",false,false,0L,false,false,false,false,false)) }
+    if(result is TdApi.Chat) { chatRegistrationController.putChat(result,false); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,"",0,0,"","Личный чат",false,"",false,false,0L,false,false,false,false,false)) }
    }
    override fun onError(error:TdApi.Error) { }
   })
@@ -370,22 +383,6 @@ class TdLibClient(context:Context) {
  fun setPhonePrivacy(value:String) { privacyController.set(TdPrivacyController.PHONE,value) }
  fun setPhotoPrivacy(value:String) { privacyController.set(TdPrivacyController.PHOTO,value) }
  fun closeProfile() { profileSession.close(); _profile.value=null }
- private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
-  val old=_chats.value.firstOrNull { it.id==c.id }
-  val item=TdChatMapper.map(c,archived,old)
-  _chats.value=(_chats.value.filterNot { it.id==c.id }+item).sortedByDescending { it.lastDate }
-  storyQueue.enqueue(c.id)
-  val userId=TdChatMapper.privateUserId(c)
-  if(userId!=null) {
-   userToChat[userId]=c.id
-   contactsController.enqueueUser(userId)
-  }
-  val photoId=TdChatMapper.photoFileId(c)
-  if(photoId>0 && item.avatarPath.isBlank()) {
-   fileToChat[photoId]=c.id
-   fileDownloadQueue.enqueue(photoId)
-  }
- }
  fun openStory(chatId:Long,storyId:Int) {
   storyActions.open(chatId,storyId)
   storyStateController.markViewed(chatId,storyId)
