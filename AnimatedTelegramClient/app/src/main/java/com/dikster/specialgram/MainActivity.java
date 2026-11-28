@@ -14,6 +14,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
+import org.drinkless.tdlib.TdApi;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.ViewCompat;
@@ -268,6 +269,27 @@ public final class MainActivity extends Activity {
             @Override public void onOpenProfile(){td.openProfile(chatId());}
             @Override public void onCloseProfile(){td.closeProfile();}
             @Override public void onToggleMute(TgChat chat,boolean muted){td.toggleChatMuted(chat.getId(),muted);refreshNow();}
+            @Override public void onOpenGiftCatalog(TgProfile profile){
+                if(profile==null||profile.getUserId()==0L){
+                    Toast.makeText(MainActivity.this,"Подарки доступны в личных профилях",Toast.LENGTH_SHORT).show();return;
+                }
+                td.loadAvailableGifts(new TdUserActionsController.AvailableGiftsListener(){
+                    @Override public void onGifts(List<TgGiftOption> gifts){
+                        NativeGiftCatalogDialog.show(MainActivity.this,gifts,screenText(),screenMuted(),accentColor(),gift->
+                                td.sendGift(profile.getUserId(),gift.getId(),new TdUserActionsController.Callback(){
+                                    @Override public void onResult(TdApi.Object result){
+                                        Toast.makeText(MainActivity.this,"Подарок отправлен",Toast.LENGTH_SHORT).show();
+                                    }
+                                    @Override public void onError(TdApi.Error error){
+                                        Toast.makeText(MainActivity.this,error==null?"Не удалось отправить подарок":error.message,Toast.LENGTH_LONG).show();
+                                    }
+                                }));
+                    }
+                    @Override public void onError(TdApi.Error error){
+                        td.reportOperationError(error==null?"Не удалось загрузить каталог подарков":error.message);
+                    }
+                });
+            }
             @Override public void onBack(){closeConversation();}
             @Override public void onSend(String value,boolean animated,Long replyId){
                 if(animated)td.sendAnimated(chatId(),value,replyId);else td.sendPlain(chatId(),value,replyId);
