@@ -138,6 +138,10 @@ public final class MainActivity extends Activity {
             int screenBg=screenBackground(),screenPanel=screenPanel(),screenPanelLight=screenPanelLight();
             root.setBackgroundColor(screenBg);
             getWindow().setNavigationBarColor(screenBg);
+            androidx.core.view.WindowInsetsControllerCompat bars=
+                    WindowCompat.getInsetsController(getWindow(),getWindow().getDecorView());
+            bars.setAppearanceLightStatusBars(isLightTheme());
+            bars.setAppearanceLightNavigationBars(isLightTheme());
             NativeChatsScreenView.State state=new NativeChatsScreenView.State(chats,contacts,stories,
                     query,contactsQuery,sortNewest,compactChats,account,error,privacyLast,privacyPhone,
                     privacyPhoto,themeName,glass,fontScale,accentName,bubbleRadius,wallpaperName,
