@@ -802,6 +802,17 @@ private fun ConversationScreen(
     var messageSearchOpen by remember { mutableStateOf(false) }
     var messageSearchQuery by remember { mutableStateOf("") }
     var messageSearchIndex by remember { mutableIntStateOf(0) }
+    val backAction = onBack
+    val openProfileAction = onOpenProfile
+    val conversationHeaderListener = remember(backAction, openProfileAction) {
+        object : NativeConversationHeaderView.Listener {
+            override fun onBack() = backAction()
+            override fun onOpenProfile() { showProfile = true; openProfileAction() }
+            override fun onSearch() { chatMenuOpen = false; messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
+            override fun onClearHistory() { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
+            override fun onToggleAnimated() { animatedMode = !animatedMode; chatMenuOpen = false }
+        }
+    }
     val orderedMessages = remember(messages) { messages.sortedBy { it.date } }
     val localSearchMatches = remember(orderedMessages, messageSearchQuery) {
         if (messageSearchQuery.isBlank()) emptyList() else orderedMessages.filter { it.text.contains(messageSearchQuery.trim(), ignoreCase = true) }
@@ -970,35 +981,22 @@ private fun ConversationScreen(
             },
             confirmButton = { TextButton(onClick = { showProfile = false; onCloseProfile() }) { Text("Закрыть") } }
         )
-        Row(
-            Modifier.fillMaxWidth().background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)).clickable { showProfile = true; onOpenProfile() }.padding(horizontal = 8.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBack) { Text("‹", color = LocalAppearance.current.accent, fontSize = 32.sp) }
-            Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 44, online = profile?.isOnline == true)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(profile?.name?.takeIf { it.isNotBlank() } ?: chat.title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(profile?.status?.takeIf { it.isNotBlank() } ?: chat.status.ifBlank { " " }, color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val headerAppearance = LocalAppearance.current
+        AndroidView(
+            modifier = Modifier.fillMaxWidth()
+                .background(headerAppearance.panel.copy(alpha = 1f - headerAppearance.glass * 0.30f)),
+            factory = { context ->
+                NativeConversationHeaderView(context, chat, profile, animatedMode,
+                    headerAppearance.text.toArgb(), headerAppearance.muted.toArgb(),
+                    headerAppearance.accent.toArgb(), headerAppearance.panelLight.toArgb(),
+                    conversationHeaderListener)
+            },
+            update = { view ->
+                view.update(chat, profile, animatedMode, headerAppearance.text.toArgb(),
+                    headerAppearance.muted.toArgb(), headerAppearance.accent.toArgb(),
+                    headerAppearance.panelLight.toArgb(), conversationHeaderListener)
             }
-            Box {
-                IconButton(onClick = { chatMenuOpen = true }) { Text("⋮", color = LocalAppearance.current.text, fontSize = 24.sp) }
-                DropdownMenu(expanded = chatMenuOpen, onDismissRequest = { chatMenuOpen = false }) {
-                    DropdownMenuItem(
-                        text = { Text("Поиск") },
-                        onClick = { chatMenuOpen = false; messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Очистить переписку") },
-                        onClick = { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (animatedMode) "✓ Постепенная отправка" else "Постепенная отправка") },
-                        onClick = { animatedMode = !animatedMode; chatMenuOpen = false }
-                    )
-                }
-            }
-        }
+        )
 
         if (messageSearchOpen) {
             Row(Modifier.fillMaxWidth().background(LocalAppearance.current.panel).padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
