@@ -18,6 +18,7 @@ public final class TdMessageStateController {
         void deleteMessages(long chatId, List<Long> messageIds);
         void cacheMessage(long chatId, TgMessage message);
         void refreshCachedMessage(long chatId, long messageId);
+        void replaceCachedMessage(long chatId, long oldMessageId, TgMessage confirmedMessage);
         TgMessage mapMessage(TdApi.Message message, long readMarker);
         void enqueueViewedMessages(long chatId, long[] messageIds);
     }
@@ -109,6 +110,8 @@ public final class TdMessageStateController {
             long oldId = value.oldMessageId;
             long newId = value.message.id;
             confirmedIds.put(oldId, newId);
+            listener.replaceCachedMessage(value.message.chatId, oldId,
+                    listener.mapMessage(value.message, readMarker(value.message.chatId)));
             List<String> characters = pendingEdits.remove(oldId);
             if (characters != null)
                 animatedMessages.schedule(value.message.chatId, newId, characters);
