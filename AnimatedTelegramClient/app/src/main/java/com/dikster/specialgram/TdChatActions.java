@@ -54,7 +54,7 @@ public final class TdChatActions {
                 settings.useDefaultMuteFor = false;
                 settings.muteFor = muted ? 366 * 24 * 60 * 60 : 0;
                 requester.request(new TdApi.SetChatNotificationSettings(chatId, settings), new Callback() {
-                    @Override public void onResult(TdApi.Object ignored) { }
+                    @Override public void onResult(TdApi.Object ignored) { listener.onRefreshChats(); }
                     @Override public void onError(TdApi.Error error) { }
                 });
             }
