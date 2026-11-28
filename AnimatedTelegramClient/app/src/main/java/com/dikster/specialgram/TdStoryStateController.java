@@ -23,7 +23,7 @@ public final class TdStoryStateController {
     }
 
     public void updateChatStories(TdApi.ChatActiveStories update) {
-        boolean hasStory = !update.stories.isEmpty();
+        boolean hasStory = update.stories != null && update.stories.length > 0;
         boolean hasUnviewed = false;
         for (TdApi.StoryInfo story : update.stories) {
             if (story.storyId > update.maxReadStoryId) hasUnviewed = true;
