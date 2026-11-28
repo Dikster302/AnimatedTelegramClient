@@ -31,7 +31,7 @@ import java.io.OutputStream;
 
 /** Full-screen native profile and dedicated Telegram-style QR page. */
 public final class NativeProfileDialogHost extends FrameLayout {
-    public interface Listener { void onClose(); }
+    public interface Listener { void onClose(); void onToggleMute(TgChat chat, boolean muted); }
     private final Dialog dialog;
     private final Listener listener;
     private TgChat currentChat;
@@ -120,7 +120,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         LinearLayout actions=new LinearLayout(getContext());
         actions.setGravity(Gravity.CENTER);
         actions.setPadding(0,dp(20),0,dp(18));
-        String[] actionNames={"Чат","Звук","Звонок","Подарок"};
+        String[] actionNames={"Чат",currentChat.isMuted()?"Включить звук":"Отключить звук","Звонок","Подарок"};
         String[] glyphs={"▤","♫","☎","🎁"};
         for(int i=0;i<actionNames.length;i++){
             final int index=i;
@@ -139,7 +139,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             LinearLayout.LayoutParams cp=wrap();cp.topMargin=dp(6);action.addView(caption,cp);
             action.setOnClickListener(v->{
                 if(index==0)dialog.dismiss();
-                else if(index==1)Toast.makeText(getContext(),"Управление звуком чата доступно в меню переписки",Toast.LENGTH_SHORT).show();
+                else if(index==1){if(listener!=null)listener.onToggleMute(currentChat,!currentChat.isMuted());}
                 else if(index==2)Toast.makeText(getContext(),"Звонки будут доступны после подключения модуля вызовов",Toast.LENGTH_SHORT).show();
                 else Toast.makeText(getContext(),"Подарки появятся после подключения каталога подарков",Toast.LENGTH_SHORT).show();
             });
