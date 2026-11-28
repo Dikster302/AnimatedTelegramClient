@@ -64,7 +64,6 @@ public final class TdProfileController {
                 if (!session.isCurrent(generation) || !session.isActiveUser(userId)) return;
                 TgProfile current = listener.profile();
                 if (current == null) return;
-                listener.onProfileExtraPhotos(userId,info.personalPhoto,info.photo,info.publicPhoto);
                 String birthday = "";
                 if (info.birthdate != null && info.birthdate.month > 0 && info.birthdate.day > 0) {
                     birthday = info.birthdate.year > 0
@@ -77,6 +76,7 @@ public final class TdProfileController {
                         current.isOnline(), current.isPremium(), current.isVerified(),
                         info.groupInCommonCount,birthday,info.giftCount,info.canBeCalled,
                         info.supportsVideoCalls,current.getGifts(),current.getUserId(),current.getPhotoPaths()));
+                listener.onProfileExtraPhotos(userId,info.personalPhoto,info.photo,info.publicPhoto);
                 userActions.loadProfileGifts(userId,new TdUserActionsController.GiftsListener(){
                     @Override public void onGifts(TdApi.ReceivedGifts received){
                         if(!session.isCurrent(generation)||!session.isActiveUser(userId))return;
