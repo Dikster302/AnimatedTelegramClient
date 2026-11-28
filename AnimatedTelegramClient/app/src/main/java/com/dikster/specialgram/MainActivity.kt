@@ -122,7 +122,7 @@ private fun TelegramApp(td: TdLibClient) {
     var videoNoteShape by remember { mutableStateOf(prefs.getString("videoNoteShape", "circle") ?: "circle") }
     var selectedChat by remember { mutableStateOf<TgChat?>(null) }
     val profilePhotoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching { prepareProfilePhoto(context, uri) }.onSuccess { td.setMyProfilePhoto(it.absolutePath) }.onFailure { td.reportOperationError("Не удалось подготовить фото профиля: ${it.message ?: "ошибка файла"}") }
+        if (uri != null) runCatching { MediaPreparation.prepareProfilePhoto(context, uri) }.onSuccess { td.setMyProfilePhoto(it.absolutePath) }.onFailure { td.reportOperationError("Не удалось подготовить фото профиля: ${it.message ?: "ошибка файла"}") }
     }
     val imagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -132,26 +132,26 @@ private fun TelegramApp(td: TdLibClient) {
     }
     val chatPhotoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         val chatId = selectedChat?.id
-        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_photo", 10L * 1024L * 1024L) }
+        if (uri != null && chatId != null) runCatching { MediaPreparation.prepareOutgoingMedia(context, uri, "specialgram_photo", 10L * 1024L * 1024L) }
             .onSuccess { td.sendPhoto(chatId, it.absolutePath) }
             .onFailure { td.reportOperationError("Не удалось отправить фото: ${it.message ?: "ошибка файла"}") }
     }
     val chatDocumentPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         val chatId = selectedChat?.id
-        if (uri != null && chatId != null) runCatching { prepareOutgoingMedia(context, uri, "specialgram_document", 50L * 1024L * 1024L) }
+        if (uri != null && chatId != null) runCatching { MediaPreparation.prepareOutgoingMedia(context, uri, "specialgram_document", 50L * 1024L * 1024L) }
             .onSuccess { td.sendDocument(chatId, it.absolutePath) }
             .onFailure { td.reportOperationError("Не удалось отправить файл: ${it.message ?: "ошибка файла"}") }
     }
     val storyImagePicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runCatching { prepareStoryPhoto(context, uri) }
+            runCatching { MediaPreparation.prepareStoryPhoto(context, uri) }
                 .onSuccess { td.postPhotoStory(it.absolutePath) }
                 .onFailure { td.reportOperationError("Не удалось подготовить фото для истории: " + (it.message ?: "ошибка файла")) }
         }
     }
     val storyVideoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            runCatching { prepareStoryVideo(context, uri) }
+            runCatching { MediaPreparation.prepareStoryVideo(context, uri) }
                 .onSuccess { (file, duration) -> td.postVideoStory(file.absolutePath, duration) }
                 .onFailure { td.reportOperationError("Видео не подходит для истории: " + (it.message ?: "ошибка файла")) }
         }
@@ -1438,114 +1438,6 @@ private fun CenterPanel(title: String, subtitle: String) {
         Text(subtitle, color = LocalAppearance.current.muted, fontSize = 13.sp)
     }
 }
-
-private fun prepareStoryVideo(context: android.content.Context, uri: Uri): Pair<File, Double> {
-    val file = File(context.cacheDir, "specialgram_story_video_" + System.currentTimeMillis() + ".mp4")
-    context.contentResolver.openInputStream(uri)?.use { input ->
-        file.outputStream().use { output -> input.copyTo(output) }
-    } ?: error("Не удалось открыть видео")
-    require(file.length() in 1..(30L * 1024L * 1024L)) { "Размер видео должен быть не более 30 МБ" }
-    val extractor = android.media.MediaExtractor()
-    try {
-        extractor.setDataSource(file.absolutePath)
-        val track = (0 until extractor.trackCount).firstOrNull { index ->
-            extractor.getTrackFormat(index).getString(android.media.MediaFormat.KEY_MIME)?.startsWith("video/") == true
-        } ?: error("В файле не найдена видеодорожка")
-        val format = extractor.getTrackFormat(track)
-        val mime = format.getString(android.media.MediaFormat.KEY_MIME) ?: ""
-        require(mime == "video/hevc") { "Нужен MP4 с кодеком H.265 (HEVC). Обычный H.264 пока не поддерживается." }
-        val width = format.getInteger(android.media.MediaFormat.KEY_WIDTH)
-        val height = format.getInteger(android.media.MediaFormat.KEY_HEIGHT)
-        require(width == 720 && height == 1280) { "Разрешение видео должно быть 720×1280" }
-        val durationUs = format.getLong(android.media.MediaFormat.KEY_DURATION)
-        val duration = durationUs / 1_000_000.0
-        require(duration in 0.1..60.0) { "Длительность должна быть не более 60 секунд" }
-        extractor.selectTrack(track)
-        var lastSyncUs = -1L
-        var firstSyncUs = -1L
-        var lastSampleUs = 0L
-        while (true) {
-            val sampleTime = extractor.sampleTime
-            if (sampleTime < 0) break
-            lastSampleUs = sampleTime
-            if (extractor.sampleFlags and android.media.MediaExtractor.SAMPLE_FLAG_SYNC != 0) {
-                if (firstSyncUs < 0) firstSyncUs = sampleTime
-                if (lastSyncUs >= 0) require(sampleTime - lastSyncUs <= 1_500_000L) { "В видео должны быть ключевые кадры примерно каждую секунду" }
-                lastSyncUs = sampleTime
-            }
-            if (!extractor.advance()) break
-        }
-        require(firstSyncUs in 0L..100_000L && lastSyncUs >= 0 && durationUs - lastSyncUs <= 1_500_000L) {
-            "Видео должно начинаться с ключевого кадра и содержать ключевые кадры примерно каждую секунду"
-        }
-        require(lastSampleUs <= durationUs + 100_000L) { "Некорректная длительность видео" }
-        return file to duration
-    } finally {
-        extractor.release()
-    }
-}
-
-private fun prepareProfilePhoto(context: android.content.Context, uri: Uri): File {
-    val resolver = context.contentResolver
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        ?: error("Не удалось открыть фотографию")
-    require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Некорректное изображение" }
-    var sample = 1
-    while (bounds.outWidth / sample > 2048 || bounds.outHeight / sample > 2048) sample *= 2
-    val options = BitmapFactory.Options().apply { inSampleSize = sample }
-    val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-        ?: error("Не удалось прочитать фотографию")
-    val side = minOf(decoded.width, decoded.height)
-    val cropped = Bitmap.createBitmap(decoded, (decoded.width - side) / 2, (decoded.height - side) / 2, side, side)
-    val scaled = Bitmap.createScaledBitmap(cropped, 640, 640, true)
-    val target = File(context.cacheDir, "specialgram_profile_" + System.currentTimeMillis() + ".jpg")
-    target.outputStream().use { if (!scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 88, it)) error("Не удалось сохранить фотографию") }
-    decoded.recycle()
-    if (cropped !== decoded) cropped.recycle()
-    if (scaled !== cropped) scaled.recycle()
-    require(target.length() <= 10L * 1024L * 1024L) { "Фото профиля превышает 10 МБ" }
-    return target
-}
-private fun prepareStoryPhoto(context: android.content.Context, uri: Uri): File {
-    val resolver = context.contentResolver
-    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-    resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-        ?: error("Не удалось открыть изображение")
-    require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Некорректное изображение" }
-    var sample = 1
-    while (bounds.outWidth / sample > 2160 || bounds.outHeight / sample > 3840) sample *= 2
-    val options = BitmapFactory.Options().apply { inSampleSize = sample }
-    val decoded = resolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, options) }
-        ?: error("Не удалось прочитать изображение")
-    val targetRatio = 9f / 16f
-    val sourceRatio = decoded.width.toFloat() / decoded.height.toFloat()
-    val cropWidth: Int
-    val cropHeight: Int
-    if (sourceRatio > targetRatio) {
-        cropHeight = decoded.height
-        cropWidth = (cropHeight * targetRatio).toInt().coerceAtLeast(1)
-    } else {
-        cropWidth = decoded.width
-        cropHeight = (cropWidth / targetRatio).toInt().coerceAtLeast(1)
-    }
-    val cropped = Bitmap.createBitmap(decoded, (decoded.width - cropWidth) / 2, (decoded.height - cropHeight) / 2, cropWidth, cropHeight)
-    val outputBitmap = Bitmap.createScaledBitmap(cropped, 1080, 1920, true)
-    val target = File(context.cacheDir, "specialgram_story_" + System.currentTimeMillis() + ".jpg")
-    var quality = 90
-    do {
-        target.outputStream().use { stream ->
-            if (!outputBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, stream)) error("Не удалось сжать изображение")
-        }
-        quality -= 5
-    } while (target.length() > 10L * 1024L * 1024L && quality >= 70)
-    decoded.recycle()
-    if (cropped !== decoded) cropped.recycle()
-    if (outputBitmap !== cropped) outputBitmap.recycle()
-    require(target.length() <= 10L * 1024L * 1024L) { "Фото превышает лимит Telegram 10 МБ" }
-    return target
-}
-
 
 @Composable
 private fun AudioMessagePlayer(path: String, title: String, duration: Int) {
