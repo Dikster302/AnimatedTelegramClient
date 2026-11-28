@@ -395,7 +395,8 @@ public final class TdLibClient implements AutoCloseable {
             }
         });
         chatListLoader = new TdChatListLoader((function, callback) ->
-                send(function, callback::onResult, callback::onError, false));
+                send(function, callback::onResult, callback::onError, false),
+                () -> chatCacheRepository.replaceAll(chats.getValue()));
 
         if (BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank())
             auth.setValue(new Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets."));
@@ -486,7 +487,7 @@ public final class TdLibClient implements AutoCloseable {
             chatStateInitialized.set(true);
             chats.setValue(snapshot);
         }
-        chatCacheRepository.replaceAll(snapshot);
+        chatCacheRepository.upsertChats(snapshot);
     }
 
     private void dispatchUpdate(TdApi.Object update) {
