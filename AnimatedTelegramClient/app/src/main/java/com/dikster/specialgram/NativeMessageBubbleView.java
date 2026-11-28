@@ -32,6 +32,7 @@ public final class NativeMessageBubbleView extends LinearLayout {
     private float radius;
     private Bitmap bitmap;
     private VideoView video;
+    private NativeShapeVideoView shapeVideo;
 
     public NativeMessageBubbleView(Context context, TgMessage message, int textColor,
                                    int mutedColor, int accentColor, int incomingColor,
@@ -205,21 +206,15 @@ public final class NativeMessageBubbleView extends LinearLayout {
     }
 
     private void addVideo(LinearLayout parent, String path, boolean customShape) {
-        video = new VideoView(getContext());
-        video.setVideoPath(path);
-        video.setOnPreparedListener(player -> { player.setLooping(true); video.start(); });
-        if (customShape && "circle".equals(message.getVideoShape())) {
-            video.setOutlineProvider(new ViewOutlineProvider() {
-                @Override public void getOutline(View view, Outline outline) {
-                    outline.setOval(0, 0, view.getWidth(), view.getHeight());
-                }
-            });
-            video.setClipToOutline(true);
-        } else if (customShape && "rounded".equals(message.getVideoShape())) {
-            video.setBackground(roundBackground(Color.TRANSPARENT, 22));
-            video.setClipToOutline(true);
+        if (customShape) {
+            shapeVideo = new NativeShapeVideoView(getContext(), path, message.getVideoShape());
+            parent.addView(shapeVideo, new LayoutParams(dp(224), dp(224)));
+        } else {
+            video = new VideoView(getContext());
+            video.setVideoPath(path);
+            video.setOnPreparedListener(player -> { player.setLooping(true); video.start(); });
+            parent.addView(video, new LayoutParams(dp(230), dp(230)));
         }
-        parent.addView(video, new LayoutParams(dp(224), dp(224)));
     }
 
     private void stopMedia() {
@@ -227,6 +222,7 @@ public final class NativeMessageBubbleView extends LinearLayout {
             try { video.stopPlayback(); } catch (RuntimeException ignored) { }
             video = null;
         }
+        if (shapeVideo != null) { shapeVideo.stop(); shapeVideo = null; }
         if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
         bitmap = null;
     }
