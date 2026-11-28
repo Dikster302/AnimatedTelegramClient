@@ -53,10 +53,19 @@ public final class NativeAvatarView extends View {
             photoPath = safePath;
             if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle();
             bitmap = null;
-            if (!photoPath.isEmpty()) {
-                try { bitmap = BitmapFactory.decodeFile(photoPath); }
-                catch (RuntimeException ignored) { bitmap = null; }
-            }
+        }
+        // TDLib can publish a local path before the download has completed.
+        // Re-check the same path on later binds so recycled rows pick up the
+        // newly downloaded avatar instead of remaining on the fallback forever.
+        if (bitmap == null && !photoPath.isEmpty()) {
+            try {
+                java.io.File photo = new java.io.File(photoPath);
+                if (photo.isFile() && photo.length() > 0L) {
+                    BitmapFactory.Options options = new BitmapFactory.Options();
+                    options.inSampleSize = 1;
+                    bitmap = BitmapFactory.decodeFile(photoPath, options);
+                }
+            } catch (RuntimeException ignored) { bitmap = null; }
         }
         this.fallback = fallback == null ? "" : fallback;
         this.identity = id;
