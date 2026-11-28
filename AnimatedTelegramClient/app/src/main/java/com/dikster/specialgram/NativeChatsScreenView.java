@@ -470,9 +470,12 @@ public final class NativeChatsScreenView extends FrameLayout {
                 false,false,false,state.panelLight);
         avatar.setContentDescription("Открыть фотографии профиля");
         Runnable openMyPhotos=()->{
-            if(state.account!=null&&!state.account.getPhotoPaths().isEmpty())
-                NativePhotoGalleryDialog.show(getContext(),state.account.getPhotoPaths(),0);
-            else if(state.account!=null&&!state.account.getAvatarPath().isEmpty())
+            if(state.account==null)return;
+            boolean hasDownloaded=false;
+            for(String path:state.account.getPhotoPaths())
+                if(path!=null&&!path.trim().isEmpty()&&new java.io.File(path).isFile()){hasDownloaded=true;break;}
+            if(hasDownloaded)NativePhotoGalleryDialog.show(getContext(),state.account.getPhotoPaths(),0);
+            else if(!state.account.getAvatarPath().isEmpty())
                 NativePhotoGalleryDialog.show(getContext(),Collections.singletonList(state.account.getAvatarPath()),0);
         };
         avatar.setOnClickListener(v->openMyPhotos.run());
