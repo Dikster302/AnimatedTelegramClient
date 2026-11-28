@@ -346,24 +346,16 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     }
                 )
                 if (selectedTab == 0) {
-                    OutlinedTextField(
-                        value = query, onValueChange = onQuery,
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp),
-                        singleLine = true,
-                        placeholder = { Text("Поиск", color = Color.White.copy(alpha = 0.66f)) },
-                        leadingIcon = { Text("⌕", fontSize = 24.sp, color = Color.White.copy(alpha = 0.82f)) },
-                        trailingIcon = { if (query.isNotBlank()) IconButton(onClick = { onQuery("") }) { Text("✕", color = Color.White.copy(alpha = 0.82f), fontSize = 16.sp) } },
-                        shape = RoundedCornerShape(18.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = Color.White.copy(alpha = 0.16f),
-                            unfocusedContainerColor = Color.White.copy(alpha = 0.12f),
-                            focusedBorderColor = Color.White.copy(alpha = 0.30f),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.12f),
-                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                            cursorColor = Color.White
-                        )
+                    val queryAction = onQuery
+                    val searchListener = remember(queryAction) {
+                        NativeChatSearchBarView.Listener { value -> queryAction(value) }
+                    }
+                    AndroidView(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)
+                            .height(50.dp),
+                        factory = { context -> NativeChatSearchBarView(context, query, searchListener) },
+                        update = { view -> view.update(query, searchListener) }
                     )
-
                 }
             }
         }
