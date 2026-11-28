@@ -74,11 +74,12 @@ public final class NativeChatsScreenView extends FrameLayout {
         void onTogglePinned(TgChat chat);
         void onToggleUnread(TgChat chat);
         void onToggleMute(TgChat chat);
+        void onSavedMessages();
     }
 
     private final LinearLayout root;
     private final FrameLayout headerHost,contentHost;
-    private final LinearLayout headerColumn;
+    private final LinearLayout headerColumn,bottomNavigation;
     private State state;
     private Listener listener;
     private int selectedTab,renderedTab=-1;
@@ -95,6 +96,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private NativeChatEmptyStateView chatEmpty;
     private NativeContactsPanel contactsPanel;
     private NativeSettingsPanelView settingsPanel;
+    private LinearLayout profilePanel,callsPanel;
     private NativeStoryViewerDialogHost storyViewer;
     private TgStory viewingStory;
     private List<TgStory> orderedStories=Collections.emptyList();
@@ -109,6 +111,13 @@ public final class NativeChatsScreenView extends FrameLayout {
         root.addView(headerHost,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
         contentHost=new FrameLayout(context);
         root.addView(contentHost,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
+        bottomNavigation=new LinearLayout(context);
+        bottomNavigation.setOrientation(LinearLayout.HORIZONTAL);
+        bottomNavigation.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams navParams=new LinearLayout.LayoutParams(
+                LayoutParams.MATCH_PARENT,dp(66));
+        navParams.setMargins(dp(10),dp(4),dp(10),dp(4));
+        root.addView(bottomNavigation,navParams);
         update(state,listener);
     }
 
@@ -122,12 +131,15 @@ public final class NativeChatsScreenView extends FrameLayout {
         renderHeader();
         if(selectedTab!=renderedTab||(selectedTab==0&&!folder.equals(renderedFolder))){
             contentHost.removeAllViews();listColumn=null;storyStrip=null;folders=null;heading=null;
-            chatList=null;chatEmpty=null;contactsPanel=null;settingsPanel=null;
+            chatList=null;chatEmpty=null;contactsPanel=null;settingsPanel=null;profilePanel=null;callsPanel=null;
             renderedTab=selectedTab;renderedFolder=folder;
         }
         if(selectedTab==1)renderContacts();
         else if(selectedTab==2)renderSettings();
+        else if(selectedTab==3)renderProfile();
+        else if(selectedTab==4)renderCalls();
         else renderChats();
+        renderBottomNavigation();
         renderStoryViewer();
     }
 
@@ -138,11 +150,78 @@ public final class NativeChatsScreenView extends FrameLayout {
             // the remaining screen height and leave contentHost with zero height.
             // Keep the wallpaper constrained to the header area only.
             headerHost.addView(wallpaperView,0,new FrameLayout.LayoutParams(
-                    LayoutParams.MATCH_PARENT,dp(136)));
+                    LayoutParams.MATCH_PARENT,dp(112)));
         }else wallpaperView.update(selectedTab==0?state.headerWallpaper:null,state.panel);
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
-                    state.sortNewest,Color.WHITE,state.account,new NativeChatsHeaderView.Listener(){
+                    state.sortNewest,Color.WHITE,state.account,state.themeName,toolbarListener()); 
+            headerColumn.addView(toolbar,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(52)));
+        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,Color.WHITE,
+                state.account,state.themeName,toolbarListener());
+        if(selectedTab==0){ 
+            if(chatSearch==null){
+                chatSearch=new NativeChatSearchBarView(getContext(),state.query,value->{if(listener!=null)listener.onQuery(value);});
+                LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48));
+                p.setMargins(dp(12),dp(4),dp(12),dp(6));headerColumn.addView(chatSearch,p);
+            }else chatSearch.update(state.query,value->{if(listener!=null)listener.onQuery(value);});
+        }else if(chatSearch!=null&&chatSearch.getParent()==headerColumn){headerColumn.removeView(chatSearch);chatSearch=null;}
+    }
+
+    private NativeChatsHeaderView.Listener toolbarListener(){
+        return new NativeChatsHeaderView.Listener(){
+            @Override public void onSelectTab(int tab){selectedTab=tab;update(state,listener);}
+            @Override public void onSort(boolean newestFirst){if(listener!=null)listener.onSort(newestFirst);selectedTab=0;update(state,listener);}
+            @Override public void onToggleUnread(){unreadOnly=!unreadOnly;update(state,listener);}
+            @Override public void onSearch(){if(selectedTab!=0){selectedTab=0;update(state,listener);}else if(chatSearch!=null)chatSearch.focusSearch();}
+            @Override public void onToggleTheme(){
+                if(listener!=null)listener.onTheme("Midnight".equalsIgnoreCase(state.themeName)?"Telegram":"Midnight");
+            }
+            @Override public void onOpenCalls(){selectedTab=4;update(state,listener);}
+            @Override public void onCreateGroup(){
+                new android.app.AlertDialog.Builder(getContext()).setTitle("Создать группу")
+                        .setMessage("Создание групп с выбором участников ещё не подключено к TDLib.")
+                        .setPositiveButton("Понятно",null).show();
+            }
+            @Override public void onSavedMessages(){if(listener!=null)listener.onSavedMessages();}
+        };
+    }
+
+    private void renderChats(){
+        if(listColumn==null){
+            listColumn=new LinearLayout(getContext());listColumn.setOrientation(LinearLayout.VERTICAL);
+            contentHost.addView(listColumn,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        }
+        if(!"Архив".equals(folder)){
+            if(storyStrip==null){
+                storyStrip=new NativeStoryStripView(getContext(),state.stories,state.chats,state.text,state.accent,
+                        state.panelLight,storyStripListener());
+                listColumn.addView(storyStrip,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(92)));
+            }else storyStrip.update(state.stories,state.chats,state.text,state.accent,state.panelLight,storyStripListener());
+        }else if(storyStrip!=null){listColumn.removeView(storyStrip);storyStrip=null;}
+        if(folders==null){
+            folders=new NativeChatFoldersView(getContext(),folder,state.text,state.muted,state.accent,
+                    value->{folder=value;update(state,listener);});
+            listColumn.addView(folders,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48)));
+        }else folders.update(folder,state.text,state.muted,state.accent,value->{folder=value;update(state,listener);});
+        List<TgChat> filtered=TdChatListFilter.filter(state.chats,state.query,state.sortNewest,unreadOnly,folder);
+        if(filtered.isEmpty()){
+            if(chatList!=null){listColumn.removeView(chatList);chatList=null;}
+            NativeChatEmptyStateView.ListState emptyState=new NativeChatEmptyStateView.ListState(
+                    state.chats.isEmpty()&&state.query.trim().isEmpty()&&unreadOnly==false&&"Все".equals(folder),
+                    !state.query.trim().isEmpty()||unreadOnly||!"Все".equals(folder));
+            if(chatEmpty==null){
+                chatEmpty=new NativeChatEmptyStateView(getContext(),emptyState,state.text,state.muted);
+                listColumn.addView(chatEmpty,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
+            }else chatEmpty.update(emptyState,state.text,state.muted);
+        }else{
+            if(chatEmpty!=null){listColumn.removeView(chatEmpty);chatEmpty=null;}
+            if(chatList==null){
+                chatList=new NativeChatListView(getContext(),filtered,state.compactChats,state.text,state.muted,
+                        state.accent,state.panel,chatListListener());
+                listColumn.addView(chatList,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
+            }else chatList.update(filtered,state.compactChats,state.text,state.muted,state.accent,state.panel,chatListListener());
+        }
+    }
                 @Override public void onSelectTab(int tab){selectedTab=tab;update(state,listener);}
                 @Override public void onSort(boolean newestFirst){if(listener!=null)listener.onSort(newestFirst);selectedTab=0;update(state,listener);}
                 @Override public void onToggleUnread(){unreadOnly=!unreadOnly;update(state,listener);}
@@ -168,6 +247,16 @@ public final class NativeChatsScreenView extends FrameLayout {
             @Override public void onSort(boolean newestFirst){if(listener!=null)listener.onSort(newestFirst);selectedTab=0;update(state,listener);}
             @Override public void onToggleUnread(){unreadOnly=!unreadOnly;update(state,listener);}
             @Override public void onSearch(){if(selectedTab!=0){selectedTab=0;update(state,listener);}else if(chatSearch!=null)chatSearch.focusSearch();}
+            @Override public void onToggleTheme(){
+                if(listener!=null)listener.onTheme("Midnight".equalsIgnoreCase(state.themeName)?"Telegram":"Midnight");
+            }
+            @Override public void onOpenCalls(){selectedTab=4;update(state,listener);}
+            @Override public void onCreateGroup(){
+                new android.app.AlertDialog.Builder(getContext()).setTitle("Создать группу")
+                        .setMessage("Создание групп с выбором участников ещё не подключено к TDLib.")
+                        .setPositiveButton("Понятно",null).show();
+            }
+            @Override public void onSavedMessages(){if(listener!=null)listener.onSavedMessages();}
         };
     }
 
@@ -297,6 +386,99 @@ public final class NativeChatsScreenView extends FrameLayout {
             @Override public void onClearHeaderWallpaper(){if(listener!=null)listener.onClearHeaderWallpaper();}
             @Override public void onSelectCosmicCover(){if(listener!=null)listener.onSelectCosmicCover();}
         };
+    }
+
+
+    private void renderProfile(){
+        if(profilePanel!=null)return;
+        profilePanel=new LinearLayout(getContext());
+        profilePanel.setOrientation(LinearLayout.VERTICAL);
+        profilePanel.setGravity(Gravity.CENTER_HORIZONTAL);
+        profilePanel.setPadding(dp(24),dp(26),dp(24),dp(24));
+        profilePanel.setBackgroundColor(state.background);
+        String name=state.account==null?"Мой аккаунт":state.account.getName();
+        NativeAvatarView avatar=new NativeAvatarView(getContext(),
+                state.account==null?"":state.account.getAvatarPath(),first(name),0L,104,
+                false,false,false,state.panelLight);
+        profilePanel.addView(avatar,new LinearLayout.LayoutParams(dp(104),dp(104)));
+        TextView accountName=new TextView(getContext());accountName.setText(name);
+        accountName.setTextColor(state.text);accountName.setTextSize(22);
+        accountName.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams np=new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT);
+        np.topMargin=dp(14);profilePanel.addView(accountName,np);
+        if(state.account!=null&&state.account.isPremium()){
+            TextView premium=new TextView(getContext());premium.setText("✦ Telegram Premium");
+            premium.setTextColor(0xFFB58CFF);premium.setTextSize(13);
+            profilePanel.addView(premium);
+        }
+        String username=state.account==null?"":state.account.getUsername();
+        String phone=state.account==null?"":state.account.getPhone();
+        TextView details=new TextView(getContext());
+        details.setText((username.isEmpty()?"":("@"+username+"\n"))+(phone.isEmpty()?"":phone));
+        details.setTextColor(state.muted);details.setTextSize(14);details.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams dpv=new LinearLayout.LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT);
+        dpv.topMargin=dp(6);profilePanel.addView(details,dpv);
+        String bio=state.account==null?"":state.account.getBio();
+        if(!bio.trim().isEmpty()){
+            TextView about=new TextView(getContext());about.setText(bio);about.setTextColor(state.text);
+            about.setTextSize(14);about.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
+            bp.topMargin=dp(16);profilePanel.addView(about,bp);
+        }
+        TextView edit=new TextView(getContext());edit.setText("Редактировать профиль");
+        edit.setTextColor(Color.WHITE);edit.setTextSize(15);edit.setGravity(Gravity.CENTER);
+        GradientDrawable action=new GradientDrawable();action.setColor(state.accent);action.setCornerRadius(dp(14));
+        edit.setBackground(action);
+        LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48));
+        ep.topMargin=dp(22);profilePanel.addView(edit,ep);
+        edit.setOnClickListener(v->{selectedTab=2;update(state,listener);if(settingsPanel!=null)settingsPanel.openAccountPage();});
+        contentHost.addView(profilePanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+    }
+
+    private void renderCalls(){
+        if(callsPanel!=null)return;
+        callsPanel=new LinearLayout(getContext());callsPanel.setOrientation(LinearLayout.VERTICAL);
+        callsPanel.setGravity(Gravity.CENTER);callsPanel.setPadding(dp(28),dp(24),dp(28),dp(24));
+        TextView icon=new TextView(getContext());icon.setText("☎");icon.setTextSize(46);
+        icon.setTextColor(state.muted);callsPanel.addView(icon);
+        TextView title=new TextView(getContext());title.setText("Звонки");
+        title.setTextColor(state.text);title.setTextSize(20);
+        title.setTypeface(android.graphics.Typeface.DEFAULT,android.graphics.Typeface.BOLD);
+        callsPanel.addView(title);
+        TextView message=new TextView(getContext());
+        message.setText("История звонков пока не подключена.");
+        message.setTextColor(state.muted);message.setTextSize(14);message.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams mp=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT);
+        mp.topMargin=dp(8);callsPanel.addView(message,mp);
+        contentHost.addView(callsPanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+    }
+
+    private void renderBottomNavigation(){
+        bottomNavigation.removeAllViews();
+        String[] labels={"Чаты","Контакты","Настройки","Профиль"};
+        String[] icons={"▣","♙","⚙","●"};
+        for(int i=0;i<labels.length;i++){
+            final int tab=i;boolean active=selectedTab==i;
+            LinearLayout item=new LinearLayout(getContext());item.setOrientation(LinearLayout.VERTICAL);
+            item.setGravity(Gravity.CENTER);item.setPadding(0,dp(5),0,dp(4));
+            TextView icon=new TextView(getContext());icon.setText(icons[i]);icon.setTextSize(19);
+            icon.setTextColor(active?state.accent:state.muted);icon.setGravity(Gravity.CENTER);
+            item.addView(icon);
+            TextView label=new TextView(getContext());label.setText(labels[i]);label.setTextSize(10);
+            label.setTextColor(active?state.accent:state.muted);label.setGravity(Gravity.CENTER);
+            item.addView(label);
+            if(active){GradientDrawable selected=new GradientDrawable();selected.setColor((state.accent&0x00FFFFFF)|0x22000000);
+                selected.setCornerRadius(dp(14));item.setBackground(selected);}
+            item.setOnClickListener(v->{selectedTab=tab;update(state,listener);});
+            bottomNavigation.addView(item,new LinearLayout.LayoutParams(0,LayoutParams.MATCH_PARENT,1f));
+        }
+        GradientDrawable bg=new GradientDrawable();bg.setColor(state.panel);
+        bg.setCornerRadius(dp(20));bottomNavigation.setBackground(bg);
+        bottomNavigation.setElevation(dp(8));
+    }
+
+    private String first(String value){
+        return value==null||value.trim().isEmpty()?"S":value.trim().substring(0,1).toUpperCase(java.util.Locale.ROOT);
     }
 
     private void openStory(TgStory story){
