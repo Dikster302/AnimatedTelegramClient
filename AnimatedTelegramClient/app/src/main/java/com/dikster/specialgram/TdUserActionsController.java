@@ -52,4 +52,8 @@ public final class TdUserActionsController {
     public void createPrivateChat(long userId, Callback callback) {
         requester.send(new TdApi.CreatePrivateChat(userId, false), callback);
     }
+
+    public void createBasicGroup(long[] userIds, String title, Callback callback) {
+        requester.send(new TdApi.CreateNewBasicGroupChat(userIds, title), callback);
+    }
 }
