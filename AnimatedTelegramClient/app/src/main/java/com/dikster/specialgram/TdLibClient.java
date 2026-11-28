@@ -287,6 +287,17 @@ public final class TdLibClient implements AutoCloseable {
             @Override public List<TgMessage> messages() { return messages.getValue(); }
             @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
             @Override public void deleteMessages(long chatId, List<Long> ids) { chatCacheRepository.deleteMessages(chatId, ids); }
+            @Override public void cacheMessage(long chatId, TgMessage message) {
+                chatCacheRepository.upsertMessages(chatId, Collections.singletonList(message));
+            }
+            @Override public void refreshCachedMessage(long chatId, long messageId) {
+                send(new TdApi.GetMessage(chatId, messageId), result -> {
+                    if (result instanceof TdApi.Message) {
+                        TgMessage refreshed = mapping.map((TdApi.Message) result, 0L);
+                        chatCacheRepository.upsertMessages(chatId, Collections.singletonList(refreshed));
+                    }
+                }, null, false);
+            }
             @Override public TgMessage mapMessage(TdApi.Message value, long marker) { return mapping.map(value, marker); }
             @Override public void enqueueViewedMessages(long chatId, long[] ids) { messageViewQueue.enqueue(chatId, ids); }
         }, animatedMessageController, confirmedIds, pendingEdits);
