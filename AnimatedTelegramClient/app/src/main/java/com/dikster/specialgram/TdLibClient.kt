@@ -85,6 +85,9 @@ class TdLibClient(context:Context) {
   override fun onOperationError(message:String) { _operationError.value=message }
   override fun onClearOperationError() { _operationError.value=null }
  })
+ private val animatedMessageSendController = TdAnimatedMessageSendController(
+  animatedMessageController,confirmedIds,pendingEdits,Runnable { clearOperationError() })
+
  private val client=Client.create(
   { o -> onUpdate(o) },
   { e ->
@@ -434,16 +437,9 @@ fun reportOperationError(text:String) { operationErrorController.report(text) }
  fun sendPlain(id:Long,text:String,replyToMessageId:Long?=null) { clearOperationError(); messageActions.sendText(id,text,replyToMessageId) }
  fun replyToStory(chatId:Long,storyId:Int,text:String) { clearOperationError(); messageActions.replyToStory(chatId,storyId,text) }
  fun sendAnimated(id:Long,text:String,replyToMessageId:Long?=null) {
-  clearOperationError()
-  animatedMessageController.sendAnimated(id,text,replyToMessageId,
-   TdAnimatedMessageController.SendListener { message, characters ->
-    if(characters.size>1) {
-     val serverId=confirmedIds[message.id]
-     if(serverId!=null) animatedMessageController.schedule(id,serverId,characters)
-     else pendingEdits[message.id]=characters
-    }
-   })
+  animatedMessageSendController.send(id,text,replyToMessageId)
  }
+
  private val requestDispatcher = TdRequestDispatcher(app, client)
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
   requestDispatcher.send(f, object : TdRequestDispatcher.Listener {
