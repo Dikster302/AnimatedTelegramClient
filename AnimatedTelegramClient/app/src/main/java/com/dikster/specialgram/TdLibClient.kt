@@ -92,9 +92,9 @@ class TdLibClient(context:Context) {
   }
   is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
   is TdApi.UpdateUserPrivacySettingRules -> when(o.setting) {
-   is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=privacyLabel(o.rules)
-   is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=privacyLabel(o.rules)
-   is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=privacyLabel(o.rules)
+   is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=TdPrivacyController.label(o.rules)
+   is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=TdPrivacyController.label(o.rules)
+   is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=TdPrivacyController.label(o.rules)
   }
   is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
@@ -136,6 +136,18 @@ class TdLibClient(context:Context) {
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
+ private val privacyController = TdPrivacyController(
+  TdPrivacyController.Requester { function, callback ->
+   send(function, handler={ callback.onResult(it) }, onError={ callback.onError(it) })
+  },
+  TdPrivacyController.Listener { type, value ->
+   when(type) {
+    TdPrivacyController.STATUS -> _privacyLastSeen.value=value
+    TdPrivacyController.PHONE -> _privacyPhone.value=value
+    TdPrivacyController.PHOTO -> _privacyPhoto.value=value
+   }
+  }
+ )
  private val chatListLoader = TdChatListLoader(
   TdChatListLoader.Requester { function, callback ->
    send(function,
@@ -235,42 +247,10 @@ class TdLibClient(context:Context) {
   is TdApi.UserStatusLastMonth -> "был(а) в этом месяце"
   else -> "давно не был(а) в сети"
  }
- fun loadPrivacySettings() {
-  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyLastSeen.value=privacyLabel(result) }
-  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowPhoneNumber())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyPhone.value=privacyLabel(result) }
-  send(TdApi.GetUserPrivacySettingRules(TdApi.UserPrivacySettingShowProfilePhoto())) { result -> if(result is TdApi.UserPrivacySettingRules) _privacyPhoto.value=privacyLabel(result) }
- }
- private fun privacyLabel(rules:TdApi.UserPrivacySettingRules):String {
-  if(rules.rules.size!=1) return "Особые настройки"
-  return when(rules.rules.firstOrNull()) {
-   is TdApi.UserPrivacySettingRuleAllowAll -> "Все"
-   is TdApi.UserPrivacySettingRuleAllowContacts -> "Мои контакты"
-   is TdApi.UserPrivacySettingRuleRestrictAll -> "Никто"
-   else -> "Особые настройки"
-  }
- }
- fun setLastSeenPrivacy(value:String) {
-  val rule:TdApi.UserPrivacySettingRule=when(value) {
-   "Все" -> TdApi.UserPrivacySettingRuleAllowAll()
-   "Мои контакты" -> TdApi.UserPrivacySettingRuleAllowContacts()
-   "Никто" -> TdApi.UserPrivacySettingRuleRestrictAll()
-   else -> return
-  }
-  send(TdApi.SetUserPrivacySettingRules(TdApi.UserPrivacySettingShowStatus(),TdApi.UserPrivacySettingRules(arrayOf(rule)))) { result ->
-   if(result is TdApi.Ok) _privacyLastSeen.value=value
-  }
- }
- fun setPhonePrivacy(value:String) { setSimplePrivacy(TdApi.UserPrivacySettingShowPhoneNumber(),value) { _privacyPhone.value=it } }
- fun setPhotoPrivacy(value:String) { setSimplePrivacy(TdApi.UserPrivacySettingShowProfilePhoto(),value) { _privacyPhoto.value=it } }
- private fun setSimplePrivacy(setting:TdApi.UserPrivacySetting,value:String,onSaved:(String)->Unit) {
-  val rule:TdApi.UserPrivacySettingRule=when(value) {
-   "Все" -> TdApi.UserPrivacySettingRuleAllowAll()
-   "Мои контакты" -> TdApi.UserPrivacySettingRuleAllowContacts()
-   "Никто" -> TdApi.UserPrivacySettingRuleRestrictAll()
-   else -> return
-  }
-  send(TdApi.SetUserPrivacySettingRules(setting,TdApi.UserPrivacySettingRules(arrayOf(rule)))) { result -> if(result is TdApi.Ok) onSaved(value) }
- }
+ fun loadPrivacySettings() { privacyController.loadAll() }
+ fun setLastSeenPrivacy(value:String) { privacyController.set(TdPrivacyController.STATUS,value) }
+ fun setPhonePrivacy(value:String) { privacyController.set(TdPrivacyController.PHONE,value) }
+ fun setPhotoPrivacy(value:String) { privacyController.set(TdPrivacyController.PHOTO,value) }
  fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
   val last=c.lastMessage
