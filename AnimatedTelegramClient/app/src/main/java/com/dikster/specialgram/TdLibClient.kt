@@ -1,22 +1,20 @@
 package com.dikster.specialgram
 import android.content.Context
 import org.drinkless.tdlib.TdApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
- private val _auth=MutableStateFlow<Auth>(Auth.Loading); val auth=_auth.asStateFlow()
- private val _chats=MutableStateFlow<List<TgChat>>(emptyList()); val chats=_chats.asStateFlow()
- private val _messages=MutableStateFlow<List<TgMessage>>(emptyList()); val messages=_messages.asStateFlow()
- private val _searchResults=MutableStateFlow<List<TgMessage>>(emptyList()); val searchResults=_searchResults.asStateFlow()
- private val _stories=MutableStateFlow<List<TgStory>>(emptyList()); val stories=_stories.asStateFlow()
- private val _contacts=MutableStateFlow<List<TgContact>>(emptyList()); val contacts=_contacts.asStateFlow()
- private val _profile=MutableStateFlow<TgProfile?>(null); val profile=_profile.asStateFlow()
- private val _account=MutableStateFlow<TgAccount?>(null); val account=_account.asStateFlow()
- private val _privacyLastSeen=MutableStateFlow("Загружаем…"); val privacyLastSeen=_privacyLastSeen.asStateFlow()
- private val _privacyPhone=MutableStateFlow("Загружаем…"); val privacyPhone=_privacyPhone.asStateFlow()
- private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
+ private val _auth=TdLibClientState<Auth>(Auth.Loading); val auth=_auth
+ private val _chats=TdLibClientState<List<TgChat>>(emptyList()); val chats=_chats
+ private val _messages=TdLibClientState<List<TgMessage>>(emptyList()); val messages=_messages
+ private val _searchResults=TdLibClientState<List<TgMessage>>(emptyList()); val searchResults=_searchResults
+ private val _stories=TdLibClientState<List<TgStory>>(emptyList()); val stories=_stories
+ private val _contacts=TdLibClientState<List<TgContact>>(emptyList()); val contacts=_contacts
+ private val _profile=TdLibClientState<TgProfile?>(null); val profile=_profile
+ private val _account=TdLibClientState<TgAccount?>(null); val account=_account
+ private val _privacyLastSeen=TdLibClientState("Загружаем…"); val privacyLastSeen=_privacyLastSeen
+ private val _privacyPhone=TdLibClientState("Загружаем…"); val privacyPhone=_privacyPhone
+ private val _privacyPhoto=TdLibClientState("Загружаем…"); val privacyPhoto=_privacyPhoto
  private val updateLock=Any()
  private val pendingUpdates=java.util.ArrayDeque<TdApi.Object>()
  private var updateStateReady=false
@@ -59,7 +57,7 @@ class TdLibClient(context:Context) {
  },videoFileToMessage,mediaFileToMessage)
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
- private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
+ private val _operationError=TdLibClientState<String?>(null); val operationError=_operationError
  private val operationErrorController = TdOperationErrorController(object : TdOperationErrorController.Listener {
   override fun onOperationError(message:String) { _operationError.value=message }
   override fun onClearOperationError() { _operationError.value=null }
