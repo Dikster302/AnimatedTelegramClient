@@ -393,7 +393,12 @@ public final class TdLibClient implements AutoCloseable {
             }
             @Override public void onProfilePhotoDownloaded(long userId,int photoIndex,String path){
                 TgProfile current=profile.getValue();
-                if(current!=null&&current.getUserId()==userId)profile.setValue(current.withPhotoPath(photoIndex,path));
+                if(current!=null&&current.getUserId()==userId){
+                    profile.setValue(current.withPhotoPath(photoIndex,path));return;
+                }
+                TgAccount own=account.getValue();
+                if(myUserId!=null&&myUserId==userId&&own!=null)
+                    account.setValue(own.withPhotoPath(photoIndex,path));
             }
         }, fileToChat, videoFileToMessage, mediaFileToMessage, storyFileToKey,profilePhotoFileToIndex);
 
@@ -556,6 +561,36 @@ public final class TdLibClient implements AutoCloseable {
     public void toggleChatPinned(long id, boolean pinned, boolean archived) { operationsController.toggleChatPinned(id, pinned, archived); }
     public void toggleChatUnread(long id, boolean unread) { operationsController.toggleChatUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { operationsController.toggleChatMuted(id, muted); }
+
+    public void loadMyProfilePhotos(){
+        Long userId=myUserId;
+        if(userId==null||userId==0L)return;
+        send(new TdApi.GetUserProfilePhotos(userId,0,100),result->{
+            if(!(result instanceof TdApi.ChatPhotos))return;
+            TdApi.ChatPhotos photos=(TdApi.ChatPhotos)result;
+            List<String> paths=new ArrayList<>();
+            if(photos.photos!=null)for(TdApi.ChatPhoto photo:photos.photos){
+                if(photo==null||photo.sizes==null||photo.sizes.length==0)continue;
+                TdApi.File best=null;long bestArea=-1L;
+                for(TdApi.PhotoSize size:photo.sizes){
+                    if(size==null||size.photo==null)continue;
+                    long area=(long)Math.max(1,size.width)*Math.max(1,size.height);
+                    if(area>bestArea){bestArea=area;best=size.photo;}
+                }
+                if(best==null){paths.add("");continue;}
+                int index=paths.size();
+                paths.add(best.local!=null&&best.local.isDownloadingCompleted
+                        ?PersistentAvatarStore.persist(app,best.id,best.local.path):"");
+                if(best.local==null||!best.local.isDownloadingCompleted){
+                    profilePhotoFileToIndex.put(best.id,new TdPair<>(userId,index));
+                    fileDownloadQueue.enqueue(best.id);
+                }
+            }
+            TgAccount own=account.getValue();
+            if(own!=null&&myUserId!=null&&myUserId==userId)account.setValue(own.withPhotoPaths(paths));
+        },null,false);
+    }
+
     public void openProfile(long id) { operationsController.openProfile(id); }
     public void searchProfileSection(long chatId,String tab,TdChatConversationController.ProfileSectionCallback callback) {
         operationsController.searchProfileSection(chatId,tab,callback);
