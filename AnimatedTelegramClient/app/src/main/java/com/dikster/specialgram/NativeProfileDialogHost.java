@@ -35,15 +35,27 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.HashSet;
 
 /** Full-screen native profile and dedicated Telegram-style QR page. */
 public final class NativeProfileDialogHost extends FrameLayout {
-    public interface Listener { void onClose(); void onToggleMute(TgChat chat, boolean muted); void onOpenGiftCatalog(TgProfile profile); }
+    public interface SectionCallback { void onResult(List<TgMessage> messages); }
+    public interface Listener {
+        void onClose();
+        void onToggleMute(TgChat chat, boolean muted);
+        void onOpenGiftCatalog(TgProfile profile);
+        void onLoadProfileSection(TgChat chat,String tab,SectionCallback callback);
+    }
     private final Dialog dialog;
     private final Listener listener;
     private TgChat currentChat;
     private TgProfile currentProfile;
     private List<TgMessage> currentMessages=Collections.emptyList();
+    private final Map<String,List<TgMessage>> sectionCache=new HashMap<>();
+    private final Set<String> loadingTabs=new HashSet<>();
     private int textColor,mutedColor,accentColor,panelColor;
     private String activeTab="Медиа";
 
@@ -66,6 +78,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);}
         dialog.show();
         if(w!=null)w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
+        requestSection(activeTab);
     }
 
     public void update(TgChat chat,TgProfile profile,List<TgMessage> messages,int text,int muted,int accent,int panel){
@@ -199,12 +212,16 @@ public final class NativeProfileDialogHost extends FrameLayout {
             chip.setBackground(round(selected?accentColor:0x18000000,dp(18)));
             LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-2,dp(40));
             cp.rightMargin=dp(7);tabs.addView(chip,cp);
-            chip.setOnClickListener(v->{activeTab=tab;render();});
+            chip.setOnClickListener(v->{activeTab=tab;render();requestSection(tab);});
         }
         body.addView(tabsScroll,new LinearLayout.LayoutParams(-1,dp(44)));
         LinearLayout contentCard=cardColumn();
         List<TgMessage> sectionMessages=messagesForTab(activeTab);
-        if("Подарки".equals(activeTab)&&currentProfile!=null&&!currentProfile.getGifts().isEmpty()){
+        if(loadingTabs.contains(activeTab)){
+            TextView loading=label("Загружаем материалы…",mutedColor,13,false);
+            loading.setGravity(Gravity.CENTER);loading.setPadding(dp(12),dp(22),dp(12),dp(22));
+            contentCard.addView(loading,wrap());
+        }else if("Подарки".equals(activeTab)&&currentProfile!=null&&!currentProfile.getGifts().isEmpty()){
             TextView hint=label("Подарки в профиле · "+currentProfile.getGiftCount(),mutedColor,11,false);
             LinearLayout.LayoutParams hintParams=wrap();hintParams.leftMargin=dp(14);hintParams.topMargin=dp(10);
             contentCard.addView(hint,hintParams);
@@ -338,7 +355,18 @@ public final class NativeProfileDialogHost extends FrameLayout {
         }catch(Exception e){Toast.makeText(getContext(),"Не удалось сохранить QR-код",Toast.LENGTH_SHORT).show();}
     }
 
+    private void requestSection(String tab){
+        if("Подарки".equals(tab)||listener==null)return;
+        loadingTabs.add(tab);render();
+        listener.onLoadProfileSection(currentChat,tab,values->{
+            if(!dialog.isShowing())return;
+            sectionCache.put(tab,values==null?Collections.emptyList():new ArrayList<>(values));
+            loadingTabs.remove(tab);
+            if(tab.equals(activeTab))render();
+        });
+    }
     private List<TgMessage> messagesForTab(String tab){
+        if(sectionCache.containsKey(tab))return sectionCache.get(tab);
         List<TgMessage> result=new ArrayList<>();
         for(int i=currentMessages.size()-1;i>=0;i--){
             TgMessage message=currentMessages.get(i);
