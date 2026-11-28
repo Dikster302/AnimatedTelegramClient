@@ -76,30 +76,35 @@ public final class TdStoryContentQueue implements AutoCloseable {
             item = pending.pollFirst();
             if (item == null) { inFlight = false; return; }
         }
-        requester.send(new TdApi.GetStory(item.chatId, item.storyId, false), new Callback() {
-            @Override public void onResult(TdApi.Object result) {
-                synchronized (TdStoryContentQueue.this) {
-                    queued.remove(item.key());
-                    if (result instanceof TdApi.Story) completed.add(item.key());
-                }
-                if (result instanceof TdApi.Story) listener.onStory((TdApi.Story) result, item.viewed);
-                finish(REQUEST_GAP_MS);
-            }
-
-            @Override public void onError(TdApi.Error error) {
-                long delay = REQUEST_GAP_MS;
-                synchronized (TdStoryContentQueue.this) {
-                    if (closed) { inFlight = false; return; }
-                    if (error != null && error.code == 429 && ++item.retries <= MAX_RETRIES) {
-                        pending.addFirst(item);
-                        delay = retryDelay(error.message, item.retries);
-                    } else {
+        try {
+            requester.send(new TdApi.GetStory(item.chatId, item.storyId, false), new Callback() {
+                @Override public void onResult(TdApi.Object result) {
+                    synchronized (TdStoryContentQueue.this) {
                         queued.remove(item.key());
+                        if (result instanceof TdApi.Story) completed.add(item.key());
                     }
+                    if (result instanceof TdApi.Story) listener.onStory((TdApi.Story) result, item.viewed);
+                    finish(REQUEST_GAP_MS);
                 }
-                finish(delay);
-            }
-        });
+
+                @Override public void onError(TdApi.Error error) {
+                    long delay = REQUEST_GAP_MS;
+                    synchronized (TdStoryContentQueue.this) {
+                        if (closed) { inFlight = false; return; }
+                        if (error != null && error.code == 429 && ++item.retries <= MAX_RETRIES) {
+                            pending.addFirst(item);
+                            delay = retryDelay(error.message, item.retries);
+                        } else {
+                            queued.remove(item.key());
+                        }
+                    }
+                    finish(delay);
+                }
+            });
+        } catch (RuntimeException failure) {
+            synchronized (this) { queued.remove(item.key()); }
+            finish(REQUEST_GAP_MS);
+        }
     }
 
     private long retryDelay(String message, int attempt) {
