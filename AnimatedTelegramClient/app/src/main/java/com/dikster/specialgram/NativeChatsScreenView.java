@@ -89,6 +89,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private boolean unreadOnly;
     private NativeHeaderWallpaperView wallpaperView;
     private NativeChatsHeaderView toolbar;
+    private LinearLayout chatHeaderRow;
     private NativeChatSearchBarView chatSearch;
     private LinearLayout listColumn,heading;
     private TextView headingTitle,headingSubtitle;
@@ -150,28 +151,58 @@ public final class NativeChatsScreenView extends FrameLayout {
     private void renderHeader(){
         if(wallpaperView==null){
             wallpaperView=new NativeHeaderWallpaperView(getContext(),selectedTab==0?state.headerWallpaper:null,state.panel);
-            // A MATCH_PARENT child inside a WRAP_CONTENT FrameLayout can consume
-            // the remaining screen height and leave contentHost with zero height.
-            // Keep the wallpaper constrained to the header area only.
+            // Keep wallpaper constrained to the header area; MATCH_PARENT here can consume content height.
             headerHost.addView(wallpaperView,0,new FrameLayout.LayoutParams(
                     LayoutParams.MATCH_PARENT,dp(112)));
         }else wallpaperView.update(selectedTab==0?state.headerWallpaper:null,state.panel);
         wallpaperView.setVisibility(selectedTab==0?VISIBLE:GONE);
+
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
-                    state.sortNewest,state.text,state.account,state.themeName,toolbarListener()); 
-            headerColumn.addView(toolbar,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(52)));
-        }else toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,state.text,
+                    state.sortNewest,state.text,state.account,state.themeName,toolbarListener());
+        }
+        toolbar.update(selectedTab,mainChatCount(),unreadOnly,state.sortNewest,state.text,
                 state.account,state.themeName,toolbarListener());
-        if(selectedTab==0){ 
+
+        if(selectedTab==0){
             if(chatSearch==null){
-                chatSearch=new NativeChatSearchBarView(getContext(),state.query,state.text,state.muted,state.panelLight,
-                        value->{if(listener!=null)listener.onQuery(value);});
-                LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48));
-                p.setMargins(dp(12),dp(4),dp(12),dp(6));headerColumn.addView(chatSearch,p);
+                chatSearch=new NativeChatSearchBarView(getContext(),state.query,state.text,state.muted,
+                        state.panelLight,value->{if(listener!=null)listener.onQuery(value);});
             }else chatSearch.update(state.query,state.text,state.muted,state.panelLight,
                     value->{if(listener!=null)listener.onQuery(value);});
-        }else if(chatSearch!=null&&chatSearch.getParent()==headerColumn){headerColumn.removeView(chatSearch);chatSearch=null;}
+            if(chatHeaderRow==null){
+                chatHeaderRow=new LinearLayout(getContext());
+                chatHeaderRow.setOrientation(LinearLayout.HORIZONTAL);
+                chatHeaderRow.setGravity(Gravity.CENTER_VERTICAL);
+            }
+            if(toolbar.getParent()==headerColumn)headerColumn.removeView(toolbar);
+            if(chatSearch.getParent()==headerColumn)headerColumn.removeView(chatSearch);
+            if(chatHeaderRow.getParent()!=headerColumn){
+                headerColumn.removeAllViews();
+                headerColumn.addView(chatHeaderRow,new LinearLayout.LayoutParams(
+                        LayoutParams.MATCH_PARENT,dp(56)));
+            }
+            if(chatSearch.getParent()!=chatHeaderRow){
+                chatHeaderRow.addView(chatSearch,new LinearLayout.LayoutParams(0,dp(46),1f));
+            }
+            toolbar.setPadding(0,dp(5),0,dp(5));
+            if(toolbar.getParent()!=chatHeaderRow){
+                chatHeaderRow.addView(toolbar,new LinearLayout.LayoutParams(dp(48),dp(52)));
+            }
+        }else{
+            if(chatHeaderRow!=null){
+                if(chatHeaderRow.getParent()==headerColumn)headerColumn.removeView(chatHeaderRow);
+                chatHeaderRow.removeAllViews();
+                chatHeaderRow=null;
+                chatSearch=null;
+            }
+            toolbar.setPadding(dp(16),dp(5),dp(10),dp(5));
+            if(toolbar.getParent()!=headerColumn){
+                headerColumn.removeAllViews();
+                headerColumn.addView(toolbar,new LinearLayout.LayoutParams(
+                        LayoutParams.MATCH_PARENT,dp(52)));
+            }
+        }
     }
 
     private void addContentWithTransition(View child){
