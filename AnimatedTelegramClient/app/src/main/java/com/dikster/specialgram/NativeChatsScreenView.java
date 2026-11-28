@@ -119,8 +119,8 @@ public final class NativeChatsScreenView extends FrameLayout {
         bottomNavigation.setOrientation(LinearLayout.HORIZONTAL);
         bottomNavigation.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams navParams=new LinearLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT,dp(66));
-        navParams.setMargins(dp(10),dp(4),dp(10),dp(4));
+                LayoutParams.MATCH_PARENT,dp(56));
+        navParams.setMargins(0,0,0,0);
         root.addView(bottomNavigation,navParams);
         update(state,listener);
     }
