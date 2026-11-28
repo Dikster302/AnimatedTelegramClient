@@ -9,6 +9,7 @@ import org.drinkless.tdlib.TdApi;
 public final class TdRequestDispatcher {
     public interface Listener {
         void onResult(TdApi.Object result);
+        void onError(TdApi.Error error);
     }
 
     private final Context app;
@@ -34,7 +35,12 @@ public final class TdRequestDispatcher {
                         "TDLib request failed: " + function.getClass().getSimpleName()
                                 + ", code=" + error.code));
             }
-            if (listener != null) listener.onResult(result);
+            if (listener == null) return;
+            if (result instanceof TdApi.Error) {
+                listener.onError((TdApi.Error) result);
+            } else {
+                listener.onResult(result);
+            }
         });
     }
 }
