@@ -141,7 +141,7 @@ public final class MainActivity extends Activity {
             NativeChatsScreenView.State state=new NativeChatsScreenView.State(chats,contacts,stories,
                     query,contactsQuery,sortNewest,compactChats,account,error,privacyLast,privacyPhone,
                     privacyPhoto,themeName,glass,fontScale,accentName,bubbleRadius,wallpaperName,
-                    headerWallpaper,screenBg,screenPanel,TEXT,MUTED,ACCENT,screenPanelLight);
+                    headerWallpaper,screenBg,screenPanel,screenText(),screenMuted(),ACCENT,screenPanelLight);
             if(chatsView==null){
                 chatsView=new NativeChatsScreenView(this,state,chatListener());
                 root.removeAllViews();root.addView(chatsView,new FrameLayout.LayoutParams(-1,-1));
@@ -150,22 +150,35 @@ public final class MainActivity extends Activity {
             chatsView=null;
             TgChat current=findChat(chats,selectedChat.getId());
             if(current!=null)selectedChat=current;
-            int panel=(PANEL&0x00FFFFFF)|(((int)(255*(1f-glass*.30f)))<<24);
-            int panelLight=(PANEL_LIGHT&0x00FFFFFF)|(((int)(255*(1f-glass*.38f)))<<24);
+            int basePanel=screenPanel(),basePanelLight=screenPanelLight();
+            int panel=(basePanel&0x00FFFFFF)|(((int)(255*(1f-glass*.30f)))<<24);
+            int panelLight=(basePanelLight&0x00FFFFFF)|(((int)(255*(1f-glass*.38f)))<<24);
             if(conversationView==null){
                 conversationView=new NativeConversationScreenView(this,selectedChat,chats,messages,search,
-                        profile,videoNoteShape,error,BG,chatBackground(),panel,panelLight,TEXT,MUTED,
+                        profile,videoNoteShape,error,screenBackground(),chatBackground(),panel,panelLight,screenText(),screenMuted(),
                         accentColor(),INCOMING,OUTGOING,bubbleRadius,conversationListener());
                 root.removeAllViews();root.addView(conversationView,new FrameLayout.LayoutParams(-1,-1));
             }else conversationView.update(selectedChat,chats,messages,search,profile,videoNoteShape,error,
-                    BG,chatBackground(),panel,panelLight,TEXT,MUTED,accentColor(),INCOMING,OUTGOING,
+                    screenBackground(),chatBackground(),panel,panelLight,screenText(),screenMuted(),accentColor(),INCOMING,OUTGOING,
                     bubbleRadius,conversationListener());
         }
     }
 
-    private int screenBackground(){return "Midnight".equalsIgnoreCase(themeName)?0xFF000000:BG;}
-    private int screenPanel(){return "Midnight".equalsIgnoreCase(themeName)?0xFF090909:PANEL;}
-    private int screenPanelLight(){return "Midnight".equalsIgnoreCase(themeName)?0xFF151515:PANEL_LIGHT;}
+    private boolean isLightTheme(){return "Светлая".equalsIgnoreCase(themeName);}
+    private int screenBackground(){
+        if("Midnight".equalsIgnoreCase(themeName))return 0xFF000000;
+        return isLightTheme()?0xFFF1F3F5:BG;
+    }
+    private int screenPanel(){
+        if("Midnight".equalsIgnoreCase(themeName))return 0xFF090909;
+        return isLightTheme()?0xFFFFFFFF:PANEL;
+    }
+    private int screenPanelLight(){
+        if("Midnight".equalsIgnoreCase(themeName))return 0xFF151515;
+        return isLightTheme()?0xFFE7EBEF:PANEL_LIGHT;
+    }
+    private int screenText(){return isLightTheme()?0xFF17212B:TEXT;}
+    private int screenMuted(){return isLightTheme()?0xFF6B7785:MUTED;}
 
     private int accentColor(){
         switch(accentName){case "Фиолетовый":return 0xFF9B82FF;case "Мятный":return 0xFF42D6B5;
