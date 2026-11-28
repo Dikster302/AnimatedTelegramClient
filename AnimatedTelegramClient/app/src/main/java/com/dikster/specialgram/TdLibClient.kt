@@ -57,27 +57,6 @@ class TdLibClient(context:Context) {
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
- private val userUpdateRouter = TdUserUpdateRouter(object : TdUserUpdateRouter.Listener {
-  override fun onUserStatus(userId:Long, status:TdApi.UserStatus) {
-   val state=TdUserStateController.refreshStatus(_chats.value,_contacts.value,_profile.value,userToChat,userId,status)
-   _chats.value=state.chats
-   _contacts.value=state.contacts
-   _profile.value=state.profile
-  }
-  override fun onPrivacyRules(setting:TdApi.UserPrivacySetting, rules:TdApi.UserPrivacySettingRules) {
-   when(setting) {
-    is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=TdPrivacyController.label(rules)
-    is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=TdPrivacyController.label(rules)
-    is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=TdPrivacyController.label(rules)
-   }
-  }
-  override fun onUser(user:TdApi.User) {
-   profileController.updateUser(user)
-   _chats.value=TdUserStateController.updateChatUser(_chats.value,userToChat,user)
-   _contacts.value=TdUserStateController.updateContact(_contacts.value,user)
-   if(myUserId==user.id) accountStateController.updateAccount(user)
-  }
- })
  private val operationErrorController = TdOperationErrorController(object : TdOperationErrorController.Listener {
   override fun onOperationError(message:String) { _operationError.value=message }
   override fun onClearOperationError() { _operationError.value=null }
@@ -136,6 +115,19 @@ class TdLibClient(context:Context) {
     if(photoId>0) { fileToChat[photoId]=chatId; fileDownloadQueue.enqueue(photoId) }
    }
   })
+ private val userUpdateStateController = TdUserUpdateStateController(object : TdUserUpdateStateController.State {
+  override fun chats():List<TgChat> = _chats.value
+  override fun setChats(chats:List<TgChat>) { _chats.value=chats }
+  override fun contacts():List<TgContact> = _contacts.value
+  override fun setContacts(contacts:List<TgContact>) { _contacts.value=contacts }
+  override fun profile():TgProfile? = _profile.value
+  override fun setProfile(profile:TgProfile?) { _profile.value=profile }
+  override fun myUserId():Long? = myUserId
+  override fun setLastSeenPrivacy(value:String) { _privacyLastSeen.value=value }
+  override fun setPhonePrivacy(value:String) { _privacyPhone.value=value }
+  override fun setPhotoPrivacy(value:String) { _privacyPhoto.value=value }
+ },userToChat,profileController,accountStateController)
+ private val userUpdateRouter = TdUserUpdateRouter(userUpdateStateController)
  private val accountActions = TdAccountActionsController(
   TdAccountActionsController.Requester { function, callback ->
    send(function,
