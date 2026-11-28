@@ -36,7 +36,7 @@ public final class NativeStoryStripView extends HorizontalScrollView {
         content.setOrientation(LinearLayout.HORIZONTAL);
         content.setPadding(dp(12), dp(8), dp(12), dp(8));
         addView(content, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
-        update(stories,chats,text,accent,panel,listener);
+        update(stories,chats,text,accent,panel,account,listener);
     }
 
     public void update(List<TgStory> nextStories, List<TgChat> nextChats,
