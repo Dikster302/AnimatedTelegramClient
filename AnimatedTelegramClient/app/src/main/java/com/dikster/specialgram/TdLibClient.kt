@@ -136,9 +136,18 @@ class TdLibClient(context:Context) {
  fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
  fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
  fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
- fun loadChats() { loadChatList(TdApi.ChatListMain(),false); loadChatList(TdApi.ChatListArchive(),true) }
- private fun loadChatList(list:TdApi.ChatList,archived:Boolean) {
-  send(TdApi.GetChats(list,100)) { r -> if(r is TdApi.Chats) r.chatIds.forEach { id -> send(TdApi.GetChat(id)) { c -> if(c is TdApi.Chat) putChat(c,archived) } } }
+ private val chatListLoader = TdChatListLoader(
+  TdChatListLoader.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  TdChatListLoader.ChatListener { chat, archived -> putChat(chat,archived) }
+ )
+ fun loadChats() {
+  chatListLoader.load(TdApi.ChatListMain(),false)
+  chatListLoader.load(TdApi.ChatListArchive(),true)
  }
  fun archiveChat(id:Long,archived:Boolean) {
   if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
@@ -660,6 +669,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
