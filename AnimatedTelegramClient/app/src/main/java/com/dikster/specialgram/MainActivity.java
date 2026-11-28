@@ -135,10 +135,13 @@ public final class MainActivity extends Activity {
         String error=(String)s[11];
         if(selectedChat==null){
             conversationView=null;
+            int screenBg=screenBackground(),screenPanel=screenPanel(),screenPanelLight=screenPanelLight();
+            root.setBackgroundColor(screenBg);
+            getWindow().setNavigationBarColor(screenBg);
             NativeChatsScreenView.State state=new NativeChatsScreenView.State(chats,contacts,stories,
                     query,contactsQuery,sortNewest,compactChats,account,error,privacyLast,privacyPhone,
                     privacyPhoto,themeName,glass,fontScale,accentName,bubbleRadius,wallpaperName,
-                    headerWallpaper,BG,PANEL,TEXT,MUTED,ACCENT,PANEL_LIGHT);
+                    headerWallpaper,screenBg,screenPanel,TEXT,MUTED,ACCENT,screenPanelLight);
             if(chatsView==null){
                 chatsView=new NativeChatsScreenView(this,state,chatListener());
                 root.removeAllViews();root.addView(chatsView,new FrameLayout.LayoutParams(-1,-1));
@@ -160,13 +163,17 @@ public final class MainActivity extends Activity {
         }
     }
 
+    private int screenBackground(){return "Midnight".equalsIgnoreCase(themeName)?0xFF000000:BG;}
+    private int screenPanel(){return "Midnight".equalsIgnoreCase(themeName)?0xFF090909:PANEL;}
+    private int screenPanelLight(){return "Midnight".equalsIgnoreCase(themeName)?0xFF151515:PANEL_LIGHT;}
+
     private int accentColor(){
         switch(accentName){case "Фиолетовый":return 0xFF9B82FF;case "Мятный":return 0xFF42D6B5;
             case "Розовый":return 0xFFFF78B7;default:return ACCENT;}
     }
     private int chatBackground(){
         switch(wallpaperName){case "Глубокая ночь":return 0xFF080F1A;case "Океан":return 0xFF0A2028;
-            case "Сумерки":return 0xFF211629;default:return BG;}
+            case "Сумерки":return 0xFF211629;default:return screenBackground();}
     }
     private TgChat findChat(List<TgChat> chats,long id){
         for(TgChat c:chats)if(c.getId()==id)return c;return null;
@@ -223,6 +230,9 @@ public final class MainActivity extends Activity {
                 td.openContact(contact.getId(),new TdContactReadyListener(){
                     @Override public void onReady(TgChat chat){selectedChat=chat;td.openChat(chat.getId());refreshNow();}
                 });
+            }
+            @Override public void onSavedMessages(){
+                td.openSavedMessages(chat->{selectedChat=chat;td.openChat(chat.getId());refreshNow();});
             }
             @Override public void onArchive(TgChat chat){td.archiveChat(chat.getId(),!chat.getArchived());}
             @Override public void onTogglePinned(TgChat chat){td.toggleChatPinned(chat.getId(),!chat.isPinned(),chat.getArchived());}
