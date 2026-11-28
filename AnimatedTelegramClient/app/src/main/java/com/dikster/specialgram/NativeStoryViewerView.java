@@ -283,6 +283,11 @@ public final class NativeStoryViewerView extends LinearLayout {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (story != null) updateMedia(story);
+    }
+
     @Override protected void onDetachedFromWindow() {
         stopVideo();
         image.setImageDrawable(null);
