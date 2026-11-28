@@ -58,8 +58,10 @@ public final class NativeProfileDialogHost extends FrameLayout {
         update(chat,profile,messages,text,muted,accent,panel);
         Window w=dialog.getWindow();
         if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
-            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND|WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(withAlpha(panelColor,0xE8));
             WindowManager.LayoutParams windowParams=w.getAttributes();windowParams.dimAmount=0.18f;w.setAttributes(windowParams);
+            w.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
             w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
             w.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);}
         dialog.show();
@@ -87,7 +89,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
 
         LinearLayout top=new LinearLayout(getContext());
         top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(14),dp(8),dp(14),dp(8));
+        top.setPadding(dp(14),dp(8)+statusBarHeight(),dp(14),dp(8));
         TextView back=label("‹",textColor,32,true);
         back.setGravity(Gravity.CENTER);
         top.addView(back,new LinearLayout.LayoutParams(dp(42),dp(48)));
@@ -250,15 +252,18 @@ public final class NativeProfileDialogHost extends FrameLayout {
         if(bitmap==null){Toast.makeText(getContext(),"Не удалось создать QR-код",Toast.LENGTH_SHORT).show();return;}
         Dialog qrDialog=new Dialog(getContext());
         LinearLayout page=new LinearLayout(getContext());page.setOrientation(LinearLayout.VERTICAL);
-        page.setPadding(dp(18),dp(14),dp(18),dp(18));page.setBackground(round(0xF2171C22,dp(24)));
+        page.setPadding(dp(18),dp(14)+statusBarHeight(),dp(18),dp(18));
+        page.setBackground(round(0xE8171C22,dp(0)));
         qrDialog.setContentView(page);
         LinearLayout top=new LinearLayout(getContext());top.setGravity(Gravity.CENTER_VERTICAL);
         TextView scan=label("Сканировать QR-код",0x99FFFFFF,14,true);
+        scan.setGravity(Gravity.END|Gravity.CENTER_VERTICAL);
         top.addView(scan,new LinearLayout.LayoutParams(0,dp(48),1));
         TextView close=label("×",textColor,28,false);close.setGravity(Gravity.CENTER);
         top.addView(close,new LinearLayout.LayoutParams(dp(42),dp(48)));
         close.setOnClickListener(v->qrDialog.dismiss());page.addView(top);
 
+        page.addView(new View(getContext()),new LinearLayout.LayoutParams(1,0,1f));
         ImageView image=new ImageView(getContext());image.setImageBitmap(bitmap);
         image.setScaleType(ImageView.ScaleType.FIT_CENTER);
         image.setPadding(dp(20),dp(20),dp(20),dp(20));image.setBackground(round(Color.WHITE,dp(22)));
@@ -270,6 +275,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         handle.setBackground(round(Color.WHITE,dp(22)));
         LinearLayout.LayoutParams hp=wrap();hp.topMargin=dp(12);page.addView(handle,hp);
 
+        page.addView(new View(getContext()),new LinearLayout.LayoutParams(1,0,1f));
         LinearLayout bottom=new LinearLayout(getContext());bottom.setGravity(Gravity.CENTER_VERTICAL);
         TextView share=label("Поделиться",textColor,14,true);
         TextView save=label("Скачать QR-код",textColor,14,true);
@@ -278,9 +284,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
         page.addView(bottom);
         share.setOnClickListener(v->shareQr(bitmap,address));
         save.setOnClickListener(v->saveQr(bitmap));
-        Window w=qrDialog.getWindow();if(w!=null)w.setBackgroundDrawableResource(android.R.color.transparent);
+        Window w=qrDialog.getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
+            w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            w.setStatusBarColor(Color.TRANSPARENT);w.setNavigationBarColor(0xF2171C22);}
         qrDialog.show();
-        if(w!=null)w.setLayout(dp(340),WindowManager.LayoutParams.WRAP_CONTENT);
+        if(w!=null)w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
     }
 
     private Bitmap makeQr(String value){
@@ -415,6 +423,10 @@ public final class NativeProfileDialogHost extends FrameLayout {
     private LinearLayout.LayoutParams wrap(){return new LinearLayout.LayoutParams(-1,-2);}
     private String first(String value){return value==null||value.isEmpty()?"?":value.substring(0,1).toUpperCase();}
     private boolean empty(String value){return value==null||value.trim().isEmpty();}
+    private int statusBarHeight(){
+        int id=getResources().getIdentifier("status_bar_height","dimen","android");
+        return id>0?getResources().getDimensionPixelSize(id):dp(24);
+    }
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
     @Override protected void onDetachedFromWindow(){
         if(dialog.isShowing())dialog.dismiss();
