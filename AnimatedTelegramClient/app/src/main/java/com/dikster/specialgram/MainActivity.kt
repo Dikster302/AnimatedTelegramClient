@@ -721,49 +721,45 @@ private fun SettingsPanel(
 
 @Composable
 private fun PrivacyChoiceSection(title:String,current:String,onSelect:(String)->Unit) {
-    Text(title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 5.dp))
-    listOf("Все", "Мои контакты", "Никто").forEach { choice ->
-        Row(Modifier.fillMaxWidth().clickable { onSelect(choice) }.padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(choice, color = LocalAppearance.current.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-            RadioButton(selected = current == choice, onClick = { onSelect(choice) })
-        }
-    }
-    Text("Текущее значение: $current", color = LocalAppearance.current.muted, fontSize = 11.sp)
-}
-
-@Composable
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> NativeSettingsRows.privacy(context, title, current,
+            appearance.text.toArgb(), appearance.muted.toArgb(), { value -> onSelect(value) }) },
+        update = { view -> NativeSettingsRows.updatePrivacy(view, view.context, title, current,
+            appearance.text.toArgb(), appearance.muted.toArgb(), { value -> onSelect(value) }) }
+    )
+}@Composable
 private fun SettingsNavigationRow(title: String, subtitle: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = LocalAppearance.current.text, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            Text(subtitle, color = LocalAppearance.current.muted, fontSize = 12.sp)
-        }
-        Text("›", color = LocalAppearance.current.muted, fontSize = 25.sp)
-    }
-    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f))
-}
-
-@Composable
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> NativeSettingsRows.navigation(context, title, subtitle,
+            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) },
+        update = { view -> NativeSettingsRows.updateNavigation(view, view.context, title, subtitle,
+            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
+    )
+}@Composable
 private fun CoverChoice(title: String, subtitle: String, selected: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = LocalAppearance.current.text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = LocalAppearance.current.muted, fontSize = 12.sp)
-        }
-        RadioButton(selected = selected, onClick = onClick)
-    }
-    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f))
-}
-@Composable
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> NativeSettingsRows.coverChoice(context, title, subtitle, selected,
+            appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) },
+        update = { view -> NativeSettingsRows.updateCoverChoice(view, view.context, title, subtitle,
+            selected, appearance.text.toArgb(), appearance.muted.toArgb(), { onClick() }) }
+    )
+}@Composable
 private fun SettingsLine(title: String, subtitle: String) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 13.dp)) {
-        Text(title, color = LocalAppearance.current.text, fontSize = 15.sp)
-        Spacer(Modifier.height(3.dp))
-        Text(subtitle, color = LocalAppearance.current.muted, fontSize = 12.sp)
-    }
-}
-
-@Composable
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> NativeSettingsRows.setting(context, title, subtitle,
+            appearance.text.toArgb(), appearance.muted.toArgb()) },
+        update = { view -> NativeSettingsRows.updateSetting(view, view.context, title, subtitle,
+            appearance.text.toArgb(), appearance.muted.toArgb()) }
+    )
+}@Composable
 private fun ChatRow(chat: TgChat, compact: Boolean = false, onArchive: () -> Unit, onTogglePinned: () -> Unit, onToggleUnread: () -> Unit, onToggleMute: () -> Unit, onClick: () -> Unit) {
     val appearance = LocalAppearance.current
     val panelColor = appearance.panel.copy(alpha = 1f - appearance.glass * 0.30f).toArgb()
