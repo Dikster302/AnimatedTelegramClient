@@ -27,7 +27,9 @@ public final class TdAnimatedMessageController implements AutoCloseable {
     public void schedule(long chatId, long messageId, List<String> characters) {
         if (characters == null || characters.size() < 2) return;
         for (int i = 1; i < characters.size(); i++) {
-            final String value = String.join("", characters.subList(0, i + 1));
+            StringBuilder builder = new StringBuilder();
+            for (int j = 0; j <= i; j++) builder.append(characters.get(j));
+            final String value = builder.toString();
             scheduler.schedule(() -> {
                 TdApi.InputMessageText content = new TdApi.InputMessageText(
                         new TdApi.FormattedText(value, null), null, true);
