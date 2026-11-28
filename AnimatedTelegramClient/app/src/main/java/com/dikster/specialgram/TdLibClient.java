@@ -184,7 +184,11 @@ public final class TdLibClient implements AutoCloseable {
                     }
                     @Override public TgProfile profile() { return profile.getValue(); }
                     @Override public void setProfile(TgProfile value) { profile.setValue(value); }
-                    @Override public void onPrivateChatUser(long userId, long chatId) { userToChat.put(userId, chatId); }
+                    @Override public void onPrivateChatUser(long userId, long chatId) {
+                        userToChat.put(userId,chatId);
+                        profilePhotoIds.remove(userId);
+                        profilePhotoFileToIndex.entrySet().removeIf(entry->entry.getValue().getFirst()==userId);
+                    }
                     @Override public void onProfileUser(TdApi.User user, long chatId) {
                         setChats(TdUserStateController.updateChatUser(chats.getValue(), userToChat, user));
                         int photoId = user.profilePhoto == null || user.profilePhoto.small == null
@@ -193,7 +197,7 @@ public final class TdLibClient implements AutoCloseable {
                     }
 
                     @Override public void onProfilePhotos(long userId,TdApi.ChatPhotos photos) {
-                        profilePhotoIds.put(userId,java.util.concurrent.ConcurrentHashMap.newKeySet());
+                        profilePhotoIds.computeIfAbsent(userId,key->java.util.concurrent.ConcurrentHashMap.newKeySet());
                         if(photos!=null&&photos.photos!=null)
                             for(TdApi.ChatPhoto photo:photos.photos)appendProfilePhoto(userId,photo);
                     }
