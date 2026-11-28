@@ -35,11 +35,11 @@ public final class TdChatListFilter {
             }
             if (matches) result.add(chat);
         }
-        Comparator<TgChat> comparator = newestFirst
-                ? Comparator.comparing(TgChat::isPinned).reversed()
-                    .thenComparing(Comparator.comparingInt(TgChat::getLastDate).reversed())
-                : Comparator.comparing(TgChat::isPinned).reversed()
-                    .thenComparing(chat -> chat.getTitle().toLowerCase(Locale.getDefault()));
+        Comparator<TgChat> comparator = Comparator.comparing(TgChat::isPinned).reversed()
+                .thenComparing(Comparator.comparingLong(TgChat::getPinnedOrder).reversed());
+        comparator = newestFirst
+                ? comparator.thenComparing(Comparator.comparingInt(TgChat::getLastDate).reversed())
+                : comparator.thenComparing(chat -> chat.getTitle().toLowerCase(Locale.ROOT));
         result.sort(comparator);
         return result;
     }
