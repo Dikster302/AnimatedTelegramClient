@@ -214,7 +214,6 @@ public final class NativeChatsScreenView extends FrameLayout {
                 @Override public void onTogglePinned(TgChat chat){if(listener!=null)listener.onTogglePinned(chat);}
                 @Override public void onToggleUnread(TgChat chat){if(listener!=null)listener.onToggleUnread(chat);}
                 @Override public void onToggleMute(TgChat chat){if(listener!=null)listener.onToggleMute(chat);}
-            @Override public void onPreview(TgChat chat){if(listener!=null)listener.onPreviewChat(chat);}
                 @Override public void onPreview(TgChat chat){if(listener!=null)listener.onPreviewChat(chat);}
             });
             column.addView(list,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,0,1f));
@@ -423,6 +422,7 @@ public final class NativeChatsScreenView extends FrameLayout {
             @Override public void onTogglePinned(TgChat chat){if(listener!=null)listener.onTogglePinned(chat);}
             @Override public void onToggleUnread(TgChat chat){if(listener!=null)listener.onToggleUnread(chat);}
             @Override public void onToggleMute(TgChat chat){if(listener!=null)listener.onToggleMute(chat);}
+            @Override public void onPreview(TgChat chat){if(listener!=null)listener.onPreviewChat(chat);}
         };
     }
     private NativeContactsPanel.Listener contactsListener(){
