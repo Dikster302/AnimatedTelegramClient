@@ -118,10 +118,10 @@ public final class TdChatConversationController {
         TgMessage oldest = previous.get(0);
         for (TgMessage item : previous) if (item.getId() < oldest.getId()) oldest = item;
         final int generation = session.getSessionGeneration();
-        session.markLoading(chatId);
+        session.markLoading(chatId, generation);
         history.loadOlder(chatId, oldest.getId(), new TdChatHistoryController.Callback() {
             @Override public void onResult(TdApi.Object result) {
-                session.clearLoading(chatId);
+                session.clearLoading(chatId, generation);
                 if (session.getSessionGeneration() != generation) return;
                 if (!isActive(chatId) || !(result instanceof TdApi.Messages)) return;
                 TdApi.Message[] loaded = ((TdApi.Messages) result).messages;
