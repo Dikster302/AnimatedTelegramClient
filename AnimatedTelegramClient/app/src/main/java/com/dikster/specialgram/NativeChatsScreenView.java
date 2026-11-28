@@ -238,7 +238,6 @@ public final class NativeChatsScreenView extends FrameLayout {
     private void renderComposeButton(){
         if(selectedTab!=0||"Архив".equals(folder)){
             if(composeButton!=null&&composeButton.getParent()==contentHost)contentHost.removeView(composeButton);
-            composeButton=null;
             return;
         }
         if(composeButton==null){
@@ -248,14 +247,16 @@ public final class NativeChatsScreenView extends FrameLayout {
             composeButton.setTextColor(Color.WHITE);
             composeButton.setGravity(Gravity.CENTER);
             composeButton.setContentDescription("Новое сообщение");
-            GradientDrawable shape=new GradientDrawable();
-            shape.setShape(GradientDrawable.OVAL);
-            shape.setColor(state.accent);
-            composeButton.setBackground(shape);
-            composeButton.setElevation(dp(8));
             composeButton.setFocusable(true);
             composeButton.setClickable(true);
             composeButton.setOnClickListener(v->{selectedTab=1;update(state,listener);});
+        }
+        GradientDrawable shape=new GradientDrawable();
+        shape.setShape(GradientDrawable.OVAL);
+        shape.setColor(state.accent);
+        composeButton.setBackground(shape);
+        composeButton.setElevation(dp(8));
+        if(composeButton.getParent()!=contentHost){
             FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(dp(56),dp(56),
                     Gravity.RIGHT|Gravity.BOTTOM);
             params.setMargins(0,0,dp(18),dp(18));
@@ -265,12 +266,6 @@ public final class NativeChatsScreenView extends FrameLayout {
             composeButton.setScaleY(.88f);
             composeButton.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180L)
                     .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
-        }else{
-            composeButton.setBackgroundTintList(null);
-            GradientDrawable shape=new GradientDrawable();
-            shape.setShape(GradientDrawable.OVAL);
-            shape.setColor(state.accent);
-            composeButton.setBackground(shape);
         }
     }
 
