@@ -59,31 +59,36 @@ public final class TdUserFullInfoQueue implements AutoCloseable {
             userId=pending.pollFirst();
             if(userId==null){inFlight=false;return;}
         }
-        requester.send(new TdApi.GetUserFullInfo(userId),new Callback(){
-            @Override public void onResult(TdApi.Object result){
-                synchronized(TdUserFullInfoQueue.this){
-                    retries.remove(userId);
-                    queued.remove(userId);
-                    if(result instanceof TdApi.UserFullInfo)completed.add(userId);
+        try {
+            requester.send(new TdApi.GetUserFullInfo(userId),new Callback(){
+                @Override public void onResult(TdApi.Object result){
+                    synchronized(TdUserFullInfoQueue.this){
+                        retries.remove(userId);
+                        queued.remove(userId);
+                        if(result instanceof TdApi.UserFullInfo)completed.add(userId);
+                    }
+                    if(result instanceof TdApi.UserFullInfo&&listener!=null)
+                        listener.onUserFullInfo(userId,(TdApi.UserFullInfo)result);
+                    complete(GAP_MS);
                 }
-                if(result instanceof TdApi.UserFullInfo&&listener!=null)
-                    listener.onUserFullInfo(userId,(TdApi.UserFullInfo)result);
-                complete(GAP_MS);
-            }
-            @Override public void onError(TdApi.Error error){
-                long delay=GAP_MS;
-                synchronized(TdUserFullInfoQueue.this){
-                    if(error!=null&&error.code==429){
-                        int attempt=retries.getOrDefault(userId,0)+1;
-                        if(attempt<=MAX_RETRIES){
-                            retries.put(userId,attempt);pending.addFirst(userId);
-                            delay=retryDelay(error.message,attempt);
+                @Override public void onError(TdApi.Error error){
+                    long delay=GAP_MS;
+                    synchronized(TdUserFullInfoQueue.this){
+                        if(error!=null&&error.code==429){
+                            int attempt=retries.getOrDefault(userId,0)+1;
+                            if(attempt<=MAX_RETRIES){
+                                retries.put(userId,attempt);pending.addFirst(userId);
+                                delay=retryDelay(error.message,attempt);
+                            }else { retries.remove(userId); queued.remove(userId); }
                         }else { retries.remove(userId); queued.remove(userId); }
-                    }else { retries.remove(userId); queued.remove(userId); }
+                    }
+                    complete(delay);
                 }
-                complete(delay);
-            }
-        });
+            });
+        } catch (RuntimeException failure) {
+            synchronized (this) { retries.remove(userId); queued.remove(userId); }
+            complete(GAP_MS);
+        }
     }
     private void complete(long delay){
         synchronized(this){
