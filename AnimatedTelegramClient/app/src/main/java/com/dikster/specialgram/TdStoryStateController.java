@@ -25,7 +25,7 @@ public final class TdStoryStateController {
     public void updateChatStories(TdApi.ChatActiveStories update) {
         boolean hasStory = !update.stories.isEmpty();
         boolean hasUnviewed = false;
-        for (TdApi.ChatActiveStories.StoryInfo story : update.stories) {
+        for (TdApi.StoryInfo story : update.stories) {
             if (story.storyId > update.maxReadStoryId) hasUnviewed = true;
         }
         List<TgChat> chats = new ArrayList<>();
@@ -42,7 +42,7 @@ public final class TdStoryStateController {
             }
             listener.setStories(stories);
         } else {
-            for (TdApi.ChatActiveStories.StoryInfo story : update.stories) {
+            for (TdApi.StoryInfo story : update.stories) {
                 listener.enqueueStoryContent(update.chatId, story.storyId,
                         story.storyId <= update.maxReadStoryId);
             }
