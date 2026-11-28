@@ -38,7 +38,7 @@ public final class TdChatStateController {
                         chat.getLastReadOutboxMessageId(), chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted()));
             } else result.add(chat);
         }
-        result.sort(Comparator.comparingInt(TgChat::getLastDate).reversed());
+        sortChats(result);
         return result;
     }
 
@@ -59,7 +59,14 @@ public final class TdChatStateController {
         for (TgChat chat : source) result.add(chat.getId() == chatId
                 ? copyChatWithPosition(chat, archived, position.isPinned)
                 : chat);
+        sortChats(result);
         return result;
+    }
+
+    /** Keep pinned chats above regular chats; date orders chats within each group. */
+    static void sortChats(List<TgChat> chats) {
+        chats.sort(Comparator.comparing(TgChat::isPinned).reversed()
+                .thenComparing(Comparator.comparingInt(TgChat::getLastDate).reversed()));
     }
 
     private static TgChat copyChatWithPosition(TgChat c, boolean archived, boolean pinned) {
