@@ -91,9 +91,22 @@ public final class NativeStoryStripView extends HorizontalScrollView {
         ring.setColor(panelColor); ring.setShape(GradientDrawable.OVAL);
         ring.setStroke(dp(2),accentColor);
         circle.setBackground(ring);
-        TextView plus=text("+",accentColor,34,false);
+        TextView camera=text("📷",textColor,22,false);
+        camera.setGravity(Gravity.CENTER);
+        circle.addView(camera,new FrameLayout.LayoutParams(dp(62),dp(62),Gravity.CENTER));
+        TextView plus=text("+",Color.WHITE,14,true);
         plus.setGravity(Gravity.CENTER);
-        circle.addView(plus,new FrameLayout.LayoutParams(dp(62),dp(62),Gravity.CENTER));
+        GradientDrawable plusBadge=new GradientDrawable();
+        plusBadge.setColor(accentColor);
+        plusBadge.setShape(GradientDrawable.OVAL);
+        plus.setBackground(plusBadge);
+        FrameLayout.LayoutParams plusParams=new FrameLayout.LayoutParams(dp(23),dp(23),
+                Gravity.RIGHT|Gravity.BOTTOM);
+        plusParams.rightMargin=dp(1);
+        plusParams.bottomMargin=dp(1);
+        circle.addView(plus,plusParams);
+        circle.setContentDescription("Добавить историю");
+        item.setContentDescription("Моя история — добавить фото или видео");
         item.addView(circle,new LinearLayout.LayoutParams(dp(62),dp(62)));
         TextView label=text("Моя история",textColor,11,false);
         label.setSingleLine(true); label.setMaxWidth(dp(70));
