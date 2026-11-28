@@ -40,7 +40,7 @@ public final class TdUserMapper {
                 user.status instanceof TdApi.UserStatusOnline, user.isPremium,
                 user.verificationStatus != null && user.verificationStatus.isVerified,
                 previous.getCommonGroups(),previous.getBirthdate(),previous.getGiftCount(),
-                previous.canBeCalled(),previous.supportsVideoCalls(),previous.getGifts());
+                previous.canBeCalled(),previous.supportsVideoCalls(),previous.getGifts(),previous.getUserId());
     }
 
     private static String username(TdApi.User user) {
