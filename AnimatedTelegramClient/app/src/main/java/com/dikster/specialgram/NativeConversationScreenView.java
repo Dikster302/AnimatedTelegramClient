@@ -45,6 +45,7 @@ public final class NativeConversationScreenView extends FrameLayout {
     private String videoNoteShape="circle",operationError,draft="",searchQuery="",lastShownError;
     private TgMessage replyingTo,selectedMessage;
     private boolean animatedMode=true,profileVisible,searchOpen;
+    private long animatedPreferenceChatId;
     private int searchIndex;
     private int chatBackgroundColor,panelColor,panelLightColor,textColor,mutedColor,accentColor,incomingColor,outgoingColor;
     private float bubbleRadius;
@@ -70,7 +71,12 @@ public final class NativeConversationScreenView extends FrameLayout {
             NativeClearHistoryDialog.show(getContext(),chat==null?"":chat.getTitle(),
                     forEveryone->{if(listener!=null)listener.onClearHistory(forEveryone);});
         }
-        @Override public void onToggleAnimated(){animatedMode=!animatedMode;render();}
+        @Override public void onToggleAnimated(){
+            animatedMode=!animatedMode;
+            if(chat!=null)getContext().getSharedPreferences("chat_features",Context.MODE_PRIVATE)
+                    .edit().putBoolean(animatedPreferenceKey(chat.getId()),animatedMode).apply();
+            render();
+        }
     };
     private final NativeMessageSearchBarView.Listener searchListener=new NativeMessageSearchBarView.Listener(){
         @Override public void onQuery(String value){searchQuery=value==null?"":value;searchIndex=0;requestSearch();render();}
@@ -120,6 +126,11 @@ public final class NativeConversationScreenView extends FrameLayout {
             int background,int chatBackground,int panel,int panelLight,int text,int muted,int accent,
             int incoming,int outgoing,float bubbleRadius,Listener callback){
         this.listener=callback;this.chat=chat;
+        if(chat!=null&&animatedPreferenceChatId!=chat.getId()){
+            animatedPreferenceChatId=chat.getId();
+            animatedMode=getContext().getSharedPreferences("chat_features",Context.MODE_PRIVATE)
+                    .getBoolean(animatedPreferenceKey(chat.getId()),true);
+        }
         this.chats=copy(chats);this.messages=copy(messages);this.searchResults=copy(searchResults);
         this.profile=profile;this.videoNoteShape=videoNoteShape==null?"circle":videoNoteShape;
         this.operationError=operationError;this.chatBackgroundColor=chatBackground;
@@ -195,6 +206,8 @@ public final class NativeConversationScreenView extends FrameLayout {
                     ()->{if(listener!=null)listener.onDismissOperationError();});
         }
     }
+
+    private String animatedPreferenceKey(long chatId){return "animated_send_"+chatId;}
 
     private List<TgMessage> computeVisibleMessages(){
         List<TgMessage> ordered=new ArrayList<>(messages);
