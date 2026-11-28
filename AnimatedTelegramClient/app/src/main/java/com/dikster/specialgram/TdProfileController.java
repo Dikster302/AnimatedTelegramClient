@@ -1,6 +1,11 @@
 package com.dikster.specialgram;
 
 import org.drinkless.tdlib.TdApi;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 /** Coordinates generation-safe profile loading and profile model updates. */
 public final class TdProfileController {
@@ -50,11 +55,36 @@ public final class TdProfileController {
                 if (!session.isCurrent(generation) || !session.isActiveUser(userId)) return;
                 TgProfile current = listener.profile();
                 if (current == null) return;
+                String birthday = "";
+                if (info.birthdate != null && info.birthdate.month > 0 && info.birthdate.day > 0) {
+                    birthday = info.birthdate.year > 0
+                            ? String.format(Locale.ROOT,"%02d.%02d.%04d",info.birthdate.day,info.birthdate.month,info.birthdate.year)
+                            : String.format(Locale.ROOT,"%02d.%02d",info.birthdate.day,info.birthdate.month);
+                }
                 listener.setProfile(new TgProfile(current.getChatId(), current.getName(), current.getKind(),
                         current.getPhone(), info.bio == null ? "" : info.bio.text,
                         current.getAvatarPath(), current.getUsername(), current.getStatus(),
                         current.isOnline(), current.isPremium(), current.isVerified(),
-                        info.groupInCommonCount));
+                        info.groupInCommonCount,birthday,info.giftCount,info.canBeCalled,
+                        info.supportsVideoCalls,current.getGifts()));
+                userActions.loadProfileGifts(userId,new TdUserActionsController.GiftsListener(){
+                    @Override public void onGifts(TdApi.ReceivedGifts received){
+                        if(!session.isCurrent(generation)||!session.isActiveUser(userId))return;
+                        List<String> items=new ArrayList<>();
+                        if(received.gifts!=null)for(TdApi.ReceivedGift gift:received.gifts){
+                            if(gift==null)continue;
+                            String date=new SimpleDateFormat("dd.MM.yyyy",Locale.getDefault())
+                                    .format(new Date(gift.date*1000L));
+                            String line=gift.isPrivate?"Личный подарок · "+date:"Подарок · "+date;
+                            if(!gift.isPrivate&&gift.text!=null&&gift.text.text!=null&&!gift.text.text.trim().isEmpty())
+                                line+="\n"+gift.text.text.trim();
+                            items.add(line);
+                        }
+                        TgProfile latest=listener.profile();
+                        if(latest!=null&&latest.getChatId()==chatId)listener.setProfile(latest.withGifts(items));
+                    }
+                    @Override public void onError(TdApi.Error error){ }
+                });
             }
         });
     }
