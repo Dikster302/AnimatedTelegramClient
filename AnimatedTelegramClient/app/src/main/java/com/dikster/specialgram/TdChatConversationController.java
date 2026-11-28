@@ -88,7 +88,7 @@ public final class TdChatConversationController {
     }
 
     public void searchChatMessages(long chatId, String query) {
-        String value = query == null ? "" : query.trim();
+        String value = query == null ? "" : query.strip();
         int generation = session.nextSearchGeneration();
         if (value.isEmpty()) {
             listener.setSearchResults(new ArrayList<>());
@@ -142,7 +142,7 @@ public final class TdChatConversationController {
                 Map<Long, TgMessage> byId = indexById(combined);
                 List<TgMessage> resolved = new ArrayList<>(combined.size());
                 for (TgMessage item : combined) {
-                    String reply = item.getReplyToMessageId() != 0L && item.getReplyToText().trim().isEmpty()
+                    String reply = item.getReplyToMessageId() != 0L && item.getReplyToText().isBlank()
                             ? textFor(byId, item.getReplyToMessageId(), item.getReplyToText())
                             : item.getReplyToText();
                     resolved.add(copyMessage(item, item.isRead(), reply));
