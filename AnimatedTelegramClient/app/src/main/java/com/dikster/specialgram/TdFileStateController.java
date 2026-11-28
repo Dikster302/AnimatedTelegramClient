@@ -153,7 +153,7 @@ public final class TdFileStateController {
     private static TgAccount copyAvatar(TgAccount account, String path) {
         return new TgAccount(account.getName(), account.getUsername(), account.getPhone(),
                 account.isPremium(), account.isVerified(), account.getBio(), path,
-                account.getFirstName(), account.getLastName());
+                account.getFirstName(), account.getLastName(),account.getPhotoPaths());
     }
 
     private static TgStory copyPath(TgStory story, String path) {
