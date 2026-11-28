@@ -36,6 +36,9 @@ class TdLibClient(context:Context) {
  private var chatSearchGeneration=0
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
+ private val animatedMessageController = TdAnimatedMessageController(
+  TdAnimatedMessageController.Requester { function -> send(function) }
+ )
  private val fileDownloadQueue = TdFileDownloadQueue(
   TdFileDownloadQueue.Requester { function, callback ->
    send(function,
@@ -227,7 +230,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=TdMessageTextFormatter.display(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
-  is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
+  is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { animatedMessageController.schedule(o.message.chatId,newId,it) } }
  } }
  private fun onAuth(a:TdApi.AuthorizationState) { when(a) {
   is TdApi.AuthorizationStateWaitTdlibParameters -> send(TdAuthorizationController.createParameters(app,BuildConfig.TELEGRAM_API_ID,BuildConfig.TELEGRAM_API_HASH))
@@ -578,21 +581,10 @@ fun reportOperationError(text:String) {
   send(TdApi.SendMessage(id,null,reply,null,null,TdApi.InputMessageText(TdApi.FormattedText(chars.first(),null),null,true))) { r ->
    if(r is TdApi.Message && chars.size>1) {
     val serverId=confirmedIds[r.id]
-    if(serverId!=null) scheduleEdits(id,serverId,chars)
+    if(serverId!=null) animatedMessageController.schedule(id,serverId,chars)
     else pendingEdits[r.id]=chars
    }
   }
- }
- private fun scheduleEdits(chatId:Long,messageId:Long,words:List<String>) {
-  if(words.size<2)return
-  val scheduler=java.util.concurrent.Executors.newSingleThreadScheduledExecutor()
-  for(i in 1 until words.size) {
-   val value=words.take(i+1).joinToString("")
-   scheduler.schedule({
-    send(TdApi.EditMessageText(chatId,messageId,null,TdApi.InputMessageText(TdApi.FormattedText(value,null),null,true)))
-   },i*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
-  }
-  scheduler.schedule({scheduler.shutdown()},words.size*180L,java.util.concurrent.TimeUnit.MILLISECONDS)
  }
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
   client.send(f,Client.ResultHandler { r ->
@@ -609,6 +601,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){animatedMessageController.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
