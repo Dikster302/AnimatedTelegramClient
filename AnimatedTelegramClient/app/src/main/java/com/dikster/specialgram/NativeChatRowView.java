@@ -10,6 +10,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
+import com.dikster.specialgram.anim.SpecialgramAnimations;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -39,6 +40,7 @@ public final class NativeChatRowView extends LinearLayout {
     private int textColor;
     private int mutedColor;
     private int accentColor;
+    private int previousUnreadCount = -1;
 
     public NativeChatRowView(Context context, TgChat chat, boolean compact,
                              int textColor, int mutedColor, int accentColor, int panelColor,
@@ -48,9 +50,10 @@ public final class NativeChatRowView extends LinearLayout {
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
         setPadding(dp(16), dp(compact ? 5 : 8), dp(16), dp(compact ? 5 : 8));
+        setMinimumHeight(dp(76));
         setBackgroundResource(android.R.drawable.list_selector_background);
-        avatar = new NativeAvatarView(context, "", "", 0L, 54, false, false, false, panelColor);
-        LayoutParams avatarParams = new LayoutParams(dp(54), dp(54));
+        avatar = new NativeAvatarView(context, "", "", 0L, 52, false, false, false, panelColor);
+        LayoutParams avatarParams = new LayoutParams(dp(52), dp(52));
         addView(avatar, avatarParams);
 
         LinearLayout content = new LinearLayout(context);
@@ -131,7 +134,7 @@ public final class NativeChatRowView extends LinearLayout {
         this.unreadAction = onUnread;
         this.muteAction = onMute;
         setPadding(dp(16), dp(compact ? 5 : 8), dp(16), dp(compact ? 5 : 8));
-        avatar.update(value.getAvatarPath(), initials(value.getTitle()), value.getId(), 54,
+        avatar.update(value.getAvatarPath(), initials(value.getTitle()), value.getId(), 52,
                 value.isOnline(), value.getHasStory(), !value.getHasUnviewedStory(), panelColor);
         title.setText(value.getTitle());
         title.setTextColor(textColor);
@@ -148,15 +151,18 @@ public final class NativeChatRowView extends LinearLayout {
         time.setTextColor(value.getUnreadCount() > 0 || value.isMarkedAsUnread()
                 ? accentColor : mutedColor);
         if (value.getUnreadCount() > 0) {
+            boolean appeared = previousUnreadCount <= 0;
             unread.setVisibility(VISIBLE);
             unread.setText(value.getUnreadCount() > 99 ? "99+" : String.valueOf(value.getUnreadCount()));
             GradientDrawable badge = new GradientDrawable();
             badge.setColor(accentColor);
             badge.setCornerRadius(dp(20));
             unread.setBackground(badge);
+            if (appeared) SpecialgramAnimations.animateCounterIn(unread);
         } else {
             unread.setVisibility(GONE);
         }
+        previousUnreadCount = value.getUnreadCount();
     }
 
     private void showMenu() {
