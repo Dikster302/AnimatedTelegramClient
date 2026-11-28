@@ -297,7 +297,6 @@ private fun TelegramApp(td: TdLibClient) {
 
 @Composable
 private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit, onTogglePinned: (TgChat) -> Unit, onToggleUnread: (TgChat) -> Unit, onToggleMute: (TgChat) -> Unit) {
-    var menuOpen by remember { mutableStateOf(false) }
     var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
     val orderedStories = remember(stories) { stories.sortedWith(compareBy<TgStory> { it.date }.thenBy { it.chatId }.thenBy { it.storyId }) }
@@ -306,6 +305,14 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     var selectedTab by remember { mutableStateOf(0) }
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
+    val sortAction = onSort
+    val chatsHeaderListener = remember(sortAction) {
+        object : NativeChatsHeaderView.Listener {
+            override fun onSelectTab(tab: Int) { selectedTab = tab }
+            override fun onSort(newestFirst: Boolean) { sortAction(newestFirst); selectedTab = 0 }
+            override fun onToggleUnread() { unreadOnly = !unreadOnly; selectedTab = 0 }
+        }
+    }
     var folder by remember { mutableStateOf("Все") }
     val storyStripListener = remember(onPostStory, onOpenStory) {
         object : NativeStoryStripView.Listener {
@@ -326,28 +333,18 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
         Box(Modifier.fillMaxWidth()) {
             HeaderWallpaper(uri = if (selectedTab == 0) headerWallpaper else null, modifier = Modifier.matchParentSize())
             Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
-                Row(Modifier.fillMaxWidth().background(Color.Transparent).padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(42.dp)) {
-                        Text("☰", color = Color.White, fontSize = 23.sp)
+                val toolbarChatCount = chats.count { !it.archived }
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth(),
+                    factory = { context ->
+                        NativeChatsHeaderView(context, selectedTab, toolbarChatCount,
+                            unreadOnly, sortNewest, Color.WHITE.toArgb(), chatsHeaderListener)
+                    },
+                    update = { view ->
+                        view.update(selectedTab, toolbarChatCount, unreadOnly, sortNewest,
+                            Color.WHITE.toArgb(), chatsHeaderListener)
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(if (selectedTab == 2) "Настройки" else if (selectedTab == 1) "Контакты" else "Specialgram", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text(if (selectedTab == 0) "${chats.count { !it.archived }} диалогов" else "Specialgram · Telegram", color = Color.White.copy(alpha = 0.78f), fontSize = 12.sp)
-                    }
-                    Box {
-                        IconButton(onClick = { menuOpen = true }) { Text("⌕", color = Color.White, fontSize = 25.sp) }
-                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                            DropdownMenuItem(text = { Text("Чаты") }, onClick = { selectedTab = 0; menuOpen = false })
-                            DropdownMenuItem(text = { Text("Контакты") }, onClick = { selectedTab = 1; menuOpen = false })
-                            DropdownMenuItem(text = { Text("Настройки") }, onClick = { selectedTab = 2; menuOpen = false })
-                            HorizontalDivider()
-                            DropdownMenuItem(text = { Text("Сначала новые") }, onClick = { onSort(true); selectedTab = 0; menuOpen = false })
-                            DropdownMenuItem(text = { Text("По названию: А — Я") }, onClick = { onSort(false); selectedTab = 0; menuOpen = false })
-                            DropdownMenuItem(text = { Text(if (unreadOnly) "Показать все чаты" else "Только непрочитанные") }, onClick = { unreadOnly = !unreadOnly; selectedTab = 0; menuOpen = false })
-                        }
-                    }
-                }
+                )
                 if (selectedTab == 0) {
                     OutlinedTextField(
                         value = query, onValueChange = onQuery,
