@@ -28,6 +28,9 @@ import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.common.BitMatrix;
 
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /** Full-screen native profile and dedicated Telegram-style QR page. */
 public final class NativeProfileDialogHost extends FrameLayout {
@@ -36,10 +39,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
     private final Listener listener;
     private TgChat currentChat;
     private TgProfile currentProfile;
+    private List<TgMessage> currentMessages=Collections.emptyList();
     private int textColor,mutedColor,accentColor,panelColor;
     private String activeTab="Медиа";
 
-    public NativeProfileDialogHost(Context context,TgChat chat,TgProfile profile,
+    public NativeProfileDialogHost(Context context,TgChat chat,TgProfile profile,List<TgMessage> messages,
             int text,int muted,int accent,int panel,Listener listener){
         super(context);
         this.listener=listener;
@@ -47,7 +51,7 @@ public final class NativeProfileDialogHost extends FrameLayout {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setContentView(this);
         dialog.setOnDismissListener(d->{if(this.listener!=null)this.listener.onClose();});
-        update(chat,profile,text,muted,accent,panel);
+        update(chat,profile,messages,text,muted,accent,panel);
         Window w=dialog.getWindow();
         if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);
             w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
@@ -56,11 +60,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
         if(w!=null)w.setLayout(WindowManager.LayoutParams.MATCH_PARENT,WindowManager.LayoutParams.MATCH_PARENT);
     }
 
-    public void update(TgChat chat,TgProfile profile,int text,int muted,int accent,int panel){
+    public void update(TgChat chat,TgProfile profile,List<TgMessage> messages,int text,int muted,int accent,int panel){
         boolean changed=currentChat==null||!currentChat.equals(chat)
                 ||(currentProfile==null?profile!=null:!currentProfile.equals(profile))
                 ||textColor!=text||mutedColor!=muted||accentColor!=accent||panelColor!=panel;
-        currentChat=chat;currentProfile=profile;textColor=text;mutedColor=muted;
+        currentChat=chat;currentProfile=profile;currentMessages=messages==null?Collections.emptyList():new ArrayList<>(messages);textColor=text;mutedColor=muted;
         accentColor=accent;panelColor=panel;
         if(changed)render();
     }
@@ -176,14 +180,32 @@ public final class NativeProfileDialogHost extends FrameLayout {
             chip.setOnClickListener(v->{activeTab=tab;render();});
         }
         body.addView(tabsScroll,new LinearLayout.LayoutParams(-1,dp(44)));
-        LinearLayout empty=cardColumn();
-        TextView emptyIcon=label("▧",mutedColor,28,true);emptyIcon.setGravity(Gravity.CENTER);
-        empty.addView(emptyIcon,wrap());
-        TextView emptyText=label(emptyTextFor(activeTab),mutedColor,13,false);
-        emptyText.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams ep=wrap();ep.topMargin=dp(5);empty.addView(emptyText,ep);
+        LinearLayout contentCard=cardColumn();
+        List<TgMessage> sectionMessages=messagesForTab(activeTab);
+        if(sectionMessages.isEmpty()){
+            TextView emptyIcon=label("▧",mutedColor,28,true);emptyIcon.setGravity(Gravity.CENTER);
+            contentCard.addView(emptyIcon,wrap());
+            TextView emptyText=label(emptyTextFor(activeTab),mutedColor,13,false);
+            emptyText.setGravity(Gravity.CENTER);
+            LinearLayout.LayoutParams ep=wrap();ep.topMargin=dp(5);contentCard.addView(emptyText,ep);
+        }else{
+            TextView hint=label("Материалы из загруженной истории чата",mutedColor,11,false);
+            LinearLayout.LayoutParams hintParams=wrap();hintParams.leftMargin=dp(14);hintParams.topMargin=dp(10);
+            contentCard.addView(hint,hintParams);
+            int count=Math.min(sectionMessages.size(),30);
+            for(int i=0;i<count;i++){
+                TgMessage message=sectionMessages.get(i);
+                String preview=!empty(message.getMediaName())?message.getMediaName():
+                        !empty(message.getText())?message.getText():mediaLabel(message.getMediaKind());
+                TextView item=label(preview,textColor,14,false);
+                item.setMaxLines(2);item.setPadding(dp(14),dp(11),dp(14),dp(11));
+                contentCard.addView(item,wrap());
+                if(i<count-1){View divider=new View(getContext());divider.setBackgroundColor(0x22FFFFFF);
+                    contentCard.addView(divider,new LinearLayout.LayoutParams(-1,dp(1)));}
+            }
+        }
         LinearLayout.LayoutParams emptyParams=wrap();emptyParams.topMargin=dp(10);
-        body.addView(empty,emptyParams);
+        body.addView(contentCard,emptyParams);
     }
 
     private void showQr(){
@@ -258,6 +280,36 @@ public final class NativeProfileDialogHost extends FrameLayout {
         }catch(Exception e){Toast.makeText(getContext(),"Не удалось сохранить QR-код",Toast.LENGTH_SHORT).show();}
     }
 
+    private List<TgMessage> messagesForTab(String tab){
+        List<TgMessage> result=new ArrayList<>();
+        for(int i=currentMessages.size()-1;i>=0;i--){
+            TgMessage message=currentMessages.get(i);
+            String kind=message.getMediaKind().toLowerCase(java.util.Locale.ROOT);
+            String text=message.getText().toLowerCase(java.util.Locale.ROOT);
+            boolean match=false;
+            switch(tab){
+                case "Медиа": match=kind.contains("photo")||kind.contains("video")||kind.contains("animation")||kind.contains("gif");break;
+                case "Избранное": match=message.isPinned();break;
+                case "Файлы": match=kind.contains("document")||kind.contains("file");break;
+                case "Ссылки": match=text.contains("https://")||text.contains("http://")||text.contains("t.me/");break;
+                case "Голосовые": match=kind.contains("voice")||kind.contains("audio");break;
+                case "GIF": match=kind.contains("animation")||kind.contains("gif");break;
+                default: break;
+            }
+            if(match)result.add(message);
+        }
+        return result;
+    }
+    private String mediaLabel(String kind){
+        if(kind==null||kind.isEmpty())return "Сообщение";
+        if(kind.contains("photo"))return "Фото";
+        if(kind.contains("video"))return "Видео";
+        if(kind.contains("voice"))return "Голосовое сообщение";
+        if(kind.contains("audio"))return "Аудио";
+        if(kind.contains("document")||kind.contains("file"))return "Файл";
+        if(kind.contains("animation")||kind.contains("gif"))return "GIF";
+        return kind;
+    }
     private void addInfo(LinearLayout parent,String label,String value){
         LinearLayout row=new LinearLayout(getContext());row.setOrientation(LinearLayout.VERTICAL);
         row.setPadding(dp(14),dp(11),dp(14),dp(11));
