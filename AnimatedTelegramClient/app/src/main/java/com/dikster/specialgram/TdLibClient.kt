@@ -287,17 +287,17 @@ class TdLibClient(context:Context) {
  }
  private fun updateAccount(user:TdApi.User) {
   myUserId=user.id
-  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _account.value=(_account.value ?: TgAccount("Мой аккаунт")).copy(name=name.ifBlank{"Мой аккаунт"},username=user.usernames?.activeUsernames?.firstOrNull() ?: "",phone=user.phoneNumber,isPremium=user.isPremium,isVerified=user.verificationStatus?.isVerified == true,firstName=user.firstName,lastName=user.lastName)
-  send(TdApi.GetUserFullInfo(user.id)) { info -> if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "") }
+  _account.value=TdUserMapper.toAccount(user,_account.value)
+  send(TdApi.GetUserFullInfo(user.id)) { info ->
+   if(info is TdApi.UserFullInfo) _account.value=_account.value?.copy(bio=info.bio?.text ?: "")
+  }
   val photoId=user.profilePhoto?.small?.id ?: 0
   myPhotoFileId=photoId.takeIf { it>0 }
   if(photoId>0) fileDownloadQueue.enqueue(photoId) else _account.value=_account.value?.copy(avatarPath="")
  }
  private fun updateUserProfile(user:TdApi.User) {
   if(activeProfileUserId!=user.id) return
-  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  _profile.value=_profile.value?.copy(name=name.ifBlank{_profile.value?.name ?: ""},phone=user.phoneNumber,username=user.usernames?.activeUsernames?.firstOrNull() ?: "",status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium,isVerified=user.verificationStatus?.isVerified == true)
+  _profile.value=TdUserMapper.updateProfile(user,_profile.value)
  }
  private fun refreshUserStatus(userId:Long,status:TdApi.UserStatus) {
   _contacts.value=_contacts.value.map { if(it.id==userId) it.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline) else it }
@@ -307,8 +307,7 @@ class TdLibClient(context:Context) {
   if(current!=null && chatId==current.chatId) _profile.value=current.copy(status=userStatusText(status),isOnline=status is TdApi.UserStatusOnline)
  }
  private fun updateContact(user:TdApi.User) {
-  val name=listOf(user.firstName,user.lastName).filter{it.isNotBlank()}.joinToString(" ")
-  val item=TgContact(user.id,name,user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,userStatusText(user.status),user.status is TdApi.UserStatusOnline,user.isPremium)
+  val item=TdUserMapper.toContact(user)
   _contacts.value=(_contacts.value.filterNot{it.id==user.id}+item).sortedBy{it.name.lowercase(java.util.Locale.getDefault())}
  }
  fun loadContacts() { contactsController.load() }
