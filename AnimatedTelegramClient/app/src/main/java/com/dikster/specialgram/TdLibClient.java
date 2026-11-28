@@ -298,6 +298,9 @@ public final class TdLibClient implements AutoCloseable {
                     }
                 }, null, false);
             }
+            @Override public void replaceCachedMessage(long chatId, long oldMessageId, TgMessage confirmedMessage) {
+                chatCacheRepository.replaceMessageId(chatId, oldMessageId, confirmedMessage);
+            }
             @Override public TgMessage mapMessage(TdApi.Message value, long marker) { return mapping.map(value, marker); }
             @Override public void enqueueViewedMessages(long chatId, long[] ids) { messageViewQueue.enqueue(chatId, ids); }
         }, animatedMessageController, confirmedIds, pendingEdits);
@@ -310,6 +313,14 @@ public final class TdLibClient implements AutoCloseable {
             @Override public void setProfile(TgProfile value) { profile.setValue(value); }
             @Override public List<TgMessage> messages() { return messages.getValue(); }
             @Override public void setMessages(List<TgMessage> value) { setActiveMessages(value); }
+            @Override public void refreshCachedMessage(long chatId, long messageId) {
+                send(new TdApi.GetMessage(chatId, messageId), result -> {
+                    if (result instanceof TdApi.Message) {
+                        TgMessage refreshed = mapping.map((TdApi.Message) result, 0L);
+                        chatCacheRepository.upsertMessages(chatId, Collections.singletonList(refreshed));
+                    }
+                }, null, false);
+            }
             @Override public List<TgStory> stories() { return stories.getValue(); }
             @Override public void setStories(List<TgStory> value) { stories.setValue(value); }
             @Override public TgAccount account() { return account.getValue(); }
