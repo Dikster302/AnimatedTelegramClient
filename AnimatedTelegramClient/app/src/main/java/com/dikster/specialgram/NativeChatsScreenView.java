@@ -310,9 +310,9 @@ public final class NativeChatsScreenView extends FrameLayout {
         if(!"Архив".equals(folder)){
             if(storyStrip==null){
                 storyStrip=new NativeStoryStripView(getContext(),state.stories,state.chats,state.text,state.accent,
-                        state.panelLight,storyStripListener());
+                        state.panelLight,state.account,storyStripListener());
                 listColumn.addView(storyStrip,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(92)));
-            }else storyStrip.update(state.stories,state.chats,state.text,state.accent,state.panelLight,storyStripListener());
+            }else storyStrip.update(state.stories,state.chats,state.text,state.accent,state.panelLight,state.account,storyStripListener());
         }else if(storyStrip!=null){listColumn.removeView(storyStrip);storyStrip=null;}
         if(folders==null){
             folders=new NativeChatFoldersView(getContext(),folder,state.text,state.muted,state.accent,
