@@ -8,6 +8,7 @@ public final class TdUpdateRouter {
         void onAuthorizationState(TdApi.AuthorizationState state);
         void onNewChat(TdApi.Chat chat);
         void onChatTitle(long chatId, String title);
+        void onChatPhoto(long chatId, TdApi.ChatPhotoInfo photo);
         void onChatActiveStories(TdApi.ChatActiveStories stories);
         void onStory(TdApi.Story story);
         void onStoryDeleted(long chatId, int storyId);
@@ -32,6 +33,9 @@ public final class TdUpdateRouter {
             listener.onAuthorizationState(((TdApi.UpdateAuthorizationState) update).authorizationState);
         } else if (update instanceof TdApi.UpdateNewChat) {
             listener.onNewChat(((TdApi.UpdateNewChat) update).chat);
+        } else if (update instanceof TdApi.UpdateChatPhoto) {
+            TdApi.UpdateChatPhoto value = (TdApi.UpdateChatPhoto) update;
+            listener.onChatPhoto(value.chatId, value.photo);
         } else if (update instanceof TdApi.UpdateChatTitle) {
             TdApi.UpdateChatTitle value = (TdApi.UpdateChatTitle) update;
             listener.onChatTitle(value.chatId, value.title);
