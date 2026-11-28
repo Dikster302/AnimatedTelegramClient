@@ -86,7 +86,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private State state;
     private Listener listener;
     private int selectedTab,renderedTab=-1,lastAnimatedTab=-1;
-    private String folder="Все",renderedFolder="";
+    private String folder="Все чаты",renderedFolder="";
     private boolean unreadOnly;
     private boolean searchExpanded;
     private NativeChatsHeaderView toolbar;
