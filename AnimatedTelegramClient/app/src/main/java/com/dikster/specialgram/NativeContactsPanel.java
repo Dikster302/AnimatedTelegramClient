@@ -90,6 +90,8 @@ public final class NativeContactsPanel extends LinearLayout {
     public void update(List<TgContact> values, String query, int background,
                        int text, int muted, int accent, int panel, Listener callback) {
         this.listener=callback;
+        boolean styleChanged = textColor != text || mutedColor != muted
+                || accentColor != accent || panelColor != panel;
         this.textColor=text; this.mutedColor=muted; this.accentColor=accent; this.panelColor=panel;
         setBackgroundColor(background);
         if (!query.equals(search.getText().toString())) {
@@ -100,7 +102,7 @@ public final class NativeContactsPanel extends LinearLayout {
         }
         List<TgContact> next = values == null ? new ArrayList<>() : new ArrayList<>(values);
         count.setText(String.valueOf(next.size()));
-        if (!next.equals(contacts)) {
+        if (styleChanged || !next.equals(contacts)) {
             contacts=next;
             rows.removeAllViews();
             for (TgContact contact : contacts) addContact(contact);

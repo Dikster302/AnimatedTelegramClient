@@ -259,6 +259,11 @@ public final class NativeMessageBubbleView extends LinearLayout {
     private static String safe(String value) { return value == null ? "" : value; }
     private static boolean empty(String value) { return value == null || value.isEmpty(); }
 
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (message != null) render();
+    }
+
     @Override protected void onDetachedFromWindow() {
         stopMedia();
         super.onDetachedFromWindow();
