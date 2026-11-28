@@ -38,13 +38,13 @@ public final class TdMessageStateController {
     public boolean handle(TdApi.Object update) {
         if (update instanceof TdApi.UpdateDeleteMessages) {
             TdApi.UpdateDeleteMessages value = (TdApi.UpdateDeleteMessages) update;
+            Set<Long> deleted = new HashSet<>();
+            for (long id : value.messageIds) deleted.add(id);
+            listener.deleteMessages(value.chatId, new ArrayList<>(deleted));
             if (isActive(value.chatId)) {
-                Set<Long> deleted = new HashSet<>();
-                for (long id : value.messageIds) deleted.add(id);
                 List<TgMessage> messages = new ArrayList<>();
                 for (TgMessage message : listener.messages())
                     if (!deleted.contains(message.getId())) messages.add(message);
-                listener.deleteMessages(value.chatId, new ArrayList<>(deleted));
                 listener.setMessages(messages);
             }
             return true;
