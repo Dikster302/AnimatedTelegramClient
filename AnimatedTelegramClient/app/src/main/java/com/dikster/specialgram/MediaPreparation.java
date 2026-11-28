@@ -21,16 +21,28 @@ public final class MediaPreparation {
     public static Pair<File, Double> prepareStoryVideo(Context context, Uri uri) throws Exception {
         File file = new File(context.getCacheDir(),
                 "specialgram_story_video_" + System.currentTimeMillis() + ".mp4");
-        try (java.io.InputStream input = context.getContentResolver().openInputStream(uri)) {
-            if (input == null) throw new IllegalStateException("Не удалось открыть видео");
-            try (java.io.OutputStream output = new java.io.FileOutputStream(file)) {
-                byte[] buffer = new byte[64 * 1024];
-                int count;
-                while ((count = input.read(buffer)) >= 0) output.write(buffer, 0, count);
+        try {
+            try (java.io.InputStream input = context.getContentResolver().openInputStream(uri)) {
+                if (input == null) throw new IllegalStateException("Не удалось открыть видео");
+                try (java.io.OutputStream output = new java.io.FileOutputStream(file)) {
+                    byte[] buffer = new byte[64 * 1024];
+                    long total = 0L;
+                    int count;
+                    while ((count = input.read(buffer)) >= 0) {
+                        total += count;
+                        require(total <= 30L * 1024L * 1024L,
+                                "Размер видео должен быть не более 30 МБ");
+                        output.write(buffer, 0, count);
+                    }
+                }
             }
+            require(file.length() > 0L, "Выбран пустой видеофайл");
+        } catch (Exception error) {
+            // Do not leave a partial or invalid upload in the app cache.
+            //noinspection ResultOfMethodCallIgnored
+            file.delete();
+            throw error;
         }
-        require(file.length() >= 1 && file.length() <= 30L * 1024L * 1024L,
-                "Размер видео должен быть не более 30 МБ");
         MediaExtractor extractor = new MediaExtractor();
         try {
             extractor.setDataSource(file.getAbsolutePath());
@@ -187,22 +199,28 @@ public final class MediaPreparation {
         }
         File target = new File(context.getCacheDir(),
                 prefix + "_" + System.currentTimeMillis() + extension);
-        try (java.io.InputStream input = context.getContentResolver().openInputStream(uri)) {
-            if (input == null) throw new IllegalStateException("Не удалось открыть выбранный файл");
-            try (java.io.OutputStream output = new java.io.FileOutputStream(target)) {
-                byte[] buffer = new byte[64 * 1024];
-                long total = 0L;
-                int count;
-                while ((count = input.read(buffer)) >= 0) {
-                    total += count;
-                    require(total <= maxBytes, "Файл превышает лимит "
-                            + (maxBytes / (1024L * 1024L)) + " МБ");
-                    output.write(buffer, 0, count);
+        try {
+            try (java.io.InputStream input = context.getContentResolver().openInputStream(uri)) {
+                if (input == null) throw new IllegalStateException("Не удалось открыть выбранный файл");
+                try (java.io.OutputStream output = new java.io.FileOutputStream(target)) {
+                    byte[] buffer = new byte[64 * 1024];
+                    long total = 0L;
+                    int count;
+                    while ((count = input.read(buffer)) >= 0) {
+                        total += count;
+                        require(total <= maxBytes, "Файл превышает лимит "
+                                + (maxBytes / (1024L * 1024L)) + " МБ");
+                        output.write(buffer, 0, count);
+                    }
                 }
             }
+            require(target.length() > 0L, "Выбран пустой файл");
+            return target;
+        } catch (Exception error) {
+            //noinspection ResultOfMethodCallIgnored
+            target.delete();
+            throw error;
         }
-        require(target.length() > 0L, "Выбран пустой файл");
-        return target;
     }
 
     public static long directoryBytes(File root) {
