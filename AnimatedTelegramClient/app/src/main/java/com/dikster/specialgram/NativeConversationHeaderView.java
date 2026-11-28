@@ -35,7 +35,7 @@ public final class NativeConversationHeaderView extends LinearLayout {
         LayoutParams lp=new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f);lp.leftMargin=dp(11);
         addView(labels,lp);
         title=text(context,"",text,16,true);title.setSingleLine(true);
-        status=text(context,"",muted,12,false);status.setSingleLine(true);
+        status=text(context,"",muted,15,true);status.setSingleLine(true);
         labels.addView(title);labels.addView(status);
         menu=text(context,"⋮",text,24,false);menu.setGravity(Gravity.CENTER);
         addView(menu,new LayoutParams(dp(44),dp(52)));
