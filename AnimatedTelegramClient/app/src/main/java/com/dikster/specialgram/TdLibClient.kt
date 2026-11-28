@@ -453,9 +453,9 @@ class TdLibClient(context:Context) {
   _messages.value=emptyList()
   chatHistoryController.loadChat(id, object : TdChatHistoryController.Callback {
    override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Chat) {
+    if(result is TdApi.Chat && activeChat==id && chatSessionGeneration==session) {
      _chats.value=_chats.value.map { if(it.id==id) it.copy(lastReadOutboxMessageId=result.lastReadOutboxMessageId,unreadCount=result.unreadCount) else it }
-     if(activeChat==id && chatSessionGeneration==session) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
+     _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
     }
    }
    override fun onError(error:TdApi.Error) { }
@@ -511,8 +511,9 @@ class TdLibClient(context:Context) {
   historyLoadingChats.add(chatId)
   chatHistoryController.loadOlder(chatId,oldest.id,object : TdChatHistoryController.Callback {
    override fun onResult(result:TdApi.Object) {
+   if(chatSessionGeneration!=session) return
    historyLoadingChats.remove(chatId)
-   if(activeChat!=chatId || chatSessionGeneration!=session || result !is TdApi.Messages) return
+   if(activeChat!=chatId || result !is TdApi.Messages) return
    val loaded=result.messages
    if(loaded.isEmpty()) {
     historyExhaustedChats.add(chatId)
@@ -528,7 +529,7 @@ class TdLibClient(context:Context) {
    }
    if(loaded.size<50 || _messages.value.size==previous.size) historyExhaustedChats.add(chatId)
    }
-   override fun onError(error:TdApi.Error) { historyLoadingChats.remove(chatId) }
+   override fun onError(error:TdApi.Error) { if(chatSessionGeneration==session) historyLoadingChats.remove(chatId) }
   })
  }
  private fun updateOutboxRead(chatId:Long,lastReadId:Long) {
