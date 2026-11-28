@@ -599,11 +599,10 @@ fun reportOperationError(text:String) { operationErrorController.report(text) }
  private val requestDispatcher = TdRequestDispatcher(app, client)
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null,onError:((TdApi.Error)->Unit)?=null,reportErrorToUi:Boolean=true) {
   requestDispatcher.send(f, object : TdRequestDispatcher.Listener {
-   override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Error) {
-     onError?.invoke(result)
-     if(reportErrorToUi) _operationError.value=result.message
-    } else handler?.invoke(result)
+   override fun onResult(result:TdApi.Object) { handler?.invoke(result) }
+   override fun onError(error:TdApi.Error) {
+    onError?.invoke(error)
+    if(reportErrorToUi) _operationError.value=error.message
    }
   })
  }
