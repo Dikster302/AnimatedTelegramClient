@@ -1135,78 +1135,23 @@ private fun ConversationScreen(
 
 @Composable
 private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit, onReply: (String) -> Unit) {
-    var replyText by remember(story.chatId, story.storyId) { mutableStateOf("") }
-
-    val bitmap = remember(story.path, story.isVideo) {
-        if (!story.isVideo && story.path.isNotBlank() && story.path != "unsupported") runCatching { BitmapFactory.decodeFile(story.path)?.asImageBitmap() }.getOrNull() else null
+    val listener = remember(onDismiss, onPrevious, onNext, onReact, onReply) {
+        object : NativeStoryViewerView.Listener {
+            override fun onDismiss() = onDismiss()
+            override fun onPrevious() = onPrevious()
+            override fun onNext() = onNext()
+            override fun onReact() = onReact()
+            override fun onReply(text: String) = onReply(text)
+        }
     }
     Dialog(onDismissRequest = onDismiss) {
-        Surface(Modifier.fillMaxWidth().height(620.dp), color = Color(0xFF090B12), shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.fillMaxWidth()) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(story.ownerName, color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text("$storyPosition/$storyCount", color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-                        TextButton(onClick = onDismiss) { Text("Закрыть", color = Color.White) }
-                    }
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                        repeat(storyCount.coerceAtLeast(1)) { index ->
-                            Box(
-                                Modifier.weight(1f).height(3.dp).clip(CircleShape)
-                                    .background(if (index < storyPosition) Color.White else Color.White.copy(alpha = 0.22f))
-                            )
-                        }
-                    }
-                }
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    if (story.path.isBlank()) CircularProgressIndicator(color = Color.White)
-                    else if (story.path == "unsupported") Text("Этот тип истории пока не поддерживается", color = Color.White)
-                    else if (story.isVideo) {
-                        AndroidView(factory = { ctx -> VideoView(ctx).apply {
-                            setVideoPath(story.path)
-                            setOnPreparedListener { player -> player.isLooping = true; start() }
-                        } }, modifier = Modifier.fillMaxSize())
-                    } else if (bitmap != null) {
-                        Image(bitmap = bitmap, contentDescription = "История", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-                    } else Text("Не удалось загрузить историю", color = Color.White)
-                    Row(Modifier.fillMaxSize()) {
-                        Box(Modifier.weight(1f).fillMaxHeight().clickable { onPrevious() })
-                        Box(Modifier.weight(1f).fillMaxHeight().clickable { onNext() })
-                    }
-                }
-                if (story.caption.isNotBlank()) Text(story.caption, color = Color.White, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
-                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onPrevious, enabled = storyPosition > 1) { Text("Назад", color = Color.White) }
-                    TextButton(onClick = onReact) { Text("❤️", fontSize = 22.sp) }
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onNext) { Text("Далее", color = Color.White) }
-                }
-                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = replyText,
-                        onValueChange = { replyText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text("Ответить на историю…", color = Color.LightGray) },
-                        singleLine = true,
-                        shape = RoundedCornerShape(24.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White, unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF42C7FF), unfocusedBorderColor = Color.White.copy(alpha = 0.35f),
-                            cursorColor = Color(0xFF42C7FF)
-                        ),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(onSend = {
-                            val value = replyText.trim()
-                            if (value.isNotEmpty()) { onReply(value); replyText = "" }
-                        })
-                    )
-                    TextButton(
-                        onClick = { val value = replyText.trim(); if (value.isNotEmpty()) { onReply(value); replyText = "" } },
-                        enabled = replyText.isNotBlank()
-                    ) { Text("Отпр.", color = Color(0xFF42C7FF)) }
-                }
-            }
-        }
+        AndroidView(
+            modifier = Modifier.fillMaxWidth().height(620.dp),
+            factory = { context ->
+                NativeStoryViewerView(context, story, storyPosition, storyCount, listener)
+            },
+            update = { view -> view.update(story, storyPosition, storyCount, listener) }
+        )
     }
 }
 
