@@ -882,25 +882,30 @@ private fun ConversationScreen(
             },
             dismissButton = { TextButton(onClick = { showClearHistoryDialog = false; clearForBoth = false }) { Text("Отмена") } }
         )
-        if (showProfile) AlertDialog(
-            onDismissRequest = { showProfile = false; onCloseProfile() },
-            title = { Text(profile?.name ?: chat.title, color = LocalAppearance.current.text) },
-            text = {
-                Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Avatar(path = profile?.avatarPath ?: chat.avatarPath, fallback = (profile?.name ?: chat.title).take(1).uppercase(), id = chat.id, size = 112, online = profile?.isOnline == true)
-                    Text(profile?.status ?: "Загружаем статус…", color = if (profile?.isOnline == true) Color(0xFF35C759) else LocalAppearance.current.muted, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    if (profile?.isVerified == true) Text("✓ Подтверждённый аккаунт", color = LocalAppearance.current.accent, fontSize = 12.sp)
-                    if (profile?.isPremium == true) Text("✦ Telegram Premium", color = Color(0xFFB58CFF), fontWeight = FontWeight.SemiBold)
-                    if (!profile?.username.isNullOrBlank()) Text("@${profile?.username}", color = LocalAppearance.current.accent)
-                    Text(profile?.kind ?: chat.kind, color = LocalAppearance.current.muted)
-                    if (!profile?.bio.isNullOrBlank()) Text(profile?.bio ?: "", color = LocalAppearance.current.text)
-                    if (!profile?.phone.isNullOrBlank()) ProfileInfoLine("Телефон", profile?.phone ?: "")
-                    if ((profile?.commonGroups ?: 0) > 0) ProfileInfoLine("Общие группы", (profile?.commonGroups ?: 0).toString())
-                    ProfileInfoLine("ID", chat.id.toString())
+        if (showProfile) {
+            val profileAppearance = LocalAppearance.current
+            val closeProfileAction = onCloseProfile
+            val profileDialogListener = remember(closeProfileAction) {
+                NativeProfileDialogHost.Listener {
+                    showProfile = false
+                    closeProfileAction()
                 }
-            },
-            confirmButton = { TextButton(onClick = { showProfile = false; onCloseProfile() }) { Text("Закрыть") } }
-        )
+            }
+            AndroidView(
+                modifier = Modifier.size(1.dp),
+                factory = { context ->
+                    NativeProfileDialogHost(context, chat, profile,
+                        profileAppearance.text.toArgb(), profileAppearance.muted.toArgb(),
+                        profileAppearance.accent.toArgb(), profileAppearance.panelLight.toArgb(),
+                        profileDialogListener)
+                },
+                update = { view ->
+                    view.update(chat, profile, profileAppearance.text.toArgb(),
+                        profileAppearance.muted.toArgb(), profileAppearance.accent.toArgb(),
+                        profileAppearance.panelLight.toArgb())
+                }
+            )
+        }
         val headerAppearance = LocalAppearance.current
         AndroidView(
             modifier = Modifier.fillMaxWidth()
