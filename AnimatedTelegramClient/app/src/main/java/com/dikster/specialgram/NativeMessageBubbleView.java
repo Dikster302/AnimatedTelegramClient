@@ -11,6 +11,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.ImageView;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.VideoView;
@@ -155,7 +156,11 @@ public final class NativeMessageBubbleView extends LinearLayout {
                 cp.rightMargin = dp(5);
                 reactions.addView(chip, cp);
             }
-            bubble.addView(reactions);
+            HorizontalScrollView reactionScroll = new HorizontalScrollView(getContext());
+            reactionScroll.setHorizontalScrollBarEnabled(false);
+            reactionScroll.addView(reactions, new HorizontalScrollView.LayoutParams(
+                    LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
+            bubble.addView(reactionScroll);
         }
         addView(bubble, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
     }
