@@ -470,6 +470,10 @@ public final class NativeProfileDialogHost extends FrameLayout {
         return id>0?getResources().getDimensionPixelSize(id):dp(24);
     }
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
+    public void dismiss(){
+        if(dialog.isShowing())dialog.dismiss();
+    }
+
     @Override protected void onDetachedFromWindow(){
         if(dialog.isShowing())dialog.dismiss();
         super.onDetachedFromWindow();
