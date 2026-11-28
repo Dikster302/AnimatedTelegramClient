@@ -116,7 +116,7 @@ public final class TdFileStateController {
                 chat.getUnreadCount(), path, chat.getKind(), chat.getArchived(), chat.getStatus(),
                 chat.isOnline(), chat.isPremium(), chat.getLastReadOutboxMessageId(),
                 chat.getHasStory(), chat.getHasUnviewedStory(), chat.isPinned(),
-                chat.isMarkedAsUnread(), chat.isMuted());
+                chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder());
     }
 
     private static TgProfile copyAvatar(TgProfile profile, String path) {
