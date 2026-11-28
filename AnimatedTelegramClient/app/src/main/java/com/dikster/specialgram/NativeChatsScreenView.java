@@ -152,6 +152,7 @@ public final class NativeChatsScreenView extends FrameLayout {
             headerHost.addView(wallpaperView,0,new FrameLayout.LayoutParams(
                     LayoutParams.MATCH_PARENT,dp(112)));
         }else wallpaperView.update(selectedTab==0?state.headerWallpaper:null,state.panel);
+        wallpaperView.setVisibility(selectedTab==0?VISIBLE:GONE);
         if(toolbar==null){
             toolbar=new NativeChatsHeaderView(getContext(),selectedTab,mainChatCount(),unreadOnly,
                     state.sortNewest,Color.WHITE,state.account,state.themeName,toolbarListener()); 
@@ -369,9 +370,8 @@ public final class NativeChatsScreenView extends FrameLayout {
             final int tab=i;boolean active=selectedTab==i;
             LinearLayout item=new LinearLayout(getContext());item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER);item.setPadding(0,dp(5),0,dp(4));
-            TextView icon=new TextView(getContext());icon.setText(icons[i]);icon.setTextSize(19);
-            icon.setTextColor(active?state.accent:state.muted);icon.setGravity(Gravity.CENTER);
-            item.addView(icon);
+            NavIconView icon=new NavIconView(getContext(),i,active?state.accent:state.muted);
+            item.addView(icon,new LinearLayout.LayoutParams(dp(24),dp(24)));
             TextView label=new TextView(getContext());label.setText(labels[i]);label.setTextSize(10);
             label.setTextColor(active?state.accent:state.muted);label.setGravity(Gravity.CENTER);
             item.addView(label);
@@ -383,6 +383,46 @@ public final class NativeChatsScreenView extends FrameLayout {
         GradientDrawable bg=new GradientDrawable();bg.setColor(state.panel);
         bg.setCornerRadius(dp(20));bottomNavigation.setBackground(bg);
         bottomNavigation.setElevation(dp(8));
+    }
+
+
+    private final class NavIconView extends View {
+        private final android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final int kind,color;
+        NavIconView(Context context,int kind,int color){super(context);this.kind=kind;this.color=color;}
+        @Override protected void onDraw(android.graphics.Canvas canvas){
+            super.onDraw(canvas);
+            paint.setColor(color);paint.setStyle(android.graphics.Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(1.8f));paint.setStrokeCap(android.graphics.Paint.Cap.ROUND);
+            paint.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+            float cx=getWidth()/2f,cy=getHeight()/2f,d=dp(20);
+            android.graphics.RectF rect=new android.graphics.RectF(cx-d*.42f,cy-d*.34f,cx+d*.42f,cy+d*.30f);
+            if(kind==0){
+                canvas.drawRoundRect(rect,dp(4),dp(4),paint);
+                android.graphics.Path tail=new android.graphics.Path();
+                tail.moveTo(cx-d*.20f,cy+d*.30f);tail.lineTo(cx-d*.32f,cy+d*.47f);
+                tail.lineTo(cx+d*.02f,cy+d*.30f);canvas.drawPath(tail,paint);
+            }else if(kind==1||kind==3){
+                canvas.drawCircle(cx,cy-d*.18f,d*.19f,paint);
+                android.graphics.RectF shoulders=new android.graphics.RectF(cx-d*.42f,cy+d*.03f,cx+d*.42f,cy+d*.65f);
+                canvas.drawArc(shoulders,195,150,false,paint);
+                if(kind==1){
+                    canvas.drawCircle(cx-d*.37f,cy-d*.15f,d*.12f,paint);
+                    android.graphics.RectF side=new android.graphics.RectF(cx-d*.64f,cy+d*.10f,cx-d*.18f,cy+d*.58f);
+                    canvas.drawArc(side,205,135,false,paint);
+                }
+            }else{
+                canvas.drawCircle(cx,cy,d*.38f,paint);
+                canvas.drawCircle(cx,cy,d*.15f,paint);
+                for(int i=0;i<8;i++){
+                    double a=Math.PI*i/4.0;
+                    float x1=cx+(float)Math.cos(a)*d*.43f,y1=cy+(float)Math.sin(a)*d*.43f;
+                    float x2=cx+(float)Math.cos(a)*d*.53f,y2=cy+(float)Math.sin(a)*d*.53f;
+                    canvas.drawLine(x1,y1,x2,y2,paint);
+                }
+            }
+            paint.setStyle(android.graphics.Paint.Style.FILL);
+        }
     }
 
     private String first(String value){
