@@ -118,9 +118,9 @@ public final class MainActivity extends Activity {
     private void render(Object[] s){
         Auth auth=(Auth)s[0];
         if(auth==Auth.Loading){showLoading("Подключаемся к Telegram…","Пожалуйста, подождите");return;}
-        if(auth==Auth.Phone){showAuth("Ваш номер телефона","Введите номер в международном формате",phone,"Продолжить",false,()->td.phone(phone),v->phone=v);return;}
-        if(auth==Auth.Code){showAuth("Код подтверждения","Код придёт от Telegram",code,"Подтвердить",false,()->td.code(code),v->code=v);return;}
-        if(auth==Auth.Password){showAuth("Облачный пароль","Введите пароль двухэтапной проверки",password,"Войти",true,()->td.password(password),v->password=v);return;}
+        if(auth==Auth.Phone){showAuth("Ваш номер телефона","Введите номер в международном формате",phone,"Продолжить",false,()->{td.clearOperationError();td.phone(phone);},v->phone=v,(String)s[11]);return;}
+        if(auth==Auth.Code){showAuth("Код подтверждения","Мы отправили код в Telegram или SMS",code,"Подтвердить",false,()->{td.clearOperationError();td.code(code);},v->code=v,(String)s[11]);return;}
+        if(auth==Auth.Password){showAuth("Облачный пароль","Введите пароль двухэтапной проверки",password,"Войти",true,()->{td.clearOperationError();td.password(password);},v->password=v,(String)s[11]);return;}
         if(auth instanceof Auth.Error){showLoading("Не удалось подключиться",((Auth.Error)auth).getText());return;}
         if(auth!=Auth.Ready)return;
 
@@ -179,16 +179,16 @@ public final class MainActivity extends Activity {
                 new FrameLayout.LayoutParams(-1,-1));
     }
     private void showAuth(String title,String subtitle,String value,String button,boolean secret,
-                          Runnable submit,java.util.function.Consumer<String> changed){
+                          Runnable submit,java.util.function.Consumer<String> changed,String error){
         chatsView=null;conversationView=null;
         View old=root.getChildCount()>0?root.getChildAt(0):null;
         if(old instanceof NativeEntryPanel){
             ((NativeEntryPanel)old).update(title,subtitle,value,button,secret,BG,TEXT,MUTED,ACCENT,
-                    changed,submit);return;
+                    changed,submit,error);return;
         }
         root.removeAllViews();
         root.addView(new NativeEntryPanel(this,title,subtitle,value,button,secret,BG,TEXT,MUTED,
-                ACCENT,changed,submit),new FrameLayout.LayoutParams(-1,-1));
+                ACCENT,changed,submit,error),new FrameLayout.LayoutParams(-1,-1));
     }
 
     private NativeChatsScreenView.Listener chatListener(){
