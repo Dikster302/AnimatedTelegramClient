@@ -110,7 +110,9 @@ public final class ChatCacheRepository implements AutoCloseable {
 
     private void pruneMessageCache(long chatId) {
         database.chatDao().pruneMessagesForChat(chatId, MAX_MESSAGES_PER_CHAT);
-        database.chatDao().pruneMessagesGlobally(MAX_MESSAGES_TOTAL);
+        // Запускаем глобальную очистку только при заметном превышении лимита.
+        if (database.chatDao().getCachedMessageCount() > MAX_MESSAGES_TOTAL + 1000)
+            database.chatDao().pruneMessagesGlobally(MAX_MESSAGES_TOTAL);
     }
 
     public void clearMessages(long chatId) {
