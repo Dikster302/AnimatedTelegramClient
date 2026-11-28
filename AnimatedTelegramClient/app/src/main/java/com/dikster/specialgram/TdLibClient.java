@@ -562,6 +562,23 @@ public final class TdLibClient implements AutoCloseable {
     public void toggleChatUnread(long id, boolean unread) { operationsController.toggleChatUnread(id, unread); }
     public void toggleChatMuted(long id, boolean muted) { operationsController.toggleChatMuted(id, muted); }
 
+    public void loadChatPreview(long chatId,java.util.function.Consumer<List<TgMessage>> callback){
+        chatHistoryController.loadInitial(chatId,new TdChatHistoryController.Callback(){
+            @Override public void onResult(TdApi.Object result){
+                List<TgMessage> items=new ArrayList<>();
+                if(result instanceof TdApi.Messages){
+                    TdApi.Message[] values=((TdApi.Messages)result).messages;
+                    if(values!=null)for(int i=values.length-1;i>=0;i--)
+                        items.add(TdMessageMapper.map(values[i],0L,null,null));
+                }
+                if(callback!=null)callback.accept(items);
+            }
+            @Override public void onError(TdApi.Error error){
+                if(callback!=null)callback.accept(Collections.emptyList());
+            }
+        });
+    }
+
     public void loadMyProfilePhotos(){
         Long userId=myUserId;
         if(userId==null||userId==0L)return;
