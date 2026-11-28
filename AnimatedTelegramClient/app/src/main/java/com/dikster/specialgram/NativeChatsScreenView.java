@@ -299,7 +299,7 @@ public final class NativeChatsScreenView extends FrameLayout {
 
 
     private void renderProfile(){
-        if(profilePanel!=null)return;
+        contentHost.removeAllViews();
         profilePanel=new LinearLayout(getContext());
         profilePanel.setOrientation(LinearLayout.VERTICAL);
         profilePanel.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -341,7 +341,9 @@ public final class NativeChatsScreenView extends FrameLayout {
         LinearLayout.LayoutParams ep=new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(48));
         ep.topMargin=dp(22);profilePanel.addView(edit,ep);
         edit.setOnClickListener(v->{selectedTab=2;update(state,listener);if(settingsPanel!=null)settingsPanel.openAccountPage();});
-        contentHost.addView(profilePanel,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
+        android.widget.ScrollView profileScroll=new android.widget.ScrollView(getContext());
+        profileScroll.setFillViewport(true);profileScroll.addView(profilePanel);
+        contentHost.addView(profileScroll,new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
     }
 
 
