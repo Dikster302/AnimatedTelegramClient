@@ -75,7 +75,8 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
             inFlight.set(false);
             return;
         }
-        long waitMs = Math.max(0L, backoffUntil.get() - System.currentTimeMillis());
+        long waitMs = Math.max(Math.max(0L, backoffUntil.get() - System.currentTimeMillis()),
+                TdStoryRateLimit.remainingDelayMs());
         if (waitMs > 0L) {
             queue.offer(chatId);
             inFlight.set(false);
@@ -92,9 +93,11 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
                 @Override public void onError(TdApi.Error error) {
                     if (error != null && error.code == 429) {
                         long delay = parseBackoff(error.message);
-                        backoffUntil.set(System.currentTimeMillis() + delay);
+                        long deadline = System.currentTimeMillis() + delay;
+                        backoffUntil.accumulateAndGet(deadline, Math::max);
+                        TdStoryRateLimit.blockFor(delay);
                         queue.offer(chatId);
-                        finish(delay);
+                        finish(Math.max(delay, TdStoryRateLimit.remainingDelayMs()));
                     } else {
                         pending.remove(chatId);
                         finish(NORMAL_DELAY_MS);
