@@ -113,6 +113,15 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   }
  )
+ private val storyContentQueue = TdStoryContentQueue(
+  TdStoryContentQueue.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  TdStoryContentQueue.Listener { story, viewed -> updateStory(story,viewed) }
+ )
  private val storyActions = TdStoryActionsController(
   TdStoryActionsController.Requester { function, callback ->
    send(function,
@@ -349,7 +358,7 @@ class TdLibClient(context:Context) {
   else stories.stories.forEach { info -> loadStory(stories.chatId,info.storyId,info.storyId<=stories.maxReadStoryId) }
  }
  private fun loadStory(chatId:Long,storyId:Int,isViewed:Boolean) {
-  send(TdApi.GetStory(chatId,storyId,false)) { result -> if(result is TdApi.Story) updateStory(result,isViewed) }
+  storyContentQueue.enqueue(chatId,storyId,isViewed)
  }
  private fun updateStory(story:TdApi.Story,isViewed:Boolean?=null) {
   val owner=_chats.value.firstOrNull { it.id==story.posterChatId }?.title ?: "История"
@@ -601,6 +610,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){animatedMessageController.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){animatedMessageController.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
