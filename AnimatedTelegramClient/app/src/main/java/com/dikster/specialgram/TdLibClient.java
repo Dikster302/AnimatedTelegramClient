@@ -403,6 +403,9 @@ public final class TdLibClient implements AutoCloseable {
     public void toggleChatMuted(long id, boolean muted) { operationsController.toggleChatMuted(id, muted); }
     public void openProfile(long id) { operationsController.openProfile(id); }
     public void loadContacts() { operationsController.loadContacts(); }
+    public void openSavedMessages(TdContactReadyListener callback) {
+        operationsController.openSavedMessages(callback == null ? null : callback::onReady);
+    }
     public void openContact(long id, TdContactReadyListener callback) {
         operationsController.openContact(id, callback == null ? null : callback::onReady);
     }
