@@ -73,7 +73,7 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   },
   ChatStoryRequestQueue.ResultListener { result ->
-   if(result is TdApi.ChatActiveStories) updateChatStories(result)
+   if(result is TdApi.ChatActiveStories) storyStateController.updateChatStories(result)
   }
  )
  private var myUserId:Long?=null
@@ -177,8 +177,21 @@ class TdLibClient(context:Context) {
     onError={ callback.onError(it) },
     reportErrorToUi=false)
   },
-  TdStoryContentQueue.Listener { story, viewed -> updateStory(story,viewed) }
+  TdStoryContentQueue.Listener { story, viewed -> storyStateController.updateStory(story,viewed) }
  )
+ private val storyStateController = TdStoryStateController(object : TdStoryStateController.Listener {
+  override fun chats():List<TgChat> = _chats.value
+  override fun stories():List<TgStory> = _stories.value
+  override fun setChats(chats:List<TgChat>) { _chats.value=chats }
+  override fun setStories(stories:List<TgStory>) { _stories.value=stories }
+  override fun enqueueStoryContent(chatId:Long,storyId:Int,viewed:Boolean) {
+   storyContentQueue.enqueue(chatId,storyId,viewed)
+  }
+  override fun onStoryMediaFile(file:TdApi.File,story:TgStory) {
+   storyFileToKey[file.id]=story.chatId to story.storyId
+   fileDownloadQueue.enqueue(file.id)
+  }
+ })
  private val storyActions = TdStoryActionsController(
   TdStoryActionsController.Requester { function, callback ->
    send(function,
@@ -188,7 +201,7 @@ class TdLibClient(context:Context) {
   },
   object : TdStoryActionsController.Listener {
    override fun onStoryPosted(story:TdApi.Story) {
-    updateStory(story,false)
+    storyStateController.updateStory(story,false)
     val userId=myUserId
     if(userId!=null) _chats.value=_chats.value.map { if(it.id==userId) it.copy(hasStory=true,hasUnviewedStory=true) else it }
    }
@@ -266,12 +279,8 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewChat -> putChat(o.chat)
   is TdApi.UpdateChatTitle -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(title=o.title) else it }
   is TdApi.UpdateChatActiveStories -> updateChatStories(o.activeStories)
-  is TdApi.UpdateStory -> updateStory(o.story)
-  is TdApi.UpdateStoryDeleted -> {
-   _stories.value=_stories.value.filterNot { it.chatId==o.storyPosterChatId && it.storyId==o.storyId }
-   val remaining=_stories.value.filter { it.chatId==o.storyPosterChatId }
-   _chats.value=_chats.value.map { if(it.id==o.storyPosterChatId) it.copy(hasStory=remaining.isNotEmpty(),hasUnviewedStory=remaining.any { story -> !story.isViewed }) else it }
-  }
+  is TdApi.UpdateStory -> storyStateController.updateStory(o.story,null)
+  is TdApi.UpdateStoryDeleted -> storyStateController.deleteStory(o.storyPosterChatId,o.storyId)
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==chatSession.activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
@@ -402,33 +411,9 @@ class TdLibClient(context:Context) {
    fileDownloadQueue.enqueue(photoId)
   }
  }
- private fun updateChatStories(stories:TdApi.ChatActiveStories) {
-  val hasStory=stories.stories.isNotEmpty()
-  val hasUnviewed=stories.stories.any { it.storyId>stories.maxReadStoryId }
-  _chats.value=_chats.value.map { if(it.id==stories.chatId) it.copy(hasStory=hasStory,hasUnviewedStory=hasUnviewed) else it }
-  if(!hasStory) _stories.value=_stories.value.filterNot { it.chatId==stories.chatId }
-  else stories.stories.forEach { info -> loadStory(stories.chatId,info.storyId,info.storyId<=stories.maxReadStoryId) }
- }
- private fun loadStory(chatId:Long,storyId:Int,isViewed:Boolean) {
-  storyContentQueue.enqueue(chatId,storyId,isViewed)
- }
- private fun updateStory(story:TdApi.Story,isViewed:Boolean?=null) {
-  val owner=_chats.value.firstOrNull { it.id==story.posterChatId }?.title ?: "История"
-  val viewed=isViewed ?: (_stories.value.firstOrNull { it.chatId==story.posterChatId && it.storyId==story.id }?.isViewed ?: false)
-  val mapped=TdStoryMapper.map(story,owner,viewed)
-  val item=mapped.story
-  _stories.value=(_stories.value.filterNot { it.chatId==item.chatId && it.storyId==item.storyId }+item).sortedBy { it.date }
-  val file=mapped.mediaFile
-  if(file!=null && !file.local.isDownloadingCompleted) {
-   storyFileToKey[file.id]=item.chatId to item.storyId
-   fileDownloadQueue.enqueue(file.id)
-  }
- }
  fun openStory(chatId:Long,storyId:Int) {
   storyActions.open(chatId,storyId)
-  _stories.value=_stories.value.map { if(it.chatId==chatId && it.storyId==storyId) it.copy(isViewed=true) else it }
-  val hasUnviewed=_stories.value.any { it.chatId==chatId && !it.isViewed }
-  _chats.value=_chats.value.map { if(it.id==chatId) it.copy(hasUnviewedStory=hasUnviewed) else it }
+  storyStateController.markViewed(chatId,storyId)
  }
  fun closeStory(chatId:Long,storyId:Int) { storyActions.close(chatId,storyId) }
  fun reactToStory(chatId:Long,storyId:Int,emoji:String="❤️") { storyActions.react(chatId,storyId,emoji) }
