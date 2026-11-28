@@ -353,6 +353,8 @@ public final class NativeSettingsPanelView extends LinearLayout {
         labels.addView(texts,new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f));
         labels.addView(text(formatValue(value,min,max,suffix),accentColor,13,true));body.addView(labels);
         SeekBar seek=new SeekBar(getContext());seek.setMax(1000);
+        seek.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        seek.setThumbTintList(android.content.res.ColorStateList.valueOf(accentColor));
         seek.setProgress(Math.round((value-min)/(max-min)*1000f));
         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             @Override public void onProgressChanged(SeekBar bar,int progress,boolean fromUser){}
@@ -370,7 +372,10 @@ public final class NativeSettingsPanelView extends LinearLayout {
         LinearLayout labels=vertical();labels.addView(text(title,textColor,15,true));
         labels.addView(text(subtitle,mutedColor,12,false));
         row.addView(labels,new LayoutParams(0,LayoutParams.WRAP_CONTENT,1f));
-        Switch sw=new Switch(getContext());sw.setChecked(checked);sw.setOnCheckedChangeListener((v,c)->action.accept(c));
+        Switch sw=new Switch(getContext());sw.setChecked(checked);
+        sw.setThumbTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        sw.setTrackTintList(android.content.res.ColorStateList.valueOf(withAlpha(accentColor,0.42f)));
+        sw.setOnCheckedChangeListener((v,c)->action.accept(c));
         row.addView(sw);body.addView(row,new LinearLayout.LayoutParams(LayoutParams.MATCH_PARENT,dp(58)));
     }
 
@@ -403,11 +408,14 @@ public final class NativeSettingsPanelView extends LinearLayout {
     }
     private Button button(String value,Runnable action){
         Button button=new Button(getContext());button.setText(value);
+        button.setTextColor(Color.WHITE);
+        button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accentColor));
         button.setOnClickListener(v->{if(action!=null)action.run();});return button;
     }
     private EditText edit(String value,String hint,boolean single){
         EditText input=new EditText(getContext());input.setText(value);input.setHint(hint);
         input.setTextColor(textColor);input.setHintTextColor(mutedColor);input.setTextSize(15);
+        input.setBackgroundTintList(android.content.res.ColorStateList.valueOf(accentColor));
         input.setSingleLine(single);return input;
     }
     private LinearLayout vertical(){LinearLayout v=new LinearLayout(getContext());v.setOrientation(VERTICAL);return v;}
