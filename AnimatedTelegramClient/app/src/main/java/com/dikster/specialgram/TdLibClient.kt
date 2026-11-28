@@ -76,6 +76,12 @@ class TdLibClient(context:Context) {
  private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
   private val mediaFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
  private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Int>>()
+ private val messageMappingController = TdMessageMappingController(object : TdMessageMappingController.Listener {
+  override fun replyText(messageId:Long):String = _messages.value.firstOrNull { it.id==messageId }?.text ?: ""
+  override fun enqueueMediaFile(file:TdApi.File,chatId:Long,messageId:Long,kind:String) {
+   fileDownloadQueue.enqueue(file.id)
+  }
+ },videoFileToMessage,mediaFileToMessage)
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
@@ -194,7 +200,7 @@ class TdLibClient(context:Context) {
    override fun messages():List<TgMessage> = _messages.value
    override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
    override fun setSearchResults(messages:List<TgMessage>) { _searchResults.value=messages }
-   override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = toTgMessage(message,readMarker)
+   override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = messageMappingController.map(message,readMarker)
    override fun enqueueViewedMessages(chatId:Long,messageIds:LongArray) {
     messageViewQueue.enqueue(chatId,messageIds)
    }
@@ -425,16 +431,6 @@ class TdLibClient(context:Context) {
   if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
   storyActions.postVideo(userId,path,duration)
  }
-  private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage =
-   TdMessageMapper.map(message, readMarker,
-    { replyId -> _messages.value.firstOrNull { it.id==replyId }?.text ?: "" },
-    { file, messageId, kind ->
-     val messageKey=message.chatId to messageId
-     if(kind=="video" || kind=="videoNote") videoFileToMessage[file.id]=messageKey
-     mediaFileToMessage[file.id]=messageKey
-     fileDownloadQueue.enqueue(file.id)
-    })
-
  fun openChat(id:Long) { chatConversationController.openChat(id) }
  fun closeChat() { chatConversationController.closeChat() }
  fun searchChatMessages(chatId:Long,query:String) { chatConversationController.searchChatMessages(chatId,query) }
