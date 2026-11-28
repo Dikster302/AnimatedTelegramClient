@@ -115,6 +115,12 @@ public final class ChatCacheRepository implements AutoCloseable {
             database.chatDao().pruneMessagesGlobally(MAX_MESSAGES_TOTAL);
     }
 
+    /** Синхронизирует отметки прочтения исходящих сообщений для любого чата. */
+    public void markOutgoingMessagesRead(long chatId, long lastReadMessageId) {
+        if (closed.get()) return;
+        execute(() -> database.chatDao().markOutgoingMessagesRead(chatId, lastReadMessageId));
+    }
+
     public void clearMessages(long chatId) {
         if (closed.get()) return;
         execute(() -> database.chatDao().clearMessages(chatId));
