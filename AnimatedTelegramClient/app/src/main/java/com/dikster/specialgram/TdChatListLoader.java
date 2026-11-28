@@ -39,6 +39,7 @@ public final class TdChatListLoader implements AutoCloseable {
     private final Requester requester;
     private final ConcurrentLinkedQueue<Task> tasks = new ConcurrentLinkedQueue<>();
     private final java.util.Set<String> loadingLists = ConcurrentHashMap.newKeySet();
+    private final ConcurrentHashMap<String, Integer> transientRetries = new ConcurrentHashMap<>();
     private final AtomicBoolean scheduled = new AtomicBoolean(false);
     private final AtomicBoolean inFlight = new AtomicBoolean(false);
     private final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor(task -> {
@@ -82,11 +83,13 @@ public final class TdChatListLoader implements AutoCloseable {
             requester.request(new TdApi.LoadChats(task.list, PAGE_SIZE), new Callback() {
                 @Override public void onResult(TdApi.Object result) {
                     if (result instanceof TdApi.Ok) {
+                        transientRetries.remove(task.key);
                         // TDLib emits updateNewChat/updateChatPosition for each loaded page.
                         // Keep loading until TDLib explicitly reports that the list is exhausted.
                         tasks.offer(task);
                     } else {
                         loadingLists.remove(task.key);
+                        transientRetries.remove(task.key);
                     }
                     finish(REQUEST_INTERVAL_MS);
                 }
@@ -95,10 +98,23 @@ public final class TdChatListLoader implements AutoCloseable {
                     if (error != null && error.code == 429) {
                         tasks.offer(task);
                         finish(parseBackoff(error.message));
-                    } else {
+                    } else if (error != null && error.code == 404) {
                         // 404 is TDLib's normal end-of-list signal for LoadChats.
                         loadingLists.remove(task.key);
+                        transientRetries.remove(task.key);
                         finish(REQUEST_INTERVAL_MS);
+                    } else {
+                        // Do not silently abandon the first chat-list load on a transient
+                        // TDLib error. Retry a few times with bounded exponential backoff.
+                        int attempt = transientRetries.merge(task.key, 1, Integer::sum);
+                        if (attempt <= 5) {
+                            tasks.offer(task);
+                            finish(Math.min(15_000L, 750L << attempt));
+                        } else {
+                            loadingLists.remove(task.key);
+                            transientRetries.remove(task.key);
+                            finish(REQUEST_INTERVAL_MS);
+                        }
                     }
                 }
             });
@@ -129,5 +145,6 @@ public final class TdChatListLoader implements AutoCloseable {
         executor.shutdownNow();
         tasks.clear();
         loadingLists.clear();
+        transientRetries.clear();
     }
 }
