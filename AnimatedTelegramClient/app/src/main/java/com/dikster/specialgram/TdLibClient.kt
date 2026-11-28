@@ -230,10 +230,10 @@ class TdLibClient(context:Context) {
   is TdApi.AuthorizationStateClosed -> _auth.value=Auth.Error("TDLib connection closed")
  } }
  fun updatePushToken(token:String) { pushRegistrationController.updateToken(token, _auth.value is Auth.Ready) }
- fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdApi.ProcessPushNotification(payload)) }
- fun phone(v:String)=send(TdApi.SetAuthenticationPhoneNumber(v.trim(),null))
- fun code(v:String)=send(TdApi.CheckAuthenticationCode(v.trim()))
- fun password(v:String)=send(TdApi.CheckAuthenticationPassword(v))
+ fun processPushPayload(payload:String) { if(payload.isNotBlank()) send(TdAuthorizationController.processPushNotification(payload)) }
+ fun phone(v:String)=send(TdAuthorizationController.setPhoneNumber(v))
+ fun code(v:String)=send(TdAuthorizationController.checkCode(v))
+ fun password(v:String)=send(TdAuthorizationController.checkPassword(v))
  fun loadChats() {
   chatListLoader.load(TdApi.ChatListMain(),false)
   chatListLoader.load(TdApi.ChatListArchive(),true)

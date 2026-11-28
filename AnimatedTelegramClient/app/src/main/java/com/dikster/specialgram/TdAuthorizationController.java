@@ -11,6 +11,22 @@ import java.io.File;
 public final class TdAuthorizationController {
     private TdAuthorizationController() { }
 
+    public static TdApi.SetAuthenticationPhoneNumber setPhoneNumber(String phone) {
+        return new TdApi.SetAuthenticationPhoneNumber(phone == null ? "" : phone.trim(), null);
+    }
+
+    public static TdApi.CheckAuthenticationCode checkCode(String code) {
+        return new TdApi.CheckAuthenticationCode(code == null ? "" : code.trim());
+    }
+
+    public static TdApi.CheckAuthenticationPassword checkPassword(String password) {
+        return new TdApi.CheckAuthenticationPassword(password == null ? "" : password);
+    }
+
+    public static TdApi.ProcessPushNotification processPushNotification(String payload) {
+        return new TdApi.ProcessPushNotification(payload == null ? "" : payload);
+    }
+
     public static TdApi.SetTdlibParameters createParameters(
             Context context, String apiId, String apiHash) throws Exception {
         Context app = context.getApplicationContext();
