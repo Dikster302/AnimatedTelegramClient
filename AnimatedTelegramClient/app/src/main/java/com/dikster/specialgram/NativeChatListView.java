@@ -48,13 +48,15 @@ public final class NativeChatListView extends LinearLayout {
         long anchorId=oldFirst>=0&&oldFirst<chats.size()?chats.get(oldFirst).getId():0L;
         View firstChild=list.getChildAt(0);
         int oldTop=firstChild==null?0:firstChild.getTop();
-        boolean wasAtBottom=chats.isEmpty()||list.getLastVisiblePosition()>=chats.size()-2;
+        boolean wasEmpty=chats.isEmpty();
+        boolean wasAtBottom=wasEmpty||list.getLastVisiblePosition()>=chats.size()-2;
         this.compact=compact;textColor=text;mutedColor=muted;accentColor=accent;panelColor=panel;
         if(dataChanged)chats=next;
         if(dataChanged||styleChanged){
             adapter.notifyDataSetChanged();
             list.post(()->{
                 if(chats.isEmpty())return;
+                if(wasEmpty){list.setSelection(0);return;}
                 if(wasAtBottom){list.setSelection(chats.size()-1);return;}
                 int anchor=-1;
                 if(anchorId!=0L)for(int i=0;i<chats.size();i++)if(chats.get(i).getId()==anchorId){anchor=i;break;}
