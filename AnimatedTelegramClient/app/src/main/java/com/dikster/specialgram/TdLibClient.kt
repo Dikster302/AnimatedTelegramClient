@@ -234,6 +234,16 @@ class TdLibClient(context:Context) {
    }
   }
  )
+ private val messageStateController = TdMessageStateController(object : TdMessageStateController.Listener {
+  override fun activeChatId():Long? = chatSession.activeChat
+  override fun chats():List<TgChat> = _chats.value
+  override fun messages():List<TgMessage> = _messages.value
+  override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
+  override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = toTgMessage(message,readMarker)
+  override fun enqueueViewedMessages(chatId:Long,messageIds:LongArray) {
+   messageViewQueue.enqueue(chatId,messageIds)
+  }
+ },animatedMessageController,confirmedIds,pendingEdits)
  private val pushRegistrationController = TdPushRegistrationController(
   app,
   TdPushRegistrationController.Requester { function, callback ->
@@ -296,28 +306,20 @@ class TdLibClient(context:Context) {
  )
 
  init { if(BuildConfig.TELEGRAM_API_ID.isBlank() || BuildConfig.TELEGRAM_API_HASH.isBlank()) _auth.value=Auth.Error("Set TELEGRAM_API_ID and TELEGRAM_API_HASH in GitHub Actions secrets.") }
- private fun onUpdate(o:TdApi.Object) { when(o) {
+ private fun onUpdate(o:TdApi.Object) { if(messageStateController.handle(o)) return; when(o) {
   is TdApi.UpdateAuthorizationState -> authorizationStateRouter.onState(o.authorizationState)
   is TdApi.UpdateNewChat -> chatRegistrationController.putChat(o.chat,false)
   is TdApi.UpdateChatTitle -> _chats.value=TdChatStateController.updateTitle(_chats.value,o.chatId,o.title)
-  is TdApi.UpdateChatActiveStories -> updateChatStories(o.activeStories)
+  is TdApi.UpdateChatActiveStories -> storyStateController.updateChatStories(o.activeStories)
   is TdApi.UpdateStory -> storyStateController.updateStory(o.story,null)
   is TdApi.UpdateStoryDeleted -> storyStateController.deleteStory(o.storyPosterChatId,o.storyId)
   is TdApi.UpdateChatLastMessage -> _chats.value=TdChatStateController.updatePreview(_chats.value,o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> { val state=TdChatStateController.updateOutboxRead(_chats.value,_messages.value,chatSession.activeChat,o.chatId,o.lastReadOutboxMessageId); _chats.value=state.chats; _messages.value=state.messages }
-  is TdApi.UpdateDeleteMessages -> if(o.chatId==chatSession.activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
   is TdApi.UpdateChatReadInbox -> _chats.value=TdChatStateController.updateUnreadCount(_chats.value,o.chatId,o.unreadCount)
   is TdApi.UpdateChatPosition -> _chats.value=TdChatStateController.updatePinned(_chats.value,o.chatId,o.position)
   is TdApi.UpdateChatIsMarkedAsUnread -> _chats.value=TdChatStateController.updateMarkedUnread(_chats.value,o.chatId,o.isMarkedAsUnread)
   is TdApi.UpdateChatNotificationSettings -> _chats.value=TdChatStateController.updateMuted(_chats.value,o.chatId,o.notificationSettings)
   is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { fileDownloadQueue.markCompleted(file.id); val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path); fileToChat.remove(file.id) }; val videoMessage=videoFileToMessage.remove(file.id); if(videoMessage!=null && chatSession.activeChat==videoMessage.first) _messages.value=_messages.value.map { if(it.id==videoMessage.second) it.copy(videoPath=file.local.path) else it }; val mediaMessage=mediaFileToMessage[file.id]; if(mediaMessage!=null) { if(chatSession.activeChat==mediaMessage.first) _messages.value=_messages.value.map { if(it.id==mediaMessage.second) it.copy(mediaPath=file.local.path,photoPath=if(it.mediaKind=="photo") file.local.path else it.photoPath,mediaSize=file.size) else it }; mediaFileToMessage.remove(file.id) }; val storyKey=storyFileToKey.remove(file.id); if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
-  is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==chatSession.activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
-   val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
-   _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) messageViewQueue.enqueue(m.chatId,longArrayOf(m.id)) } }
-  is TdApi.UpdateMessageContent -> { if(o.chatId==chatSession.activeChat) { val t=TdMessageTextFormatter.display(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
-  is TdApi.UpdateMessageIsPinned -> if(o.chatId==chatSession.activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
-  is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==chatSession.activeChat) { val reactions=TdMessageMapper.mapReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
-  is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { animatedMessageController.schedule(o.message.chatId,newId,it) } }
   else -> userUpdateRouter.route(o)
  } }
  private val authorizationStateRouter = TdAuthorizationStateRouter(
