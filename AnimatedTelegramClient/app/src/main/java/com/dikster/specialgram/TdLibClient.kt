@@ -408,7 +408,6 @@ class TdLibClient(context:Context) {
    override fun myUserId():Long? = myUserId
    override fun isAuthorized():Boolean = _auth.value === Auth.Ready
    override fun sendAuthorization(function:TdApi.Function<*>) { send(function) }
-   override fun findChat(chatId:Long):TgChat? = _chats.value.firstOrNull { it.id==chatId }
    override fun isReactionChosen(messageId:Long,emoji:String):Boolean =
     _messages.value.firstOrNull { it.id==messageId }?.reactions?.any { it.emoji==emoji && it.chosen } == true
    override fun clearOperationError() { operationErrorController.clear() }
