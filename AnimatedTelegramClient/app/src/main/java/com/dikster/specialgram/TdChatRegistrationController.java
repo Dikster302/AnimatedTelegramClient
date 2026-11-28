@@ -43,7 +43,7 @@ public final class TdChatRegistrationController {
         if (userId != null) listener.onPrivateChatUser(userId, source.id);
 
         int photoId = TdChatMapper.photoFileId(source);
-        if (photoId > 0 && item.getAvatarPath().isBlank()) {
+        if (photoId > 0 && item.getAvatarPath().trim().isEmpty()) {
             listener.onChatPhoto(photoId, source.id);
         }
         return item;
