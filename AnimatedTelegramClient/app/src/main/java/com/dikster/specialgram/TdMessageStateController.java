@@ -16,6 +16,8 @@ public final class TdMessageStateController {
         List<TgMessage> messages();
         void setMessages(List<TgMessage> messages);
         void deleteMessages(long chatId, List<Long> messageIds);
+        void cacheMessage(long chatId, TgMessage message);
+        void refreshCachedMessage(long chatId, long messageId);
         TgMessage mapMessage(TdApi.Message message, long readMarker);
         void enqueueViewedMessages(long chatId, long[] messageIds);
     }
@@ -51,8 +53,9 @@ public final class TdMessageStateController {
         }
         if (update instanceof TdApi.UpdateNewMessage) {
             TdApi.Message message = ((TdApi.UpdateNewMessage) update).message;
+            TgMessage mapped = listener.mapMessage(message, readMarker(message.chatId));
+            listener.cacheMessage(message.chatId, mapped);
             if (isActive(message.chatId)) {
-                TgMessage mapped = listener.mapMessage(message, readMarker(message.chatId));
                 String replyText = mapped.getReplyToText();
                 for (TgMessage item : listener.messages()) {
                     if (item.getId() == mapped.getReplyToMessageId()) {
@@ -78,6 +81,8 @@ public final class TdMessageStateController {
             if (isActive(value.chatId)) {
                 String text = TdMessageTextFormatter.display(value.newContent);
                 updateMessage(value.chatId, value.messageId, text, null, null, null);
+            } else {
+                listener.refreshCachedMessage(value.chatId, value.messageId);
             }
             return true;
         }
@@ -85,6 +90,8 @@ public final class TdMessageStateController {
             TdApi.UpdateMessageIsPinned value = (TdApi.UpdateMessageIsPinned) update;
             if (isActive(value.chatId))
                 updateMessage(value.chatId, value.messageId, null, null, value.isPinned, null);
+            else
+                listener.refreshCachedMessage(value.chatId, value.messageId);
             return true;
         }
         if (update instanceof TdApi.UpdateMessageInteractionInfo) {
@@ -92,6 +99,8 @@ public final class TdMessageStateController {
             if (isActive(value.chatId)) {
                 List<TgReaction> reactions = TdMessageMapper.mapReactions(value.interactionInfo);
                 updateMessage(value.chatId, value.messageId, null, null, null, reactions);
+            } else {
+                listener.refreshCachedMessage(value.chatId, value.messageId);
             }
             return true;
         }
