@@ -14,6 +14,7 @@ public final class TdMessageActionsController {
     public interface Listener {
         void onMessageDeleted(long messageId);
         void onHistoryCleared(long chatId);
+        void onOperationError(String message);
     }
 
     private final Requester requester;
@@ -66,7 +67,7 @@ public final class TdMessageActionsController {
                 : new TdApi.InputMessageReplyToMessage(replyToMessageId, null, 0, null);
         TdApi.InputMessageText content = new TdApi.InputMessageText(
                 new TdApi.FormattedText(value, null), null, true);
-        requester.send(new TdApi.SendMessage(chatId, null, reply, null, null, content), nullCallback());
+        requester.send(new TdApi.SendMessage(chatId, null, reply, null, null, content), actionCallback());
     }
 
     public void replyToStory(long chatId, int storyId, String text) {
@@ -75,25 +76,25 @@ public final class TdMessageActionsController {
         TdApi.InputMessageReplyTo reply = new TdApi.InputMessageReplyToStory(chatId, storyId);
         TdApi.InputMessageText content = new TdApi.InputMessageText(
                 new TdApi.FormattedText(value, null), null, true);
-        requester.send(new TdApi.SendMessage(chatId, null, reply, null, null, content), nullCallback());
+        requester.send(new TdApi.SendMessage(chatId, null, reply, null, null, content), actionCallback());
     }
 
     public void react(long chatId, long messageId, String emoji, boolean alreadyChosen) {
         TdApi.Function<?> function = alreadyChosen
                 ? new TdApi.RemoveMessageReaction(chatId, messageId, new TdApi.ReactionTypeEmoji(emoji))
                 : new TdApi.AddMessageReaction(chatId, messageId, new TdApi.ReactionTypeEmoji(emoji), false, true);
-        requester.send(function, nullCallback());
+        requester.send(function, actionCallback());
     }
 
     public void forward(long fromChatId, long toChatId, long messageId) {
         requester.send(new TdApi.ForwardMessages(toChatId, null, fromChatId,
-                new long[]{messageId}, null, false, false), nullCallback());
+                new long[]{messageId}, null, false, false), actionCallback());
     }
 
     public void pin(long chatId, long messageId, boolean pinned) {
         requester.send(pinned
                 ? new TdApi.PinChatMessage(chatId, messageId, true, false)
-                : new TdApi.UnpinChatMessage(chatId, messageId), nullCallback());
+                : new TdApi.UnpinChatMessage(chatId, messageId), actionCallback());
     }
 
     public void delete(long chatId, long messageId, boolean revoke) {
@@ -102,7 +103,7 @@ public final class TdMessageActionsController {
                     @Override public void onResult(TdApi.Object result) {
                         if (result instanceof TdApi.Ok) listener.onMessageDeleted(messageId);
                     }
-                    @Override public void onError(TdApi.Error error) { }
+                    @Override public void onError(TdApi.Error error) { reportError(error); }
                 });
     }
 
@@ -111,7 +112,7 @@ public final class TdMessageActionsController {
             @Override public void onResult(TdApi.Object result) {
                 if (result instanceof TdApi.Ok) listener.onHistoryCleared(chatId);
             }
-            @Override public void onError(TdApi.Error error) { }
+            @Override public void onError(TdApi.Error error) { reportError(error); }
         });
     }
 
@@ -120,18 +121,25 @@ public final class TdMessageActionsController {
         if (value.isEmpty()) return;
         TdApi.InputMessageText content = new TdApi.InputMessageText(
                 new TdApi.FormattedText(value, null), null, true);
-        requester.send(new TdApi.EditMessageText(chatId, messageId, null, content), nullCallback());
+        requester.send(new TdApi.EditMessageText(chatId, messageId, null, content), actionCallback());
     }
 
     private void sendMessage(long chatId, TdApi.InputMessageContent content) {
-        requester.send(new TdApi.SendMessage(chatId, null, null, null, null, content), nullCallback());
+        requester.send(new TdApi.SendMessage(chatId, null, null, null, null, content), actionCallback());
     }
 
-    private static Callback nullCallback() {
+    private Callback actionCallback() {
         return new Callback() {
             @Override public void onResult(TdApi.Object result) { }
-            @Override public void onError(TdApi.Error error) { }
+            @Override public void onError(TdApi.Error error) { reportError(error); }
         };
+    }
+
+    private void reportError(TdApi.Error error) {
+        String detail=error==null||error.message==null||error.message.trim().isEmpty()
+                ? "Не удалось выполнить действие. Попробуйте ещё раз."
+                : "Не удалось выполнить действие: "+error.message;
+        if(listener!=null)listener.onOperationError(detail);
     }
 
     public static String encodeVideoShape(String shape) {
