@@ -307,6 +307,18 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
     BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
     var unreadOnly by remember { mutableStateOf(false) }
     var folder by remember { mutableStateOf("Все") }
+    val storyStripListener = remember(onPostStory, onOpenStory) {
+        object : NativeStoryStripView.Listener {
+            override fun onPostStory() = onPostStory()
+            override fun onOpenStory(story: TgStory) {
+                viewingStory = story.chatId to story.storyId
+                onOpenStory(story)
+            }
+        }
+    }
+    val folderListener = remember {
+        NativeChatFoldersView.Listener { value -> folder = value }
+    }
     val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
         TdChatListFilter.filter(chats, query, sortNewest, unreadOnly, folder)
     }
@@ -366,42 +378,31 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
             }
         } else {
             if (folder != "Архив") {
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(15.dp)) {
-                    Column(Modifier.width(70.dp).clickable { showStoryComposer = true }, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(62.dp).border(2.dp, LocalAppearance.current.accent, CircleShape).padding(4.dp).clip(CircleShape).background(LocalAppearance.current.panelLight), contentAlignment = Alignment.Center) {
-                            Text("+", color = LocalAppearance.current.accent, fontSize = 34.sp, fontWeight = FontWeight.Light)
-                        }
-                        Text("Моя история", color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val appearance = LocalAppearance.current
+                AndroidView(
+                    modifier = Modifier.fillMaxWidth().height(92.dp),
+                    factory = { context ->
+                        NativeStoryStripView(context, stories, chats, appearance.text.toArgb(),
+                            appearance.accent.toArgb(), appearance.panelLight.toArgb(), storyStripListener)
+                    },
+                    update = { view ->
+                        view.update(stories, chats, appearance.text.toArgb(),
+                            appearance.accent.toArgb(), appearance.panelLight.toArgb(), storyStripListener)
                     }
-                    stories.distinctBy { it.chatId }.forEach { story ->
-                        val owner = chats.firstOrNull { it.id == story.chatId }
-                        Column(Modifier.width(70.dp).clickable {
-                            val first = stories.filter { it.chatId == story.chatId }.let { items -> items.firstOrNull { !it.isViewed } ?: items.firstOrNull() }
-                            if (first != null) { viewingStory = first.chatId to first.storyId; onOpenStory(first) }
-                        }, horizontalAlignment = Alignment.CenterHorizontally) {
-                            val groupStories = stories.filter { it.chatId == story.chatId }
-                            Avatar(path = owner?.avatarPath ?: "", fallback = (owner?.title ?: story.ownerName).take(1).uppercase(), id = story.chatId, size = 62, hasStory = true, storyViewed = groupStories.all { it.isViewed })
-                            Text(owner?.title ?: story.ownerName, color = LocalAppearance.current.text, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                }
+                )
             }
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                listOf("Все", "Личные", "Группы", "Каналы", "Архив").forEach { item ->
-                    Column(
-                        Modifier.clickable { folder = item }.padding(horizontal = 10.dp, vertical = 7.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(item, color = if (folder == item) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 14.sp, fontWeight = if (folder == item) FontWeight.SemiBold else FontWeight.Normal)
-                        Spacer(Modifier.height(7.dp))
-                        Box(Modifier.width(if (folder == item) 25.dp else 8.dp).height(3.dp).clip(CircleShape).background(if (folder == item) LocalAppearance.current.accent else Color.Transparent))
-                    }
+            val folderAppearance = LocalAppearance.current
+            AndroidView(
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                factory = { context ->
+                    NativeChatFoldersView(context, folder, folderAppearance.text.toArgb(),
+                        folderAppearance.muted.toArgb(), folderAppearance.accent.toArgb(), folderListener)
+                },
+                update = { view ->
+                    view.update(folder, folderAppearance.text.toArgb(),
+                        folderAppearance.muted.toArgb(), folderAppearance.accent.toArgb(), folderListener)
                 }
-                    }
+            )
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
