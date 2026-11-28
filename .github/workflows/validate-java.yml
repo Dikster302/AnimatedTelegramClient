@@ -26,11 +26,23 @@ jobs:
           git clone https://github.com/tdlib/td.git tdlib-src
           cd tdlib-src
           git checkout c8828d50f5eac2fc7089ce1089d7ce9095c61b5e
-      - name: Add TDLib Java API sources
+      - name: Generate TDLib Java API sources
         run: |
-          mkdir -p AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib
-          cp tdlib-src/example/android/tdlib/java/org/drinkless/tdlib/Client.java AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib/
-          cp tdlib-src/example/android/tdlib/java/org/drinkless/tdlib/TdApi.java AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib/
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gperf php-cli
+          cd tdlib-src/example/android
+          mkdir -p build-native-Java
+          cd build-native-Java
+          cmake -DTD_GENERATE_SOURCE_FILES=ON ..
+          cmake --build . --target tl_generate_java
+          cd ..
+          php AddIntDef.php org/drinkless/tdlib/TdApi.java
+          mkdir -p tdlib/java/org/drinkless/tdlib
+          cp ../java/org/drinkless/tdlib/Client.java tdlib/java/org/drinkless/tdlib/
+          mv org/drinkless/tdlib/TdApi.java tdlib/java/org/drinkless/tdlib/
+          mkdir -p ../../../AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib
+          cp tdlib/java/org/drinkless/tdlib/Client.java ../../../AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib/
+          cp tdlib/java/org/drinkless/tdlib/TdApi.java ../../../AnimatedTelegramClient/app/src/main/java/org/drinkless/tdlib/
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.7"
