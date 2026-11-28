@@ -15,6 +15,9 @@ public interface ChatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     void insertAll(List<ChatEntity> chats);
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    void upsertChats(List<ChatEntity> chats);
+
     @Query("DELETE FROM cached_chats")
     void deleteAll();
 
