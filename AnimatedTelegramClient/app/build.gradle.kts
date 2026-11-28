@@ -12,8 +12,8 @@ android {
         applicationId = "com.dikster.specialgram"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild { cmake { cppFlags += listOf("-std=c++17") } }
         buildConfigField("String", "TELEGRAM_API_ID", "\"${providers.gradleProperty("TELEGRAM_API_ID").orElse(providers.environmentVariable("TELEGRAM_API_ID").orElse("")).get()}\"")
