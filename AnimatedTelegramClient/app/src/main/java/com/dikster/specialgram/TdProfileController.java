@@ -77,7 +77,13 @@ public final class TdProfileController {
                             if(gift==null)continue;
                             String date=new SimpleDateFormat("dd.MM.yyyy",Locale.getDefault())
                                     .format(new Date(gift.date*1000L));
-                            String line=gift.isPrivate?"Личный подарок · "+date:"Подарок · "+date;
+                            String emoji="🎁";
+                            if(gift.gift instanceof TdApi.SentGiftRegular){
+                                TdApi.Gift original=((TdApi.SentGiftRegular)gift.gift).gift;
+                                if(original!=null&&original.sticker!=null&&original.sticker.emoji!=null
+                                        &&!original.sticker.emoji.trim().isEmpty())emoji=original.sticker.emoji;
+                            }
+                            String line=emoji+"  "+(gift.isPrivate?"Личный подарок · "+date:"Подарок · "+date);
                             if(!gift.isPrivate&&gift.text!=null&&gift.text.text!=null&&!gift.text.text.trim().isEmpty())
                                 line+="\n"+gift.text.text.trim();
                             items.add(line);
