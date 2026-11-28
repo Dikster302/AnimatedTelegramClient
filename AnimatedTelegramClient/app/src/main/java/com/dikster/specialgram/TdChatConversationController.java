@@ -142,7 +142,7 @@ public final class TdChatConversationController {
                 Map<Long, TgMessage> byId = indexById(combined);
                 List<TgMessage> resolved = new ArrayList<>(combined.size());
                 for (TgMessage item : combined) {
-                    String reply = item.getReplyToMessageId() != 0L && item.getReplyToText().isEmpty()
+                    String reply = item.getReplyToMessageId() != 0L && item.getReplyToText().trim().isEmpty()
                             ? textFor(byId, item.getReplyToMessageId(), item.getReplyToText())
                             : item.getReplyToText();
                     resolved.add(copyMessage(item, item.isRead(), reply));
