@@ -4,13 +4,14 @@ import org.drinkless.tdlib.TdApi;
 
 /** Java application command facade over focused TDLib controllers. */
 public final class TdClientOperationsController {
+    public interface ContactListener { void onReady(TgChat chat); }
+
     public interface Listener {
         Long myUserId();
         boolean isAuthorized();
         void sendAuthorization(TdApi.Function<?> function);
         TgChat findChat(long chatId);
         boolean isReactionChosen(long messageId, String emoji);
-        void onContactReady(TgChat chat);
         void clearOperationError();
         void reportOperationError(String message);
     }
@@ -90,14 +91,14 @@ public final class TdClientOperationsController {
     public void openProfile(long chatId) { profile.openProfile(chatId); }
     public void loadContacts() { contacts.load(); }
 
-    public void openContact(long userId) {
+    public void openContact(long userId, ContactListener callback) {
         userActions.createPrivateChat(userId, new TdUserActionsController.Callback() {
             @Override public void onResult(TdApi.Object result) {
                 if (!(result instanceof TdApi.Chat)) return;
                 TdApi.Chat chat = (TdApi.Chat) result;
                 chatRegistration.putChat(chat, false);
                 TgChat mapped = listener.findChat(chat.id);
-                if (mapped != null) listener.onContactReady(mapped);
+                if (mapped != null && callback != null) callback.onReady(mapped);
             }
             @Override public void onError(TdApi.Error error) { }
         });
