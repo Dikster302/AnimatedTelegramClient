@@ -588,221 +588,71 @@ private fun ConversationScreen(
     onSendPhoto: () -> Unit,
     onSendDocument: () -> Unit
 ) {
-    val shapePickerContext = androidx.compose.ui.platform.LocalContext.current
-
-    var draft by remember { mutableStateOf("") }
-    var animatedMode by remember { mutableStateOf(true) }
-    var showProfile by remember { mutableStateOf(false) }
-    var selectedMessage by remember { mutableStateOf<TgMessage?>(null) }
-    var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
-    var attachmentMenuOpen by remember { mutableStateOf(false) }
-    var messageSearchOpen by remember { mutableStateOf(false) }
-    var messageSearchQuery by remember { mutableStateOf("") }
-    var messageSearchIndex by remember { mutableIntStateOf(0) }
-    val backAction = onBack
+    val appearance = LocalAppearance.current
+    val sendAction = onSend
+    val searchAction = onSearchMessages
     val openProfileAction = onOpenProfile
-    val conversationHeaderListener = remember(backAction, openProfileAction) {
-        object : NativeConversationHeaderView.Listener {
+    val closeProfileAction = onCloseProfile
+    val backAction = onBack
+    val deleteAction = onDeleteMessage
+    val clearAction = onClearHistory
+    val editAction = onEditMessage
+    val reactionAction = onReactToMessage
+    val forwardAction = onForwardMessage
+    val pinAction = onPinMessage
+    val shapeAction = onVideoNoteShape
+    val recordAction = onRecordVideo
+    val dismissErrorAction = onDismissOperationError
+    val olderAction = onLoadOlderMessages
+    val photoAction = onSendPhoto
+    val documentAction = onSendDocument
+    val conversationListener = remember(chat.id,chats,sendAction,searchAction,openProfileAction,
+        closeProfileAction,backAction,deleteAction,clearAction,editAction,reactionAction,
+        forwardAction,pinAction,shapeAction,recordAction,dismissErrorAction,olderAction,
+        photoAction,documentAction) {
+        object : NativeConversationScreenView.Listener {
+            override fun onSearchMessages(query:String) = searchAction(query)
+            override fun onOpenProfile() = openProfileAction()
+            override fun onCloseProfile() = closeProfileAction()
             override fun onBack() = backAction()
-            override fun onOpenProfile() { showProfile = true; openProfileAction() }
-            override fun onSearch() { messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
-            override fun onClearHistory() { NativeClearHistoryDialog.show(shapePickerContext, chat.title, NativeClearHistoryDialog.Listener { onClearHistory(it) }) }
-            override fun onToggleAnimated() { animatedMode = !animatedMode }
+            override fun onSend(text:String,animated:Boolean,replyToMessageId:Long?) =
+                sendAction(text,animated,replyToMessageId)
+            override fun onDeleteMessage(message:TgMessage,forEveryone:Boolean) =
+                deleteAction(message,forEveryone)
+            override fun onClearHistory(forEveryone:Boolean) = clearAction(forEveryone)
+            override fun onEditMessage(message:TgMessage,text:String) = editAction(message,text)
+            override fun onReactToMessage(message:TgMessage,emoji:String) = reactionAction(message,emoji)
+            override fun onForwardMessage(message:TgMessage,destination:TgChat) = forwardAction(message,destination)
+            override fun onPinMessage(message:TgMessage) = pinAction(message)
+            override fun onVideoNoteShape(shape:String) = shapeAction(shape)
+            override fun onRecordVideo() = recordAction()
+            override fun onDismissOperationError() = dismissErrorAction()
+            override fun onLoadOlderMessages() = olderAction()
+            override fun onSendPhoto() = photoAction()
+            override fun onSendDocument() = documentAction()
         }
     }
-    val orderedMessages = remember(messages) { messages.sortedBy { it.date } }
-    val localSearchMatches = remember(orderedMessages, messageSearchQuery) {
-        if (messageSearchQuery.isBlank()) emptyList() else orderedMessages.filter { it.text.contains(messageSearchQuery.trim(), ignoreCase = true) }
-    }
-    val visibleMessages = if (messageSearchOpen && messageSearchQuery.isNotBlank()) {
-        if (chat.kind == "Секретный чат") localSearchMatches else searchResults
-    } else orderedMessages
-    LaunchedEffect(messageSearchQuery, messageSearchOpen, chat.id) {
-        if (messageSearchOpen && messageSearchQuery.isNotBlank() && chat.kind != "Секретный чат") {
-            onSearchMessages("")
-            delay(350)
-            onSearchMessages(messageSearchQuery.trim())
-        } else onSearchMessages("")
-    }
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
-        LaunchedEffect(operationError) {
-            if (!operationError.isNullOrBlank()) {
-                NativeOperationErrorDialog.show(shapePickerContext, operationError, Runnable { onDismissOperationError() })
-            }
+    val panelColor = appearance.panel.copy(alpha = 1f - appearance.glass * 0.30f).toArgb()
+    val panelLightColor = appearance.panelLight.copy(alpha = 1f - appearance.glass * 0.38f).toArgb()
+    AndroidView(
+        modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+            .imePadding().background(appearance.chatBackground),
+        factory = { context ->
+            NativeConversationScreenView(context, chat, chats, messages, searchResults, profile,
+                videoNoteShape, operationError, appearance.background.toArgb(),
+                appearance.chatBackground.toArgb(), panelColor, panelLightColor,
+                appearance.text.toArgb(), appearance.muted.toArgb(), appearance.accent.toArgb(),
+                appearance.incoming.toArgb(), appearance.outgoing.toArgb(), appearance.bubbleRadius,
+                conversationListener)
+        },
+        update = { view ->
+            view.update(chat, chats, messages, searchResults, profile, videoNoteShape, operationError,
+                appearance.background.toArgb(), appearance.chatBackground.toArgb(), panelColor,
+                panelLightColor, appearance.text.toArgb(), appearance.muted.toArgb(),
+                appearance.accent.toArgb(), appearance.incoming.toArgb(), appearance.outgoing.toArgb(),
+                appearance.bubbleRadius, conversationListener)
         }
-        val dialogAppearance = LocalAppearance.current
-        val messageDialogContext = shapePickerContext
-        val messageActionsListener = remember(chats, chat.id, onReactToMessage, onForwardMessage,
-            onPinMessage, onDeleteMessage, onEditMessage) {
-            object : NativeMessageActionsDialog.Listener {
-                override fun onDismiss() { selectedMessage = null }
-                override fun onReply(message: TgMessage) { replyingTo = message }
-                override fun onReaction(message: TgMessage, emoji: String) { onReactToMessage(message, emoji) }
-                override fun onForward(message: TgMessage, destination: TgChat) { onForwardMessage(message, destination) }
-                override fun onPin(message: TgMessage) { onPinMessage(message) }
-                override fun onEdit(message: TgMessage, text: String) { onEditMessage(message, text) }
-                override fun onDelete(message: TgMessage, forEveryone: Boolean) { onDeleteMessage(message, forEveryone) }
-            }
-        }
-        LaunchedEffect(selectedMessage?.id) {
-            val target = selectedMessage ?: return@LaunchedEffect
-            NativeMessageActionsDialog.show(messageDialogContext, target, chats, chat.id,
-                dialogAppearance.text.toArgb(), dialogAppearance.muted.toArgb(),
-                dialogAppearance.accent.toArgb(), messageActionsListener)
-        }
-        if (showProfile) {
-            val profileAppearance = LocalAppearance.current
-            val closeProfileAction = onCloseProfile
-            val profileDialogListener = remember(closeProfileAction) {
-                NativeProfileDialogHost.Listener {
-                    showProfile = false
-                    closeProfileAction()
-                }
-            }
-            AndroidView(
-                modifier = Modifier.size(1.dp),
-                factory = { context ->
-                    NativeProfileDialogHost(context, chat, profile,
-                        profileAppearance.text.toArgb(), profileAppearance.muted.toArgb(),
-                        profileAppearance.accent.toArgb(), profileAppearance.panelLight.toArgb(),
-                        profileDialogListener)
-                },
-                update = { view ->
-                    view.update(chat, profile, profileAppearance.text.toArgb(),
-                        profileAppearance.muted.toArgb(), profileAppearance.accent.toArgb(),
-                        profileAppearance.panelLight.toArgb())
-                }
-            )
-        }
-        val headerAppearance = LocalAppearance.current
-        AndroidView(
-            modifier = Modifier.fillMaxWidth()
-                .background(headerAppearance.panel.copy(alpha = 1f - headerAppearance.glass * 0.30f)),
-            factory = { context ->
-                NativeConversationHeaderView(context, chat, profile, animatedMode,
-                    headerAppearance.text.toArgb(), headerAppearance.muted.toArgb(),
-                    headerAppearance.accent.toArgb(), headerAppearance.panelLight.toArgb(),
-                    conversationHeaderListener)
-            },
-            update = { view ->
-                view.update(chat, profile, animatedMode, headerAppearance.text.toArgb(),
-                    headerAppearance.muted.toArgb(), headerAppearance.accent.toArgb(),
-                    headerAppearance.panelLight.toArgb(), conversationHeaderListener)
-            }
-        )
-
-        if (messageSearchOpen) {
-            val searchListener = remember(messageSearchIndex, visibleMessages) {
-                object : NativeMessageSearchBarView.Listener {
-                    override fun onQuery(value: String) { messageSearchQuery = value; messageSearchIndex = 0 }
-                    override fun onPrevious() { messageSearchIndex = if (messageSearchIndex <= 0) visibleMessages.lastIndex else messageSearchIndex - 1 }
-                    override fun onNext() { if (visibleMessages.isNotEmpty()) messageSearchIndex = (messageSearchIndex + 1) % visibleMessages.size }
-                    override fun onClose() { messageSearchOpen = false; messageSearchQuery = ""; messageSearchIndex = 0 }
-                }
-            }
-            val searchAppearance = LocalAppearance.current
-            AndroidView(
-                modifier = Modifier.fillMaxWidth().background(searchAppearance.panel)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                factory = { context ->
-                    NativeMessageSearchBarView(context, messageSearchQuery, messageSearchIndex,
-                        visibleMessages.size, searchAppearance.text.toArgb(),
-                        searchAppearance.muted.toArgb(), searchAppearance.accent.toArgb(),
-                        searchAppearance.panelLight.toArgb(), searchListener)
-                },
-                update = { view ->
-                    view.update(messageSearchQuery, messageSearchIndex, visibleMessages.size,
-                        searchAppearance.text.toArgb(), searchAppearance.muted.toArgb(),
-                        searchAppearance.accent.toArgb(), searchAppearance.panelLight.toArgb(),
-                        searchListener)
-                }
-            )
-        }
-        if (visibleMessages.isEmpty()) {
-            val emptyAppearance = LocalAppearance.current
-            AndroidView(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                factory = { context ->
-                    NativeEmptyMessagesView(context, messageSearchOpen, messageSearchQuery,
-                        chat.kind, emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
-                },
-                update = { view ->
-                    view.update(messageSearchOpen, messageSearchQuery, chat.kind,
-                        emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
-                }
-            )
-        } else {
-            val listAppearance = LocalAppearance.current
-            val loadOlderAction = onLoadOlderMessages
-            val reactionAction = onReactToMessage
-            val messageListListener = remember(loadOlderAction, reactionAction) {
-                object : NativeMessageListView.Listener {
-                    override fun onLongPress(message: TgMessage) { selectedMessage = message }
-                    override fun onReaction(message: TgMessage, emoji: String) { reactionAction(message, emoji) }
-                    override fun onLoadOlder() = loadOlderAction()
-                }
-            }
-            AndroidView(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                factory = { context ->
-                    NativeMessageListView(context, chat.id, visibleMessages, messageSearchOpen,
-                        messageSearchIndex, listAppearance.text.toArgb(), listAppearance.muted.toArgb(),
-                        listAppearance.accent.toArgb(), listAppearance.incoming.toArgb(),
-                        listAppearance.outgoing.toArgb(), listAppearance.panel.toArgb(),
-                        listAppearance.bubbleRadius, messageListListener)
-                },
-                update = { view ->
-                    view.update(chat.id, visibleMessages, messageSearchOpen, messageSearchIndex,
-                        listAppearance.text.toArgb(), listAppearance.muted.toArgb(),
-                        listAppearance.accent.toArgb(), listAppearance.incoming.toArgb(),
-                        listAppearance.outgoing.toArgb(), listAppearance.panel.toArgb(),
-                        listAppearance.bubbleRadius, messageListListener)
-                }
-            )
-        }
-
-        val sendAction = onSend
-        val photoAction = onSendPhoto
-        val documentAction = onSendDocument
-        val recordAction = onRecordVideo
-        val composerListener = remember(animatedMode, replyingTo, chat.title, videoNoteShape, onVideoNoteShape, shapePickerContext,
-            sendAction, photoAction, documentAction, recordAction) {
-            object : NativeMessageComposerView.Listener {
-                override fun onDraftChanged(value: String) { draft = value }
-                override fun onSend(value: String) {
-                    val replyId = replyingTo?.id
-                    draft = ""
-                    replyingTo = null
-                    sendAction(value, animatedMode, replyId)
-                }
-                override fun onSendPhoto() = photoAction()
-                override fun onSendDocument() = documentAction()
-                override fun onRecordVideo() = recordAction()
-                override fun onChooseVideoShape() { NativeVideoShapePickerDialog.show(shapePickerContext, videoNoteShape, NativeVideoShapePickerDialog.Listener { onVideoNoteShape(it) }) }
-                override fun onClearReply() { replyingTo = null }
-            }
-        }
-        val composerAppearance = LocalAppearance.current
-        AndroidView(
-            modifier = Modifier.fillMaxWidth()
-                .background(composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f)),
-            factory = { context ->
-                NativeMessageComposerView(context, draft, replyingTo, chat.title,
-                    composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
-                    composerAppearance.accent.toArgb(), composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f).toArgb(),
-                    composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
-                    composerListener)
-            },
-            update = { view ->
-                view.update(draft, replyingTo, chat.title,
-                    composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
-                    composerAppearance.accent.toArgb(), composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f).toArgb(),
-                    composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
-                    composerListener)
-            }
-        )
-
-    }
+    )
 }
 
 @Composable
