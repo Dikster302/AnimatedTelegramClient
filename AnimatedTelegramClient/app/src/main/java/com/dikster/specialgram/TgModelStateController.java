@@ -8,7 +8,7 @@ public final class TgModelStateController {
         if (account == null) return null;
         return new TgAccount(account.getName(), account.getUsername(), account.getPhone(),
                 account.isPremium(), account.isVerified(), bio, account.getAvatarPath(),
-                account.getFirstName(), account.getLastName());
+                account.getFirstName(), account.getLastName(),account.getPhotoPaths());
     }
 
     public static TgChat withStoryFlags(TgChat chat, boolean hasStory, boolean hasUnviewedStory) {
