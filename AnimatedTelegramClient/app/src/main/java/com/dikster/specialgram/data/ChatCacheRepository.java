@@ -126,6 +126,15 @@ public final class ChatCacheRepository implements AutoCloseable {
         execute(() -> database.chatDao().clearMessages(chatId));
     }
 
+    /** Сохраняет частичные TDLib-обновления, не удаляя ещё не загруженные чаты. */
+    public void upsertChats(List<TgChat> chats) {
+        if (closed.get() || chats == null || chats.isEmpty()) return;
+        List<ChatEntity> rows = new ArrayList<>(chats.size());
+        for (TgChat chat : chats) if (chat != null) rows.add(ChatEntity.from(chat));
+        if (rows.isEmpty()) return;
+        execute(() -> database.chatDao().upsertChats(rows));
+    }
+
     /** Заменяет полный снимок списка чатов; быстрые обновления объединяются. */
     public void replaceAll(List<TgChat> chats) {
         if (closed.get()) return;
