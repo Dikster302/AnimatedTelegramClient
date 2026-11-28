@@ -16,6 +16,7 @@ public final class TdProfileController {
         void onPrivateChatUser(long userId, long chatId);
         void onProfileUser(TdApi.User user, long chatId);
         void onProfilePhotos(long userId,TdApi.ChatPhotos photos);
+        void onProfileExtraPhotos(long userId,TdApi.ChatPhoto personal,TdApi.ChatPhoto main,TdApi.ChatPhoto publicPhoto);
     }
 
     private final TdUserActionsController userActions;
@@ -63,6 +64,7 @@ public final class TdProfileController {
                 if (!session.isCurrent(generation) || !session.isActiveUser(userId)) return;
                 TgProfile current = listener.profile();
                 if (current == null) return;
+                listener.onProfileExtraPhotos(userId,info.personalPhoto,info.photo,info.publicPhoto);
                 String birthday = "";
                 if (info.birthdate != null && info.birthdate.month > 0 && info.birthdate.day > 0) {
                     birthday = info.birthdate.year > 0
