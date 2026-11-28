@@ -100,7 +100,17 @@ public final class NativeProfileDialogHost extends FrameLayout {
                 ||textColor!=text||mutedColor!=muted||accentColor!=accent||panelColor!=panel;
         currentChat=chat;currentProfile=profile;currentMessages=nextMessages;textColor=text;mutedColor=muted;
         accentColor=accent;panelColor=panel;
-        if(changed)render();
+        if(changed){
+            if(photoViewer==null)render();
+            else{
+                photoViewerPaths=availableProfilePhotos();
+                if(photoViewerPaths.isEmpty())closePhotoViewer();
+                else{
+                    photoViewerIndex=Math.min(photoViewerIndex,photoViewerPaths.size()-1);
+                    showPhotoAt(photoViewerIndex,1);
+                }
+            }
+        }
     }
 
     private void render(){
