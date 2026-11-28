@@ -54,12 +54,19 @@ public final class TdChatStateController {
     public static List<TgChat> updatePinned(List<TgChat> source, long chatId, TdApi.ChatPosition position) {
         if (!(position.list instanceof TdApi.ChatListMain)
                 && !(position.list instanceof TdApi.ChatListArchive)) return source;
+        boolean archived = position.list instanceof TdApi.ChatListArchive;
         List<TgChat> result = new ArrayList<>(source.size());
         for (TgChat chat : source) result.add(chat.getId() == chatId
-                ? copyChat(chat, chat.getTitle(), chat.getPreview(), chat.getLastDate(), chat.getUnreadCount(),
-                    chat.getLastReadOutboxMessageId(), position.isPinned, chat.isMarkedAsUnread(), chat.isMuted())
+                ? copyChatWithPosition(chat, archived, position.isPinned)
                 : chat);
         return result;
+    }
+
+    private static TgChat copyChatWithPosition(TgChat c, boolean archived, boolean pinned) {
+        return new TgChat(c.getId(), c.getTitle(), c.getPreview(), c.getLastDate(),
+                c.getUnreadCount(), c.getAvatarPath(), c.getKind(), archived, c.getStatus(),
+                c.isOnline(), c.isPremium(), c.getLastReadOutboxMessageId(), c.getHasStory(),
+                c.getHasUnviewedStory(), pinned, c.isMarkedAsUnread(), c.isMuted());
     }
 
     public static List<TgChat> updateMarkedUnread(List<TgChat> source, long chatId, boolean unread) {
