@@ -397,78 +397,22 @@ class TdLibClient(context:Context) {
   if(userId==null) { reportOperationError("Не удалось определить аккаунт Telegram"); return }
   storyActions.postVideo(userId,path,duration)
  }
- private fun toTgReactions(info:TdApi.MessageInteractionInfo?):List<TgReaction> {
-   val items=info?.reactions?.reactions ?: return emptyList()
-   return items.mapNotNull { item ->
-    val emoji=(item.type as? TdApi.ReactionTypeEmoji)?.emoji ?: return@mapNotNull null
-    TgReaction(emoji,item.totalCount,item.isChosen)
-   }
-  }
+ private fun toTgReactions(info:TdApi.MessageInteractionInfo?):List<TgReaction> =
+   TdMessageMapper.mapReactions(info)
+
   private fun updateChatPreview(id:Long,message:TdApi.Message?) {
-  _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->TdMessageTextFormatter.preview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
- }
- private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage {
-  val content=message.content
-   val reactions=toTgReactions(message.interactionInfo)
-  val reply=message.replyTo as? TdApi.MessageReplyToMessage
-  val replyText=reply?.let { r -> _messages.value.firstOrNull { it.id==r.messageId }?.text ?: ((r.content as? TdApi.MessageText)?.text?.text ?: "") } ?: ""
-  val replyId=reply?.messageId ?: 0L
-   if(content is TdApi.MessagePhoto) {
-    val photo=content.photo.sizes.lastOrNull()?.photo
-    val path=photo?.local?.path ?: ""
-    if(photo!=null && !photo.local.isDownloadingCompleted) {
-     mediaFileToMessage[photo.id]=message.id
-     fileDownloadQueue.enqueue(photo.id)
-    }
-    val caption=content.caption?.text ?: ""
-    return TgMessage(message.id,caption.ifBlank { "📷 Фото" },message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,photoPath=path,mediaKind="photo",mediaPath=path,mediaSize=photo?.size ?: 0L,isPinned=message.isPinned)
-   }
-  if(content is TdApi.MessageDocument) {
-   val document=content.document; val file=document.document; val path=file.local.path
-   mediaFileToMessage[file.id]=message.id
-   if(!file.local.isDownloadingCompleted) fileDownloadQueue.enqueue(file.id)
-   val caption=content.caption?.text ?: ""
-   return TgMessage(message.id,caption.ifBlank { "📎 ${document.fileName.ifBlank { "Файл" }}" },message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="document",mediaPath=path,mediaName=document.fileName,mediaMimeType=document.mimeType,mediaSize=file.size,isPinned=message.isPinned)
+   _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->TdMessageTextFormatter.preview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
   }
-  if(content is TdApi.MessageSticker) {
-   val sticker=content.sticker; val file=sticker.sticker; val path=file.local.path
-   mediaFileToMessage[file.id]=message.id
-   if(!file.local.isDownloadingCompleted) fileDownloadQueue.enqueue(file.id)
-   return TgMessage(message.id,sticker.emoji.ifBlank { "Стикер" },message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="sticker",mediaPath=path,mediaMimeType="image/webp",mediaSize=file.size,isPinned=message.isPinned)
-  }
-  if(content is TdApi.MessageAnimation) {
-   val animation=content.animation; val file=animation.animation; val path=file.local.path
-   mediaFileToMessage[file.id]=message.id
-   if(!file.local.isDownloadingCompleted) fileDownloadQueue.enqueue(file.id)
-   return TgMessage(message.id,content.caption?.text?.ifBlank { "GIF" } ?: "GIF",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="animation",mediaPath=path,mediaMimeType=animation.mimeType,mediaSize=file.size,isPinned=message.isPinned)
-  }
-  if(content is TdApi.MessageAudio) {
-   val audio=content.audio; val file=audio.audio; val path=file.local.path
-   mediaFileToMessage[file.id]=message.id
-   if(!file.local.isDownloadingCompleted) fileDownloadQueue.enqueue(file.id)
-   return TgMessage(message.id,"🎵 ${audio.title.ifBlank { "Аудио" }}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="audio",mediaPath=path,mediaName=listOf(audio.performer,audio.title).filter { it.isNotBlank() }.joinToString(" — "),mediaMimeType=audio.mimeType,mediaDuration=audio.duration,mediaSize=file.size,isPinned=message.isPinned)
-  }
-  if(content is TdApi.MessageVoiceNote) {
-   val voice=content.voiceNote; val file=voice.voice; val path=file.local.path
-   mediaFileToMessage[file.id]=message.id
-   if(!file.local.isDownloadingCompleted) fileDownloadQueue.enqueue(file.id)
-   return TgMessage(message.id,"🎤 Голосовое сообщение",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions,mediaKind="voice",mediaPath=path,mediaName="Голосовое сообщение",mediaMimeType=voice.mimeType,mediaDuration=voice.duration,mediaSize=file.size,isPinned=message.isPinned)
-  }
-  if(content is TdApi.MessageVideo) {
-   val file=content.video.video
-   val shape=decodeVideoShape((content.caption?.text ?: ""))
-   val path=file.local.path
-   if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; mediaFileToMessage[file.id]=message.id; fileDownloadQueue.enqueue(file.id) }
-   return TgMessage(message.id,"🎥 Видео · ${TdMessageTextFormatter.videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path,replyId,replyText,reactions,isPinned=message.isPinned)
-  }
-  if(content is TdApi.MessageVideoNote) {
-   val file=content.videoNote.video
-   val path=file.local.path
-   if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; fileDownloadQueue.enqueue(file.id) }
-   return TgMessage(message.id,"🎥 Видеокружок",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,"circle",path,replyId,replyText,reactions,isPinned=message.isPinned)
-  }
-  return TgMessage(message.id,TdMessageTextFormatter.display(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions)
- }
+
+  private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage =
+   TdMessageMapper.map(message, readMarker,
+    { replyId -> _messages.value.firstOrNull { it.id==replyId }?.text ?: "" },
+    { file, messageId, kind ->
+     if(kind=="video" || kind=="videoNote") videoFileToMessage[file.id]=messageId
+     mediaFileToMessage[file.id]=messageId
+     fileDownloadQueue.enqueue(file.id)
+    })
+
  fun openChat(id:Long) {
   activeChat=id
   chatSearchGeneration++
