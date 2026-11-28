@@ -797,6 +797,8 @@ private fun ConversationScreen(
     onSendPhoto: () -> Unit,
     onSendDocument: () -> Unit
 ) {
+    val shapePickerContext = androidx.compose.ui.platform.LocalContext.current
+
     var draft by remember { mutableStateOf("") }
     var animatedMode by remember { mutableStateOf(true) }
     var showProfile by remember { mutableStateOf(false) }
@@ -809,7 +811,6 @@ private fun ConversationScreen(
     var editDraft by remember { mutableStateOf("") }
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
     var forwardingMessage by remember { mutableStateOf<TgMessage?>(null) }
-    var showVideoShapePicker by remember { mutableStateOf(false) }
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     var messageSearchOpen by remember { mutableStateOf(false) }
     var messageSearchQuery by remember { mutableStateOf("") }
@@ -840,22 +841,6 @@ private fun ConversationScreen(
         } else onSearchMessages("")
     }
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).imePadding().background(LocalAppearance.current.chatBackground)) {
-        if (showVideoShapePicker) AlertDialog(
-            onDismissRequest = { showVideoShapePicker = false },
-            title = { Text("Форма видеосообщения", color = LocalAppearance.current.text) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("В обычный Telegram придёт обычное видео. Выбранная форма (круг, сердце, звезда и другие) будет отображаться у пользователей Specialgram.", color = LocalAppearance.current.muted, fontSize = 12.sp)
-                    listOf("circle" to "Круг", "square" to "Квадрат", "rounded" to "Скруглённый квадрат", "heart" to "Сердце", "star" to "Звезда", "hexagon" to "Шестиугольник").forEach { (key, title) ->
-                        Row(Modifier.fillMaxWidth().clickable { onVideoNoteShape(key); showVideoShapePicker = false }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = videoNoteShape == key, onClick = { onVideoNoteShape(key); showVideoShapePicker = false })
-                            Text(title, color = LocalAppearance.current.text)
-                        }
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showVideoShapePicker = false }) { Text("Готово") } }
-        )
         if (operationError != null) AlertDialog(
             onDismissRequest = onDismissOperationError,
             title = { Text("Не удалось выполнить действие", color = LocalAppearance.current.text) },
@@ -1058,7 +1043,7 @@ private fun ConversationScreen(
         val photoAction = onSendPhoto
         val documentAction = onSendDocument
         val recordAction = onRecordVideo
-        val composerListener = remember(animatedMode, replyingTo, chat.title,
+        val composerListener = remember(animatedMode, replyingTo, chat.title, videoNoteShape, onVideoNoteShape, shapePickerContext,
             sendAction, photoAction, documentAction, recordAction) {
             object : NativeMessageComposerView.Listener {
                 override fun onDraftChanged(value: String) { draft = value }
@@ -1071,7 +1056,7 @@ private fun ConversationScreen(
                 override fun onSendPhoto() = photoAction()
                 override fun onSendDocument() = documentAction()
                 override fun onRecordVideo() = recordAction()
-                override fun onChooseVideoShape() { showVideoShapePicker = true }
+                override fun onChooseVideoShape() { NativeVideoShapePickerDialog.show(shapePickerContext, videoNoteShape, NativeVideoShapePickerDialog.Listener { onVideoNoteShape(it) }) }
                 override fun onClearReply() { replyingTo = null }
             }
         }
