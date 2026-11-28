@@ -450,6 +450,16 @@ fun reportOperationError(text:String) { operationErrorController.report(text) }
    }
   })
  }
- fun close(){animatedMessageController.close();messageViewQueue.close();userFullInfoQueue.close();pushRegistrationController.close();fileDownloadQueue.close();contactsController.close();chatListLoader.close();storyContentQueue.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ private val lifecycleController = TdClientLifecycleController(client,
+  Runnable { animatedMessageController.close() },
+  Runnable { messageViewQueue.close() },
+  Runnable { userFullInfoQueue.close() },
+  Runnable { pushRegistrationController.close() },
+  Runnable { fileDownloadQueue.close() },
+  Runnable { contactsController.close() },
+  Runnable { chatListLoader.close() },
+  Runnable { storyContentQueue.close() },
+  Runnable { storyQueue.close() })
+ fun close() { lifecycleController.close() }
  
 }
