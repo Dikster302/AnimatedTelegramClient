@@ -60,11 +60,16 @@ public final class TdChatConversationController {
                 long readMarker = readMarker(chatId);
                 List<TgMessage> mapped = new ArrayList<>(loaded.length);
                 for (TdApi.Message message : loaded) mapped.add(listener.mapMessage(message, readMarker));
-                Map<Long, TgMessage> byId = indexById(mapped);
-                List<TgMessage> resolved = new ArrayList<>(mapped.size());
-                for (TgMessage item : mapped) {
+                // Preserve live UpdateNewMessage events that may arrive while history is loading.
+                Map<Long, TgMessage> byId = new LinkedHashMap<>();
+                for (TgMessage item : mapped) byId.put(item.getId(), item);
+                for (TgMessage item : listener.messages()) byId.put(item.getId(), item);
+                List<TgMessage> combined = new ArrayList<>(byId.values());
+                Map<Long, TgMessage> allById = indexById(combined);
+                List<TgMessage> resolved = new ArrayList<>(combined.size());
+                for (TgMessage item : combined) {
                     String reply = item.getReplyToMessageId() == 0L ? item.getReplyToText()
-                            : textFor(byId, item.getReplyToMessageId(), item.getReplyToText());
+                            : textFor(allById, item.getReplyToMessageId(), item.getReplyToText());
                     resolved.add(copyMessage(item, item.isRead(), reply));
                 }
                 resolved.sort((a, b) -> Integer.compare(a.getDate(), b.getDate()));
