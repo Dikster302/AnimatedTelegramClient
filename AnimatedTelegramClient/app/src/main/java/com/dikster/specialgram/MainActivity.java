@@ -326,8 +326,10 @@ public final class MainActivity extends Activity {
             @Override public void onPinMessage(TgMessage message){td.pinMessage(chatId(),message.getId(),!message.isPinned());}
             @Override public void onVideoNoteShape(String shape){videoNoteShape=shape;savePreferences();}
             @Override public void onRecordVideo(){
-                try{Intent intent=new Intent(MediaStore.ACTION_VIDEO_CAPTURE);intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT,60);startActivityForResult(intent,CAPTURE_VIDEO);}
-                catch(Exception e){td.reportOperationError("Не удалось открыть камеру: "+safeMessage(e));}
+                runWithPermissions(new String[]{android.Manifest.permission.CAMERA,android.Manifest.permission.RECORD_AUDIO},()->{
+                    try{Intent intent=new Intent(MediaStore.ACTION_VIDEO_CAPTURE);intent.putExtra(MediaStore.EXTRA_DURATION_LIMIT,60);startActivityForResult(intent,CAPTURE_VIDEO);}
+                    catch(Exception e){td.reportOperationError("Не удалось открыть камеру: "+safeMessage(e));}
+                });
             }
             @Override public void onDismissOperationError(){td.clearOperationError();}
             @Override public void onLoadOlderMessages(){td.loadOlderMessages(chatId());}
@@ -339,6 +341,30 @@ public final class MainActivity extends Activity {
     private void closeConversation(){
         td.closeProfile();td.closeChat();selectedChat=null;conversationView=null;lastSnapshot=null;refreshNow();
     }
+    private static final int REQUEST_MEDIA_CAPTURE_PERMISSIONS=1107;
+    private Runnable pendingPermissionAction;
+    private void runWithPermissions(String[] permissions,Runnable action){
+        java.util.ArrayList<String> missing=new java.util.ArrayList<>();
+        for(String permission:permissions){
+            if(androidx.core.content.ContextCompat.checkSelfPermission(this,permission)
+                    !=android.content.pm.PackageManager.PERMISSION_GRANTED)missing.add(permission);
+        }
+        if(missing.isEmpty()){action.run();return;}
+        pendingPermissionAction=action;
+        androidx.core.app.ActivityCompat.requestPermissions(this,
+                missing.toArray(new String[0]),REQUEST_MEDIA_CAPTURE_PERMISSIONS);
+    }
+    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==REQUEST_MEDIA_CAPTURE_PERMISSIONS){
+            boolean granted=grantResults.length>0;
+            for(int result:grantResults)granted&=result==android.content.pm.PackageManager.PERMISSION_GRANTED;
+            Runnable action=pendingPermissionAction;pendingPermissionAction=null;
+            if(granted&&action!=null)action.run();
+            else Toast.makeText(this,"Для записи видео нужны доступ к камере и микрофону",Toast.LENGTH_LONG).show();
+        }
+    }
+
     private void pick(int request,String mime){
         Intent intent=new Intent(Intent.ACTION_OPEN_DOCUMENT);intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType(mime);intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
