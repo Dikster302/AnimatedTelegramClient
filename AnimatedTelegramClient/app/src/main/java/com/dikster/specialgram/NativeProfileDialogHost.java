@@ -5,6 +5,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -58,6 +59,11 @@ public final class NativeProfileDialogHost extends FrameLayout {
     private final Set<String> loadingTabs=new HashSet<>();
     private int textColor,mutedColor,accentColor,panelColor;
     private String activeTab="Медиа";
+    private FrameLayout photoViewer;
+    private ImageView photoViewerImage;
+    private TextView photoViewerCounter;
+    private List<String> photoViewerPaths=Collections.emptyList();
+    private int photoViewerIndex;
 
     public NativeProfileDialogHost(Context context,TgChat chat,TgProfile profile,List<TgMessage> messages,
             int text,int muted,int accent,int panel,Listener listener){
@@ -135,6 +141,20 @@ public final class NativeProfileDialogHost extends FrameLayout {
                 ?currentProfile.getAvatarPath():currentChat.getAvatarPath();
         NativeAvatarView avatar=new NativeAvatarView(getContext(),avatarPath,first(name),
                 currentChat.getId(),112,currentProfile!=null&&currentProfile.isOnline(),false,false,panelColor);
+        avatar.setContentDescription("Открыть фотографии профиля");
+        final float[] pullStart={0f};
+        avatar.setOnTouchListener((view,event)->{
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){
+                pullStart[0]=event.getY();return true;
+            }
+            if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){
+                float dy=event.getY()-pullStart[0];
+                if(dy>dp(24))showPhotoViewer();
+                else showPhotoViewer();
+                return true;
+            }
+            return true;
+        });
         body.addView(avatar,new LinearLayout.LayoutParams(dp(112),dp(112)));
         TextView nameView=label(name,textColor,23,true);
         nameView.setGravity(Gravity.CENTER);
@@ -264,6 +284,99 @@ public final class NativeProfileDialogHost extends FrameLayout {
         }
         LinearLayout.LayoutParams emptyParams=wrap();emptyParams.topMargin=dp(10);
         body.addView(contentCard,emptyParams);
+    }
+
+    private List<String> availableProfilePhotos(){
+        List<String> result=new ArrayList<>();
+        if(currentProfile!=null){
+            for(String path:currentProfile.getPhotoPaths())
+                if(path!=null&&!path.trim().isEmpty()&&new File(path).isFile())result.add(path);
+            String current=currentProfile.getAvatarPath();
+            if(result.isEmpty()&&!empty(current)&&new File(current).isFile())result.add(current);
+        }
+        if(result.isEmpty()&&currentChat!=null&&!empty(currentChat.getAvatarPath())
+                &&new File(currentChat.getAvatarPath()).isFile())result.add(currentChat.getAvatarPath());
+        return result;
+    }
+
+    private void showPhotoViewer(){
+        if(photoViewer!=null)return;
+        photoViewerPaths=availableProfilePhotos();
+        if(photoViewerPaths.isEmpty()){
+            Toast.makeText(getContext(),"Фотографии профиля ещё загружаются",Toast.LENGTH_SHORT).show();
+            return;
+        }
+        photoViewerIndex=0;
+        photoViewer=new FrameLayout(getContext());
+        photoViewer.setBackgroundColor(Color.BLACK);
+        ImageView image=new ImageView(getContext());
+        image.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        photoViewerImage=image;
+        photoViewer.addView(image,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout top=new LinearLayout(getContext());
+        top.setGravity(Gravity.CENTER_VERTICAL);
+        top.setPadding(dp(12),statusBarHeight()+dp(8),dp(12),dp(8));
+        TextView back=label("‹",Color.WHITE,32,true);back.setGravity(Gravity.CENTER);
+        top.addView(back,new LinearLayout.LayoutParams(dp(48),dp(48)));
+        back.setOnClickListener(v->closePhotoViewer());
+        photoViewerCounter=label("",Color.WHITE,15,true);
+        photoViewerCounter.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams counterParams=new LinearLayout.LayoutParams(0,dp(42),1f);
+        top.addView(photoViewerCounter,counterParams);
+        photoViewer.addView(top,new FrameLayout.LayoutParams(-1,LayoutParams.WRAP_CONTENT,Gravity.TOP));
+        photoViewer.setOnTouchListener(new View.OnTouchListener(){
+            float startX,startY;
+            @Override public boolean onTouch(View view,android.view.MotionEvent event){
+                if(event.getActionMasked()==android.view.MotionEvent.ACTION_DOWN){
+                    startX=event.getX();startY=event.getY();return true;
+                }
+                if(event.getActionMasked()==android.view.MotionEvent.ACTION_UP){
+                    float dx=event.getX()-startX,dy=event.getY()-startY;
+                    if(dy>dp(80)){closePhotoViewer();return true;}
+                    if(Math.abs(dx)>dp(42))showPhotoAt(photoViewerIndex+(dx<0?1:-1),dx<0?1:-1);
+                    else if(startX<getWidth()*.28f)showPhotoAt(photoViewerIndex-1,-1);
+                    else if(startX>getWidth()*.72f)showPhotoAt(photoViewerIndex+1,1);
+                    return true;
+                }
+                return true;
+            }
+        });
+        addView(photoViewer,new FrameLayout.LayoutParams(-1,-1));
+        showPhotoAt(0,1);
+        photoViewer.setAlpha(0f);photoViewer.animate().alpha(1f).setDuration(180L).start();
+    }
+
+    private void showPhotoAt(int next,int direction){
+        if(photoViewer==null||photoViewerPaths.isEmpty())return;
+        int count=photoViewerPaths.size();
+        int target=(next%count+count)%count;
+        if(photoViewerImage==null)return;
+        photoViewerImage.animate().cancel();
+        photoViewerImage.animate().translationX(direction*dp(24)).alpha(.35f).setDuration(90L)
+                .withEndAction(()->{
+                    if(photoViewer==null)return;
+                    photoViewerIndex=target;
+                    String path=photoViewerPaths.get(target);
+                    Bitmap bitmap=null;
+                    try{
+                        BitmapFactory.Options options=new BitmapFactory.Options();
+                        options.inSampleSize=2;
+                        bitmap=BitmapFactory.decodeFile(path,options);
+                    }catch(RuntimeException ignored){}
+                    if(bitmap!=null)photoViewerImage.setImageBitmap(bitmap);
+                    photoViewerCounter.setText((target+1)+"/"+count);
+                    photoViewerImage.setTranslationX(-direction*dp(24));
+                    photoViewerImage.animate().translationX(0f).alpha(1f).setDuration(190L)
+                            .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
+                }).start();
+    }
+
+    private void closePhotoViewer(){
+        if(photoViewer==null)return;
+        FrameLayout closing=photoViewer;photoViewer=null;photoViewerImage=null;photoViewerCounter=null;
+        closing.animate().alpha(0f).setDuration(150L).withEndAction(()->{
+            if(closing.getParent()==NativeProfileDialogHost.this)removeView(closing);
+        }).start();
     }
 
     private void showQr(){
