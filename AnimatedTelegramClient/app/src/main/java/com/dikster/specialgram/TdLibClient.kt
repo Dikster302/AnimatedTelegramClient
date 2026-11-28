@@ -3,6 +3,7 @@ import android.content.Context
 import android.os.Build
 import org.drinkless.tdlib.Client
 import org.drinkless.tdlib.TdApi
+import com.google.firebase.crashlytics.FirebaseCrashlytics
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
