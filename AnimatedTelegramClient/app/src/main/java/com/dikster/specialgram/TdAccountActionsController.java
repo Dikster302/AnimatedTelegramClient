@@ -50,9 +50,10 @@ public final class TdAccountActionsController {
                 if (!(result instanceof TdApi.Ok) || userId <= 0) return;
                 requester.send(new TdApi.GetUserFullInfo(userId), new Callback() {
                     @Override public void onResult(TdApi.Object info) {
-                        if (info instanceof TdApi.UserFullInfo)
+                        if (info instanceof TdApi.UserFullInfo) {
                             TdApi.FormattedText value = ((TdApi.UserFullInfo) info).bio;
-                        listener.onBioUpdated(value == null ? "" : value.text);
+                            listener.onBioUpdated(value == null ? "" : value.text);
+                        }
                     }
                     @Override public void onError(TdApi.Error error) { }
                 });
