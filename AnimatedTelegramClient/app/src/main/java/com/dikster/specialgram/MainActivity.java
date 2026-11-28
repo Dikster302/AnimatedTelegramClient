@@ -80,8 +80,10 @@ public final class MainActivity extends Activity {
             int imeBottom=insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
             // При открытой клавиатуре поднимаем весь экран чата вместе с composer.
             // Учитываем нижнюю системную панель, когда клавиатура закрыта.
-            int bottom=Math.max(navigationBottom,imeBottom);
-            view.setPadding(0,top,0,bottom);
+            // adjustResize already reduces the available content height for the IME.
+            // Keep only the system navigation inset here; adding the full IME inset
+            // as padding a second time pushes the conversation and composer too far up.
+            view.setPadding(0,top,navigationBottom==0?0:0,navigationBottom);
             return insets;
         });
         setContentView(root);
