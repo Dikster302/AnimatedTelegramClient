@@ -1,6 +1,8 @@
 package com.dikster.specialgram;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import java.util.*;
@@ -11,6 +13,7 @@ import com.dikster.specialgram.data.ChatCacheRepository;
 /** Native Java TDLib client: owns state, update routing, request dispatch and all controllers. */
 public final class TdLibClient implements AutoCloseable {
     private final Context app;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final ChatCacheRepository chatCacheRepository;
     private final AtomicBoolean chatStateInitialized = new AtomicBoolean(false);
     private final Object chatStateLock = new Object();
@@ -88,7 +91,9 @@ public final class TdLibClient implements AutoCloseable {
         final TdStoryStateController[] storyStateRef = new TdStoryStateController[1];
 
         animatedMessageController = new TdAnimatedMessageController((function, callback) ->
-                send(function, callback == null ? null : callback::onResult, null, true));
+                send(function, callback == null ? null : callback::onResult, null, true),
+                (chatId, messageId, text) -> mainHandler.post(() -> applyAnimatedTextProgress(
+                        chatId, messageId, text)));
 
         fileDownloadQueue = new TdFileDownloadQueue(new TdFileDownloadQueue.Requester() {
             @Override public void send(TdApi.Function<?> function, TdFileDownloadQueue.Callback callback) {
@@ -433,6 +438,25 @@ public final class TdLibClient implements AutoCloseable {
                 operationErrorController);
 
         updateDispatchQueue.markReady();
+    }
+
+    private void applyAnimatedTextProgress(long chatId, long messageId, String text) {
+        if (!Objects.equals(chatSession.getActiveChat(), chatId)) return;
+        List<TgMessage> current = messages.getValue();
+        List<TgMessage> updated = new ArrayList<>(current.size());
+        boolean found = false;
+        for (TgMessage item : current) {
+            if (item.getId() == messageId) {
+                updated.add(new TgMessage(item.getId(), text, item.getOutgoing(), item.getDate(),
+                        item.isRead(), item.getVideoShape(), item.getVideoPath(),
+                        item.getReplyToMessageId(), item.getReplyToText(), item.getReactions(),
+                        item.getPhotoPath(), item.getMediaKind(), item.getMediaPath(),
+                        item.getMediaName(), item.getMediaMimeType(), item.getMediaDuration(),
+                        item.getMediaSize(), item.isPinned()));
+                found = true;
+            } else updated.add(item);
+        }
+        if (found) setActiveMessages(updated);
     }
 
     private long readMarkerForChat(long chatId) {
