@@ -2,16 +2,18 @@ package com.dikster.specialgram;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Typeface;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 
-/** Telegram-inspired title row: no hamburger, one search field below and an overflow menu. */
+/** Compact Specialgram title bar following Telegram's familiar Android layout. */
 public final class NativeChatsHeaderView extends LinearLayout {
     public interface Listener {
         void onSelectTab(int tab);
@@ -25,12 +27,11 @@ public final class NativeChatsHeaderView extends LinearLayout {
     }
 
     private final TextView title;
-    private final TextView premiumEmoji;
-    private final TextView moreButton;
+    private final TextView menuButton;
+    private final SearchButton searchButton;
+    private final TextView overflowButton;
     private Listener listener;
-    private TgAccount account;
     private String themeName="Telegram";
-    private String selectedEmoji="⭐";
     private int selectedTab;
 
     public NativeChatsHeaderView(Context context,int tab,int count,boolean unread,
@@ -38,44 +39,51 @@ public final class NativeChatsHeaderView extends LinearLayout {
         super(context);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
-        setPadding(dp(16),dp(5),dp(10),dp(5));
-        this.account=account;
+        setPadding(dp(8),dp(3),dp(8),dp(3));
         this.themeName=themeName==null?"Telegram":themeName;
-        selectedEmoji=context.getSharedPreferences("appearance",Context.MODE_PRIVATE)
-                .getString("chatTitleEmoji","⭐");
+
+        menuButton=text(context,"☰",textColor,25,true);
+        menuButton.setGravity(Gravity.CENTER);
+        menuButton.setContentDescription("Меню Specialgram");
+        addView(menuButton,new LayoutParams(dp(44),dp(46)));
+        menuButton.setOnClickListener(this::showMenu);
 
         title=text(context,"Specialgram",textColor,20,true);
+        title.setSingleLine(true);
+        title.setContentDescription("Specialgram");
         addView(title,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
-
-        premiumEmoji=text(context,selectedEmoji,textColor,18,true);
-        premiumEmoji.setGravity(Gravity.CENTER);
-        GradientDrawable emojiBg=new GradientDrawable();
-        emojiBg.setColor(0x332AABEE);emojiBg.setCornerRadius(dp(12));
-        premiumEmoji.setBackground(emojiBg);
-        premiumEmoji.setShadowLayer(dp(7),0f,0f,0xFF2AABEE);
-        LayoutParams ep=new LayoutParams(dp(34),dp(32));
-        ep.leftMargin=dp(8);
-        addView(premiumEmoji,ep);
-        premiumEmoji.setOnClickListener(v->chooseEmoji());
 
         View spacer=new View(context);
         addView(spacer,new LayoutParams(0,1,1f));
-        moreButton=text(context,"⋮",textColor,27,true);
-        moreButton.setGravity(Gravity.CENTER);
-        addView(moreButton,new LayoutParams(dp(42),dp(42)));
-        moreButton.setOnClickListener(this::showMenu);
+
+        searchButton=new SearchButton(context,textColor);
+        searchButton.setContentDescription("Поиск");
+        searchButton.setFocusable(true);
+        searchButton.setClickable(true);
+        addView(searchButton,new LayoutParams(dp(44),dp(46)));
+        searchButton.setOnClickListener(v->{if(this.listener!=null)this.listener.onSearch();});
+
+        overflowButton=text(context,"⋮",textColor,25,true);
+        overflowButton.setGravity(Gravity.CENTER);
+        overflowButton.setContentDescription("Дополнительные действия");
+        addView(overflowButton,new LayoutParams(dp(38),dp(46)));
+        overflowButton.setOnClickListener(this::showMenu);
         update(tab,count,unread,newest,textColor,account,this.themeName,listener);
     }
 
     public void update(int tab,int count,boolean unread,boolean newest,int textColor,
             TgAccount account,String theme,Listener callback) {
-        selectedTab=tab;this.account=account;
+        selectedTab=tab;
         themeName=theme==null?"Telegram":theme;
         listener=callback;
         title.setText(tab==0?"Specialgram":tab==1?"Контакты":tab==2?"Настройки":tab==3?"Профиль":"Звонки");
-        title.setTextColor(textColor);moreButton.setTextColor(textColor);premiumEmoji.setTextColor(textColor);
-        title.setVisibility(tab==0?GONE:VISIBLE);
-        premiumEmoji.setVisibility(tab==0?GONE:VISIBLE);
+        title.setTextColor(textColor);
+        menuButton.setTextColor(textColor);
+        overflowButton.setTextColor(textColor);
+        searchButton.setColor(textColor);
+        searchButton.setVisibility(tab==0?VISIBLE:GONE);
+        overflowButton.setVisibility(tab==0?VISIBLE:GONE);
+        menuButton.setContentDescription(tab==0?"Открыть меню":"Назад или меню");
     }
 
     private void showMenu(View anchor) {
@@ -106,10 +114,8 @@ public final class NativeChatsHeaderView extends LinearLayout {
         String[] emojis={"⭐","✨","🔥","💎","🚀","🌙","❤️","🦋","⚡","☀️","🎯","👑"};
         new AlertDialog.Builder(getContext()).setTitle("Эмодзи Specialgram")
                 .setItems(emojis,(dialog,which)->{
-                    selectedEmoji=emojis[which];
-                    premiumEmoji.setText(selectedEmoji);
                     getContext().getSharedPreferences("appearance",Context.MODE_PRIVATE)
-                            .edit().putString("chatTitleEmoji",selectedEmoji).apply();
+                            .edit().putString("chatTitleEmoji",emojis[which]).apply();
                 }).show();
     }
 
@@ -117,7 +123,25 @@ public final class NativeChatsHeaderView extends LinearLayout {
         TextView view=new TextView(context);view.setText(value);view.setTextColor(color);
         view.setTextSize(size);
         if(bold)view.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+        view.setBackground(new RippleDrawable(android.content.res.ColorStateList.valueOf(0x2233B5E5),null,null));
         return view;
     }
+
+    private final class SearchButton extends View {
+        private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
+        private int color;
+        SearchButton(Context context,int color){super(context);this.color=color;}
+        void setColor(int value){color=value;invalidate();}
+        @Override protected void onDraw(Canvas canvas){
+            super.onDraw(canvas);
+            float cx=getWidth()/2f,cy=getHeight()/2f;
+            paint.setColor(color);paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(dp(2));paint.setStrokeCap(Paint.Cap.ROUND);
+            canvas.drawCircle(cx-dp(2),cy-dp(2),dp(7),paint);
+            canvas.drawLine(cx+dp(3),cy+dp(3),cx+dp(9),cy+dp(9),paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
+    }
+
     private int dp(int value){return Math.round(value*getResources().getDisplayMetrics().density);}
 }
