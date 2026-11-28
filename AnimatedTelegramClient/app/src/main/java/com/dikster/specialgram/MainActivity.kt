@@ -542,7 +542,7 @@ private fun SettingsPanel(
             }.padding(horizontal = 14.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("‹", color = LocalAppearance.current.accent, fontSize = 30.sp)
                 Spacer(Modifier.width(12.dp))
-                Text(when(page) { "cover" -> "Обложка Specialgram"; "appearance" -> "Внешний вид"; "account" -> "Аккаунт"; "notifications" -> "Уведомления"; "privacy" -> "Конфиденциальность"; "storage" -> "Данные и память"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+                Text(when(page) { "cover" -> "Обложка Specialgram"; "appearance" -> "Внешний вид"; "account" -> "Аккаунт"; "notifications" -> "Уведомления"; "privacy" -> "Конфиденциальность"; "storage" -> "Данные и память"; "diagnostics" -> "Диагностика"; else -> "О приложении" }, color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
             }
         }
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
@@ -562,6 +562,7 @@ private fun SettingsPanel(
                 SettingsNavigationRow("Уведомления", "Звуки и оповещения") { page = "notifications" }
                 SettingsNavigationRow("Конфиденциальность", "Последний визит и безопасность") { page = "privacy" }
                 SettingsNavigationRow("Данные и память", "Сеть и хранилище") { page = "storage" }
+                SettingsNavigationRow("Диагностика", "Журнал технических ошибок TDLib") { page = "diagnostics" }
                 SettingsNavigationRow("О приложении", "Specialgram · 0.3") { page = "about" }
                 Text("Авторская функция", color = LocalAppearance.current.accent, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp))
                 Text("Постепенную отправку текста можно включить отдельно в меню каждого чата.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 18.dp))
@@ -668,6 +669,29 @@ private fun SettingsPanel(
                     }
                 }
                 Text("Если уведомления отключены в Android, включи их для Specialgram. Отдельные настройки чатов остаются на стороне Telegram.", color = LocalAppearance.current.muted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 12.dp))
+            } else if (page == "diagnostics") {
+                val journal = remember { DiagnosticsJournal.read(context) }
+                Text("Журнал ошибок", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
+                Text("Здесь сохраняются технические ошибки TDLib: название запроса, код и время. Переписки, имена, номера телефонов и идентификаторы чатов не записываются.", color = LocalAppearance.current.muted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 8.dp, bottom = 12.dp))
+                Text(if (journal.isBlank()) "Ошибок пока нет. Если появится Too Many Requests, запись появится здесь." else journal, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 17.sp, modifier = Modifier.fillMaxWidth().background(LocalAppearance.current.panel, RoundedCornerShape(12.dp)).padding(12.dp))
+                OutlinedButton(onClick = {
+                    val value = DiagnosticsJournal.read(context)
+                    if (value.isBlank()) android.widget.Toast.makeText(context, "Журнал пока пуст", android.widget.Toast.LENGTH_SHORT).show()
+                    else {
+                        val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Specialgram diagnostics", value))
+                        android.widget.Toast.makeText(context, "Журнал скопирован", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) { Text("Скопировать журнал") }
+                Button(onClick = {
+                    val value = DiagnosticsJournal.read(context)
+                    if (value.isBlank()) android.widget.Toast.makeText(context, "Журнал пока пуст", android.widget.Toast.LENGTH_SHORT).show()
+                    else {
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_SUBJECT, "Specialgram — журнал диагностики").putExtra(android.content.Intent.EXTRA_TEXT, value)
+                        context.startActivity(android.content.Intent.createChooser(intent, "Экспортировать журнал"))
+                    }
+                }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("Экспортировать журнал") }
+                Text("Журнал хранится только в памяти приложения. Перед отправкой можешь просмотреть его содержимое.", color = LocalAppearance.current.muted, fontSize = 11.sp, lineHeight = 16.sp, modifier = Modifier.padding(top = 10.dp, bottom = 18.dp))
             } else if (page == "storage") {
                 Text("Данные и память", color = LocalAppearance.current.text, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 18.dp))
                 Text("Локальное хранилище TDLib и временные файлы приложения.", color = LocalAppearance.current.muted, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 12.dp))

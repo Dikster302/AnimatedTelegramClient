@@ -627,10 +627,12 @@ fun reportOperationError(text:String) {
  private fun send(f:TdApi.Function<*>,handler:((TdApi.Object)->Unit)?=null) {
   client.send(f,Client.ResultHandler { r ->
    if(r is TdApi.Error) {
+    DiagnosticsJournal.record(app, f.javaClass.simpleName, r.code)
     FirebaseCrashlytics.getInstance().apply {
+     log("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}")
      setCustomKey("tdlib_function", f.javaClass.simpleName)
      setCustomKey("tdlib_error_code", r.code)
-     recordException(IllegalStateException("TDLib request failed"))
+     recordException(IllegalStateException("TDLib request failed: ${f.javaClass.simpleName}, code=${r.code}"))
     }
     _operationError.value=r.message
    } else handler?.invoke(r)
