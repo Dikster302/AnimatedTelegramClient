@@ -591,9 +591,6 @@ private fun ConversationScreen(
     var animatedMode by remember { mutableStateOf(true) }
     var showProfile by remember { mutableStateOf(false) }
     var selectedMessage by remember { mutableStateOf<TgMessage?>(null) }
-    var chatMenuOpen by remember { mutableStateOf(false) }
-    var showClearHistoryDialog by remember { mutableStateOf(false) }
-    var clearForBoth by remember { mutableStateOf(false) }
     var replyingTo by remember { mutableStateOf<TgMessage?>(null) }
     var attachmentMenuOpen by remember { mutableStateOf(false) }
     var messageSearchOpen by remember { mutableStateOf(false) }
@@ -605,9 +602,9 @@ private fun ConversationScreen(
         object : NativeConversationHeaderView.Listener {
             override fun onBack() = backAction()
             override fun onOpenProfile() { showProfile = true; openProfileAction() }
-            override fun onSearch() { chatMenuOpen = false; messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
-            override fun onClearHistory() { chatMenuOpen = false; clearForBoth = false; showClearHistoryDialog = true }
-            override fun onToggleAnimated() { animatedMode = !animatedMode; chatMenuOpen = false }
+            override fun onSearch() { messageSearchOpen = true; messageSearchQuery = ""; messageSearchIndex = 0 }
+            override fun onClearHistory() { NativeClearHistoryDialog.show(shapePickerContext, chat.title, NativeClearHistoryDialog.Listener { onClearHistory(it) }) }
+            override fun onToggleAnimated() { animatedMode = !animatedMode }
         }
     }
     val orderedMessages = remember(messages) { messages.sortedBy { it.date } }
@@ -651,25 +648,6 @@ private fun ConversationScreen(
                 dialogAppearance.text.toArgb(), dialogAppearance.muted.toArgb(),
                 dialogAppearance.accent.toArgb(), messageActionsListener)
         }
-        if (showClearHistoryDialog) AlertDialog(
-            onDismissRequest = { showClearHistoryDialog = false; clearForBoth = false },
-            title = { Text("Очистить переписку?", color = LocalAppearance.current.text) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("История будет удалена у вас. Отметьте галочку, чтобы удалить её у всех участников чата.", color = LocalAppearance.current.muted)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Checkbox(checked = clearForBoth, onCheckedChange = { clearForBoth = it })
-                        Text("Удалить у всех", color = LocalAppearance.current.text, fontSize = 13.sp)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { onClearHistory(clearForBoth); showClearHistoryDialog = false; clearForBoth = false }) {
-                    Text("Очистить", color = Color(0xFFFF6B6B))
-                }
-            },
-            dismissButton = { TextButton(onClick = { showClearHistoryDialog = false; clearForBoth = false }) { Text("Отмена") } }
-        )
         if (showProfile) {
             val profileAppearance = LocalAppearance.current
             val closeProfileAction = onCloseProfile
