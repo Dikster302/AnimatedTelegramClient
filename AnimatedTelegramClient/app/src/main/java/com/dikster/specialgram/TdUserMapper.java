@@ -12,8 +12,7 @@ public final class TdUserMapper {
 
     public static TgContact toContact(TdApi.User user) {
         String name = fullName(user);
-        String username = user.usernames == null || user.usernames.activeUsernames == null || user.usernames.activeUsernames.length == 0
-                ? "" : safe(user.usernames.activeUsernames[0]);
+        String username = username(user);
         return new TgContact(user.id, name, username, safe(user.phoneNumber),
                 statusText(user.status), user.status instanceof TdApi.UserStatusOnline,
                 user.isPremium);
@@ -21,8 +20,7 @@ public final class TdUserMapper {
 
     public static TgAccount toAccount(TdApi.User user, TgAccount previous) {
         String name = fullName(user);
-        String username = user.usernames == null || user.usernames.activeUsernames.length == 0
-                ? "" : safe(user.usernames.activeUsernames[0]);
+        String username = username(user);
         return new TgAccount(name.isEmpty() ? "Мой аккаунт" : name, username,
                 safe(user.phoneNumber), user.isPremium,
                 user.verificationStatus != null && user.verificationStatus.isVerified,
@@ -34,8 +32,7 @@ public final class TdUserMapper {
     public static TgProfile updateProfile(TdApi.User user, TgProfile previous) {
         if (previous == null) return null;
         String name = fullName(user);
-        String username = user.usernames == null || user.usernames.activeUsernames.length == 0
-                ? "" : safe(user.usernames.activeUsernames[0]);
+        String username = username(user);
         return new TgProfile(previous.getChatId(),
                 name.isEmpty() ? previous.getName() : name,
                 previous.getKind(), safe(user.phoneNumber), previous.getBio(),
@@ -43,6 +40,12 @@ public final class TdUserMapper {
                 user.status instanceof TdApi.UserStatusOnline, user.isPremium,
                 user.verificationStatus != null && user.verificationStatus.isVerified,
                 previous.getCommonGroups());
+    }
+
+    private static String username(TdApi.User user) {
+        if (user.usernames == null || user.usernames.activeUsernames == null
+                || user.usernames.activeUsernames.length == 0) return "";
+        return safe(user.usernames.activeUsernames[0]);
     }
 
     private static String fullName(TdApi.User user) {
