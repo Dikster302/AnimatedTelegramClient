@@ -86,8 +86,8 @@ class TdLibClient(context:Context) {
  private var profileSessionGeneration=0
  private val pendingEdits=java.util.concurrent.ConcurrentHashMap<Long,List<String>>()
  private val fileToChat=java.util.concurrent.ConcurrentHashMap<Int,Long>()
- private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Long>()
-  private val mediaFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Long>()
+ private val videoFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
+  private val mediaFileToMessage=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Long>>()
  private val storyFileToKey=java.util.concurrent.ConcurrentHashMap<Int,Pair<Long,Int>>()
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
@@ -274,7 +274,7 @@ class TdLibClient(context:Context) {
   }
   is TdApi.UpdateChatIsMarkedAsUnread -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(isMarkedAsUnread=o.isMarkedAsUnread) else it }
   is TdApi.UpdateChatNotificationSettings -> _chats.value=_chats.value.map { if(it.id==o.chatId) it.copy(isMuted=o.notificationSettings.muteFor>0) else it }
-  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { fileDownloadQueue.markCompleted(file.id); val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val messageId=videoFileToMessage[file.id]; if(messageId!=null) _messages.value=_messages.value.map { if(it.id==messageId) it.copy(videoPath=file.local.path) else it }; val mediaMessageId=mediaFileToMessage[file.id]; if(mediaMessageId!=null && activeChat!=null) { _messages.value=_messages.value.map { if(it.id==mediaMessageId) it.copy(mediaPath=file.local.path,photoPath=if(it.mediaKind=="photo") file.local.path else it.photoPath,mediaSize=file.size) else it }; mediaFileToMessage.remove(file.id) }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
+  is TdApi.UpdateFile -> { val file=o.file; if(file.local.isDownloadingCompleted) { fileDownloadQueue.markCompleted(file.id); val chatId=fileToChat[file.id]; if(chatId!=null) { _chats.value=_chats.value.map { c -> if(c.id==chatId) c.copy(avatarPath=file.local.path) else c }; if(_profile.value?.chatId==chatId) _profile.value=_profile.value?.copy(avatarPath=file.local.path) }; val videoMessage=videoFileToMessage[file.id]; if(videoMessage!=null && activeChat==videoMessage.first) _messages.value=_messages.value.map { if(it.id==videoMessage.second) it.copy(videoPath=file.local.path) else it }; val mediaMessage=mediaFileToMessage[file.id]; if(mediaMessage!=null) { if(activeChat==mediaMessage.first) _messages.value=_messages.value.map { if(it.id==mediaMessage.second) it.copy(mediaPath=file.local.path,photoPath=if(it.mediaKind=="photo") file.local.path else it.photoPath,mediaSize=file.size) else it }; mediaFileToMessage.remove(file.id) }; val storyKey=storyFileToKey[file.id]; if(storyKey!=null) _stories.value=_stories.value.map { if(it.chatId==storyKey.first && it.storyId==storyKey.second) it.copy(path=file.local.path) else it }; if(myPhotoFileId==file.id) _account.value=_account.value?.copy(avatarPath=file.local.path) } }
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) messageViewQueue.enqueue(m.chatId,longArrayOf(m.id)) } }
@@ -441,8 +441,9 @@ class TdLibClient(context:Context) {
    TdMessageMapper.map(message, readMarker,
     { replyId -> _messages.value.firstOrNull { it.id==replyId }?.text ?: "" },
     { file, messageId, kind ->
-     if(kind=="video" || kind=="videoNote") videoFileToMessage[file.id]=messageId
-     mediaFileToMessage[file.id]=messageId
+     val messageKey=message.chatId to messageId
+     if(kind=="video" || kind=="videoNote") videoFileToMessage[file.id]=messageKey
+     mediaFileToMessage[file.id]=messageKey
      fileDownloadQueue.enqueue(file.id)
     })
 
