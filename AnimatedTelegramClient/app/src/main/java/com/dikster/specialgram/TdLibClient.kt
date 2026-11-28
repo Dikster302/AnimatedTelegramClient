@@ -197,7 +197,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateNewMessage -> { val m=o.message; if(m.chatId==activeChat) { val readMarker=_chats.value.firstOrNull{it.id==m.chatId}?.lastReadOutboxMessageId ?: 0L; val mapped=toTgMessage(m,readMarker)
    val replyText=_messages.value.firstOrNull { it.id==mapped.replyToMessageId }?.text ?: mapped.replyToText
    _messages.value=(_messages.value+mapped.copy(replyToText=replyText)).distinctBy{it.id}.sortedBy{it.date}; if(!m.isOutgoing) send(TdApi.ViewMessages(m.chatId,longArrayOf(m.id),null,true)) } }
-  is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=messageDisplayText(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
+  is TdApi.UpdateMessageContent -> { if(o.chatId==activeChat) { val t=TdMessageTextFormatter.display(o.newContent); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(text=t) else it } } }
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { scheduleEdits(o.message.chatId,newId,it) } }
@@ -287,7 +287,7 @@ class TdLibClient(context:Context) {
  fun closeProfile() { _profile.value=null; activeProfileUserId=null }
  private fun putChat(c:TdApi.Chat,archived:Boolean=false) {
   val last=c.lastMessage
-  val preview=last?.let { messagePreview(it.content) } ?: ""
+  val preview=last?.let { TdMessageTextFormatter.preview(it.content) } ?: ""
   val photoId=c.photo?.small?.id ?: 0
   val kind=when(c.type) { is TdApi.ChatTypePrivate -> "Личный чат"; is TdApi.ChatTypeBasicGroup -> "Группа"; is TdApi.ChatTypeSupergroup -> if ((c.type as TdApi.ChatTypeSupergroup).isChannel) "Канал" else "Группа"; is TdApi.ChatTypeSecret -> "Секретный чат"; else -> "Чат" }
   val old=_chats.value.firstOrNull{it.id==c.id}
@@ -359,7 +359,7 @@ class TdLibClient(context:Context) {
    }
   }
   private fun updateChatPreview(id:Long,message:TdApi.Message?) {
-  _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->messagePreview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
+  _chats.value=_chats.value.map { if(it.id==id) it.copy(preview=message?.let{m->TdMessageTextFormatter.preview(m.content)} ?: it.preview,lastDate=message?.date ?: it.lastDate) else it }.sortedByDescending{it.lastDate}
  }
  private fun toTgMessage(message:TdApi.Message,readMarker:Long):TgMessage {
   val content=message.content
@@ -413,7 +413,7 @@ class TdLibClient(context:Context) {
    val shape=decodeVideoShape((content.caption?.text ?: ""))
    val path=file.local.path
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; mediaFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
-   return TgMessage(message.id,"🎥 Видео · ${videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path,replyId,replyText,reactions,isPinned=message.isPinned)
+   return TgMessage(message.id,"🎥 Видео · ${TdMessageTextFormatter.videoShapeTitle(shape)}",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,shape,path,replyId,replyText,reactions,isPinned=message.isPinned)
   }
   if(content is TdApi.MessageVideoNote) {
    val file=content.videoNote.video
@@ -421,32 +421,7 @@ class TdLibClient(context:Context) {
    if(!file.local.isDownloadingCompleted) { videoFileToMessage[file.id]=message.id; send(TdApi.DownloadFile(file.id,32,0,0,false)) }
    return TgMessage(message.id,"🎥 Видеокружок",message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,"circle",path,replyId,replyText,reactions,isPinned=message.isPinned)
   }
-  return TgMessage(message.id,messageDisplayText(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions)
- }
- private fun messageDisplayText(content:TdApi.MessageContent):String = when(content) {
-  is TdApi.MessageText -> content.text.text
-  is TdApi.MessagePhoto -> "📷 Фото"
-  is TdApi.MessageVideo -> "🎥 Видео"
-  is TdApi.MessageVideoNote -> "🎥 Видеокружок"
-  is TdApi.MessageDocument -> "📎 ${content.document.fileName.ifBlank { "Файл" }}"
-  is TdApi.MessageSticker -> "Стикер ${content.sticker.emoji}"
-  is TdApi.MessageAnimation -> content.caption?.text?.ifBlank { "GIF" } ?: "GIF"
-  is TdApi.MessageAudio -> "🎵 ${content.audio.title.ifBlank { "Аудио" }}"
-  is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
-  else -> "Сообщение"
- }
- private fun videoShapeTitle(shape:String):String = when(shape) { "square" -> "Квадрат"; "rounded" -> "Скруглённый квадрат"; "heart" -> "Сердце"; "star" -> "Звезда"; "hexagon" -> "Шестиугольник"; else -> "Круг" }
- private fun messagePreview(content:TdApi.MessageContent):String = when(content) {
-  is TdApi.MessageText -> content.text.text
-  is TdApi.MessagePhoto -> "📷 Фото"
-  is TdApi.MessageVideo -> "🎥 Видео"
-  is TdApi.MessageVideoNote -> "🎥 Видеокружок"
-  is TdApi.MessageDocument -> "📎 Файл"
-  is TdApi.MessageSticker -> "Стикер"
-  is TdApi.MessageVoiceNote -> "🎤 Голосовое сообщение"
-  is TdApi.MessageAnimation -> "GIF"
-  is TdApi.MessageAudio -> "🎵 Аудио"
-  else -> "Сообщение"
+  return TgMessage(message.id,TdMessageTextFormatter.display(content),message.isOutgoing,message.date,message.isOutgoing && message.id<=readMarker,replyToMessageId=replyId,replyToText=replyText,reactions=reactions)
  }
  fun openChat(id:Long) {
   activeChat=id
