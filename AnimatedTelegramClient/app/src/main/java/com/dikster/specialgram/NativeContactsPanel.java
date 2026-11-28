@@ -10,6 +10,8 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ListView;
+import android.widget.BaseAdapter;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import java.util.ArrayList;
@@ -24,7 +26,8 @@ public final class NativeContactsPanel extends LinearLayout {
 
     private final TextView count;
     private final EditText search;
-    private final LinearLayout rows;
+    private final ListView list;
+    private final BaseAdapter adapter;
     private final TextView empty;
     private List<TgContact> contacts = new ArrayList<>();
     private Listener listener;
@@ -64,12 +67,21 @@ public final class NativeContactsPanel extends LinearLayout {
         addView(search, searchParams);
 
         android.widget.FrameLayout content = new android.widget.FrameLayout(context);
-        ScrollView scroll = new ScrollView(context);
-        rows = new LinearLayout(context);
-        rows.setOrientation(VERTICAL);
-        scroll.addView(rows, new ScrollView.LayoutParams(
-                ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
-        content.addView(scroll, new android.widget.FrameLayout.LayoutParams(
+        list = new ListView(context);
+        list.setDivider(null);
+        list.setDividerHeight(0);
+        list.setSelector(android.R.color.transparent);
+        adapter = new BaseAdapter() {
+            @Override public int getCount() { return contacts.size(); }
+            @Override public Object getItem(int position) { return contacts.get(position); }
+            @Override public long getItemId(int position) { return contacts.get(position).getId(); }
+            @Override public boolean hasStableIds() { return true; }
+            @Override public View getView(int position, View convertView, android.view.ViewGroup parent) {
+                return createContactRow(contacts.get(position));
+            }
+        };
+        list.setAdapter(adapter);
+        content.addView(list, new android.widget.FrameLayout.LayoutParams(
                 LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         empty = text("Контакты не найдены", mutedColor, 14, false);
         empty.setGravity(Gravity.CENTER);
@@ -104,13 +116,12 @@ public final class NativeContactsPanel extends LinearLayout {
         count.setText(String.valueOf(next.size()));
         if (styleChanged || !next.equals(contacts)) {
             contacts=next;
-            rows.removeAllViews();
-            for (TgContact contact : contacts) addContact(contact);
+            adapter.notifyDataSetChanged();
         }
         empty.setVisibility(contacts.isEmpty() ? VISIBLE : GONE);
     }
 
-    private void addContact(TgContact contact) {
+    private View createContactRow(TgContact contact) {
         LinearLayout row = new LinearLayout(getContext());
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(16), dp(9), dp(16), dp(9));
@@ -136,12 +147,12 @@ public final class NativeContactsPanel extends LinearLayout {
                 !empty(contact.getUsername()) ? "@" + contact.getUsername() : contact.getPhone();
         details.addView(text(subtitle, contact.isOnline() ? 0xFF35C759 : mutedColor, 12, false));
         row.setOnClickListener(v -> { if (listener != null) listener.onOpen(contact); });
-        rows.addView(row);
         View divider = new View(getContext());
         divider.setBackgroundColor(0x99253341);
         LayoutParams dp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(1));
         dp.leftMargin=dp(76);
-        rows.addView(divider, dp);
+        row.addView(divider, dp);
+        return row;
     }
 
     private TextView text(String value,int color,int size,boolean bold) {
