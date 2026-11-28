@@ -16,10 +16,12 @@ android {
         versionCode = 2
         versionName = "0.2.0"
         ndk { abiFilters += "arm64-v8a" }
+        externalNativeBuild { cmake { cppFlags += listOf("-std=c++17") } }
         buildConfigField("String", "TELEGRAM_API_ID", "\"${providers.gradleProperty("TELEGRAM_API_ID").orElse(providers.environmentVariable("TELEGRAM_API_ID").orElse("")).get()}\"")
         buildConfigField("String", "TELEGRAM_API_HASH", "\"${providers.gradleProperty("TELEGRAM_API_HASH").orElse(providers.environmentVariable("TELEGRAM_API_HASH").orElse("")).get()}\"")
     }
     buildFeatures { compose = true; buildConfig = true }
+    externalNativeBuild { cmake { path = file("CMakeLists.txt"); version = "3.22.1" } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
 }
