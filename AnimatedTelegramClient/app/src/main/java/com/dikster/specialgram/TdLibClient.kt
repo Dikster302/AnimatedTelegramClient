@@ -229,14 +229,8 @@ class TdLibClient(context:Context) {
   val chatId=userToChat[user.id] ?: return
   _chats.value=_chats.value.map { if(it.id==chatId) it.copy(status=userStatusText(user.status),isOnline=user.status is TdApi.UserStatusOnline,isPremium=user.isPremium) else it }
  }
- private fun userStatusText(status:TdApi.UserStatus):String = when(status) {
-  is TdApi.UserStatusOnline -> "в сети"
-  is TdApi.UserStatusOffline -> "был(а) в сети " + SimpleDateFormat("dd.MM.yyyy в HH:mm",java.util.Locale.getDefault()).format(java.util.Date(status.wasOnline.toLong()*1000L))
-  is TdApi.UserStatusRecently -> "был(а) недавно"
-  is TdApi.UserStatusLastWeek -> "был(а) на этой неделе"
-  is TdApi.UserStatusLastMonth -> "был(а) в этом месяце"
-  else -> "давно не был(а) в сети"
- }
+ private fun userStatusText(status:TdApi.UserStatus):String = TdUserStatusFormatter.format(status)
+
  fun loadPrivacySettings() { privacyController.loadAll() }
  fun setLastSeenPrivacy(value:String) { privacyController.set(TdPrivacyController.STATUS,value) }
  fun setPhonePrivacy(value:String) { privacyController.set(TdPrivacyController.PHONE,value) }
