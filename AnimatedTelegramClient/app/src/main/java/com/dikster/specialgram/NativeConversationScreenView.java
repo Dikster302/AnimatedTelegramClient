@@ -35,11 +35,6 @@ public final class NativeConversationScreenView extends FrameLayout {
 
     private final LinearLayout column;
     private final FrameLayout messageHost;
-    private final Handler handler=new Handler(Looper.getMainLooper());
-    private final Runnable pendingSearch=()->{
-        if(listener!=null&&searchOpen&&chat!=null&&!"Секретный чат".equals(chat.getKind())
-                &&!searchQuery.trim().isEmpty())listener.onSearchMessages(searchQuery.trim());
-    };
     private TgChat chat;
     private List<TgChat> chats=Collections.emptyList();
     private List<TgMessage> messages=Collections.emptyList(),searchResults=Collections.emptyList(),visibleMessages=Collections.emptyList();
@@ -57,6 +52,12 @@ public final class NativeConversationScreenView extends FrameLayout {
     private NativeEmptyMessagesView emptyMessages;
     private NativeMessageComposerView composer;
     private NativeProfileDialogHost profileHost;
+
+    private final Handler handler=new Handler(Looper.getMainLooper());
+    private final Runnable pendingSearch=()->{
+        if(listener!=null&&searchOpen&&chat!=null&&!"Секретный чат".equals(chat.getKind())
+                &&!searchQuery.trim().isEmpty())listener.onSearchMessages(searchQuery.trim());
+    };
 
     private final NativeConversationHeaderView.Listener headerListener=new NativeConversationHeaderView.Listener(){
         @Override public void onBack(){if(listener!=null)listener.onBack();}
