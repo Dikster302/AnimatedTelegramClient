@@ -37,6 +37,7 @@ public final class NativeChatRowView extends LinearLayout {
     private Runnable pinAction;
     private Runnable unreadAction;
     private Runnable muteAction;
+    private Runnable previewAction;
     private int textColor;
     private int mutedColor;
     private int accentColor;
@@ -45,7 +46,7 @@ public final class NativeChatRowView extends LinearLayout {
     public NativeChatRowView(Context context, TgChat chat, boolean compact,
                              int textColor, int mutedColor, int accentColor, int panelColor,
                              Runnable onOpen, Runnable onArchive, Runnable onPin,
-                             Runnable onUnread, Runnable onMute) {
+                             Runnable onUnread, Runnable onMute,Runnable onPreview) {
         super(context);
         setOrientation(HORIZONTAL);
         setGravity(Gravity.CENTER_VERTICAL);
@@ -118,12 +119,12 @@ public final class NativeChatRowView extends LinearLayout {
         setOnClickListener(view -> { if (openAction != null) openAction.run(); });
         setOnLongClickListener(view -> { showMenu(); return true; });
         update(chat, compact, textColor, mutedColor, accentColor, panelColor,
-                onOpen, onArchive, onPin, onUnread, onMute);
+                onOpen, onArchive, onPin, onUnread, onMute,onPreview);
     }
 
     public void update(TgChat value, boolean compact, int textColor, int mutedColor,
                        int accentColor, int panelColor, Runnable onOpen, Runnable onArchive,
-                       Runnable onPin, Runnable onUnread, Runnable onMute) {
+                       Runnable onPin, Runnable onUnread, Runnable onMute,Runnable onPreview) {
         this.chat = value;
         this.textColor = textColor;
         this.mutedColor = mutedColor;
@@ -133,9 +134,14 @@ public final class NativeChatRowView extends LinearLayout {
         this.pinAction = onPin;
         this.unreadAction = onUnread;
         this.muteAction = onMute;
+        this.previewAction=onPreview;
         setPadding(dp(16), dp(compact ? 5 : 8), dp(16), dp(compact ? 5 : 8));
         avatar.update(value.getAvatarPath(), initials(value.getTitle()), value.getId(), 52,
                 value.isOnline(), value.getHasStory(), !value.getHasUnviewedStory(), panelColor);
+        avatar.setOnLongClickListener(v->{
+            if(previewAction!=null){previewAction.run();return true;}
+            return false;
+        });
         title.setText(value.getTitle());
         title.setTextColor(textColor);
         preview.setText(value.getPreview().isEmpty()
