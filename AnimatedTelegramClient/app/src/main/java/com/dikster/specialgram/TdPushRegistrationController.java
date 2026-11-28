@@ -49,25 +49,29 @@ public final class TdPushRegistrationController {
                 || pendingToken.isEmpty() || pendingToken.equals(registeredToken)) return;
         final String token = pendingToken;
         inFlight = true;
-        requester.send(new TdApi.RegisterDevice(
-                new TdApi.DeviceTokenFirebaseCloudMessaging(token, true),
-                new long[0]), new Callback() {
-            @Override public void onResult(TdApi.Object result) {
-                synchronized (TdPushRegistrationController.this) {
-                    inFlight = false;
-                    if (closed) return;
-                    if (result instanceof TdApi.Ok) registeredToken = token;
-                    if (!token.equals(pendingToken)) registerIfNeeded();
+        try {
+            requester.send(new TdApi.RegisterDevice(
+                    new TdApi.DeviceTokenFirebaseCloudMessaging(token, true),
+                    new long[0]), new Callback() {
+                @Override public void onResult(TdApi.Object result) {
+                    synchronized (TdPushRegistrationController.this) {
+                        inFlight = false;
+                        if (closed) return;
+                        if (result instanceof TdApi.Ok) registeredToken = token;
+                        if (!token.equals(pendingToken)) registerIfNeeded();
+                    }
                 }
-            }
 
-            @Override public void onError(TdApi.Error error) {
-                synchronized (TdPushRegistrationController.this) {
-                    inFlight = false;
-                    // A later token refresh or authorization event may retry registration.
+                @Override public void onError(TdApi.Error error) {
+                    synchronized (TdPushRegistrationController.this) {
+                        inFlight = false;
+                        // A later token refresh or authorization event may retry registration.
+                    }
                 }
-            }
-        });
+            });
+        } catch (RuntimeException failure) {
+            inFlight = false;
+        }
     }
 
     public synchronized void close() {
