@@ -108,6 +108,7 @@ class TdLibClient(context:Context) {
  )
  private val profileController = TdProfileController(userActions,profileSession,
   object : TdProfileController.Listener {
+   override fun findChat(chatId:Long):TgChat? = _chats.value.firstOrNull { it.id==chatId }
    override fun profile():TgProfile? = _profile.value
    override fun setProfile(profile:TgProfile?) { _profile.value=profile }
    override fun onPrivateChatUser(userId:Long,chatId:Long) { userToChat[userId]=chatId }
@@ -171,7 +172,7 @@ class TdLibClient(context:Context) {
   },
   TdStoryContentQueue.Listener { story, viewed -> storyStateController.updateStory(story,viewed) }
  )
- private val storyStateController = TdStoryStateController(object : TdStoryStateController.Listener {
+ private val storyStateController:TdStoryStateController = TdStoryStateController(object : TdStoryStateController.Listener {
   override fun chats():List<TgChat> = _chats.value
   override fun stories():List<TgStory> = _stories.value
   override fun setChats(chats:List<TgChat>) { _chats.value=chats }
@@ -222,7 +223,7 @@ class TdLibClient(context:Context) {
   override fun chats():List<TgChat> = _chats.value
   override fun messages():List<TgMessage> = _messages.value
   override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
-  override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = toTgMessage(message,readMarker)
+  override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = messageMappingController.map(message,readMarker)
   override fun enqueueViewedMessages(chatId:Long,messageIds:LongArray) {
    messageViewQueue.enqueue(chatId,messageIds)
   }
