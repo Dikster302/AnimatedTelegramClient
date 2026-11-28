@@ -76,9 +76,10 @@ public final class NativePhotoGalleryDialog {
                 else if(start[0]>root.getWidth()*.72f)next++;
                 else return true;
                 if(next<0||next>=paths.size())return true;
+                final int targetIndex=next;
                 image.animate().translationX(dx<0?-dp(context,28):dp(context,28)).alpha(.35f)
                         .setDuration(90L).withEndAction(()->{
-                            index[0]=next;render[0].run();
+                            index[0]=targetIndex;render[0].run();
                             image.setTranslationX(dx<0?dp(context,28):-dp(context,28));
                             image.animate().translationX(0).alpha(1f).setDuration(190L)
                                     .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
