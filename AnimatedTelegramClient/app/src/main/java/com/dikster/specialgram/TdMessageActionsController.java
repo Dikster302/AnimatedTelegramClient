@@ -135,35 +135,10 @@ public final class TdMessageActionsController {
     }
 
     public static String encodeVideoShape(String shape) {
-        String[] names = {"circle", "square", "rounded", "heart", "star", "hexagon"};
-        int index = 0;
-        for (int i = 0; i < names.length; i++) if (names[i].equals(shape)) index = i;
-        String bits = String.format(java.util.Locale.ROOT, "%3s",
-                Integer.toBinaryString(index)).replace(' ', '0');
-        StringBuilder encoded = new StringBuilder("\u2063");
-        for (int i = 0; i < bits.length(); i++)
-            encoded.append(bits.charAt(i) == '1' ? '\u200c' : '\u200b');
-        return encoded.append('\u2063').toString();
+        return NativeCore.encodeVideoShape(shape);
     }
 
     public static String decodeVideoShape(String caption) {
-        if (caption == null) return "circle";
-        int start = caption.indexOf('\u2063');
-        int end = start < 0 ? -1 : caption.indexOf('\u2063', start + 1);
-        if (start < 0 || end < 0) return "circle";
-        StringBuilder bits = new StringBuilder();
-        for (int i = start + 1; i < end; i++) {
-            char c = caption.charAt(i);
-            if (c == '\u200c') bits.append('1');
-            else if (c == '\u200b') bits.append('0');
-            else return "circle";
-        }
-        try {
-            int index = Integer.parseInt(bits.toString(), 2);
-            String[] names = {"circle", "square", "rounded", "heart", "star", "hexagon"};
-            return index >= 0 && index < names.length ? names[index] : "circle";
-        } catch (RuntimeException ignored) {
-            return "circle";
-        }
+        return NativeCore.decodeVideoShape(caption);
     }
 }
