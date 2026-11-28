@@ -40,7 +40,6 @@ public final class TdStoryActionsController {
     public void postPhoto(long userId, String path, String caption) {
         TdApi.InputStoryContentPhoto content =
                 new TdApi.InputStoryContentPhoto(new TdApi.InputFileLocal(path), new int[0]);
-        TdApi.StoryPrivacySettings privacy = new TdApi.StoryPrivacySettingsContacts(new long[0]);
         String value = caption == null ? "" : caption.trim();
         TdApi.FormattedText text = value.isEmpty() ? null : new TdApi.FormattedText(value, null);
         post(userId, content, text);
