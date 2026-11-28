@@ -298,6 +298,7 @@ public final class NativeChatsScreenView extends FrameLayout {
             @Override public void onOpenCalls(){selectedTab=4;update(state,listener);}
             @Override public void onCreateGroup(){showCreateGroupDialog();}
             @Override public void onSavedMessages(){if(listener!=null)listener.onSavedMessages();}
+            @Override public void onOpenArchive(){showArchiveDrawer();}
         };
     }
 
