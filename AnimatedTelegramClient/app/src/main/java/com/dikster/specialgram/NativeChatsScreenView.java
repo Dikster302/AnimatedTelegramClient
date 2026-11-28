@@ -8,6 +8,7 @@ import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.dikster.specialgram.anim.SpecialgramAnimations;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -84,7 +85,7 @@ public final class NativeChatsScreenView extends FrameLayout {
     private final LinearLayout headerColumn,bottomNavigation;
     private State state;
     private Listener listener;
-    private int selectedTab,renderedTab=-1;
+    private int selectedTab,renderedTab=-1,lastAnimatedTab=-1;
     private String folder="Все",renderedFolder="";
     private boolean unreadOnly;
     private boolean searchExpanded;
@@ -482,8 +483,8 @@ public final class NativeChatsScreenView extends FrameLayout {
 
     private void renderBottomNavigation(){
         bottomNavigation.removeAllViews();
-        String[] labels={"Чаты","Контакты","Звонки","Настройки"};
-        int[] tabs={0,1,4,2};
+        String[] labels={"Чаты","Контакты","Настройки","Профиль"};
+        int[] tabs={0,1,2,3};
         for(int i=0;i<labels.length;i++){
             final int tab=tabs[i];boolean active=selectedTab==tab;
             LinearLayout item=new LinearLayout(getContext());item.setOrientation(LinearLayout.VERTICAL);
@@ -494,7 +495,8 @@ public final class NativeChatsScreenView extends FrameLayout {
             label.setTextColor(active?state.accent:state.muted);label.setGravity(Gravity.CENTER);
             item.addView(label);
             if(active){GradientDrawable selected=new GradientDrawable();selected.setColor((state.accent&0x00FFFFFF)|0x22000000);
-                selected.setCornerRadius(dp(14));item.setBackground(selected);}
+                selected.setCornerRadius(dp(14));item.setBackground(selected);
+                if(lastAnimatedTab!=tab){SpecialgramAnimations.animateTabSelection(icon);lastAnimatedTab=tab;}}
             item.setOnClickListener(v->{selectedTab=tab;update(state,listener);});
             bottomNavigation.addView(item,new LinearLayout.LayoutParams(0,LayoutParams.MATCH_PARENT,1f));
         }
