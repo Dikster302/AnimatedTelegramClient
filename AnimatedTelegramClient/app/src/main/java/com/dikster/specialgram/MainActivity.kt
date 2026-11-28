@@ -295,179 +295,94 @@ private fun TelegramApp(td: TdLibClient) {
 
 @Composable
 private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit, onTogglePinned: (TgChat) -> Unit, onToggleUnread: (TgChat) -> Unit, onToggleMute: (TgChat) -> Unit) {
-    var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
-    val orderedStories = remember(stories) { TdStoryListFilter.ordered(stories) }
-    val activeStoryIndex = orderedStories.indexOfFirst { viewingStory == (it.chatId to it.storyId) }
-    val activeStory = orderedStories.getOrNull(activeStoryIndex)
-    var selectedTab by remember { mutableStateOf(0) }
-    BackHandler(enabled = selectedTab != 0) { selectedTab = 0 }
-    var unreadOnly by remember { mutableStateOf(false) }
-    val searchBarRef = remember { mutableStateOf<NativeChatSearchBarView?>(null) }
+    val appearance = LocalAppearance.current
+    val storyOpenAction = onOpenStory
+    val storyCloseAction = onCloseStory
+    val storyReactionAction = onReactToStory
+    val postStoryAction = onPostStory
+    val postVideoStoryAction = onPostVideoStory
+    val storyReplyAction = onReplyToStory
+    val queryAction = onQuery
+    val contactsQueryAction = onContactsQuery
     val sortAction = onSort
-    val chatsHeaderListener = remember(sortAction) {
-        object : NativeChatsHeaderView.Listener {
-            override fun onSelectTab(tab: Int) { selectedTab = tab }
-            override fun onSort(newestFirst: Boolean) { sortAction(newestFirst); selectedTab = 0 }
-            override fun onToggleUnread() { unreadOnly = !unreadOnly; selectedTab = 0 }
-            override fun onSearch() { if (selectedTab != 0) selectedTab = 0 else searchBarRef.value?.focusSearch() }
+    val compactAction = onCompactChats
+    val saveProfileAction = onSaveMyProfile
+    val pickProfilePhotoAction = onPickProfilePhoto
+    val dismissErrorAction = onDismissOperationError
+    val lastSeenAction = onPrivacyLastSeen
+    val phonePrivacyAction = onPrivacyPhone
+    val photoPrivacyAction = onPrivacyPhoto
+    val themeAction = onTheme
+    val glassAction = onGlass
+    val fontScaleAction = onFontScale
+    val accentAction = onAccent
+    val bubbleRadiusAction = onBubbleRadius
+    val wallpaperAction = onWallpaper
+    val pickHeaderWallpaperAction = onPickHeaderWallpaper
+    val clearHeaderWallpaperAction = onClearHeaderWallpaper
+    val cosmicCoverAction = onSelectCosmicCover
+    val openAction = onOpen
+    val openContactAction = onOpenContact
+    val archiveAction = onArchive
+    val pinAction = onTogglePinned
+    val unreadAction = onToggleUnread
+    val muteAction = onToggleMute
+    val screenState = NativeChatsScreenView.State(
+        chats, contacts, stories, query, contactsQuery, sortNewest, compactChats, account,
+        operationError, privacyLastSeen, privacyPhone, privacyPhoto, themeName, glass, fontScale,
+        accentName, bubbleRadius, wallpaperName, headerWallpaper, appearance.background.toArgb(),
+        appearance.panel.toArgb(), appearance.text.toArgb(), appearance.muted.toArgb(),
+        appearance.accent.toArgb(), appearance.panelLight.toArgb()
+    )
+    val screenListener = remember(chats, contacts, stories, query, contactsQuery, sortNewest,
+        compactChats, account, operationError, privacyLastSeen, privacyPhone, privacyPhoto,
+        themeName, glass, fontScale, accentName, bubbleRadius, wallpaperName, headerWallpaper,
+        storyOpenAction, storyCloseAction, storyReactionAction, postStoryAction, postVideoStoryAction,
+        storyReplyAction, queryAction, contactsQueryAction, sortAction, compactAction, saveProfileAction,
+        pickProfilePhotoAction, dismissErrorAction, lastSeenAction, phonePrivacyAction, photoPrivacyAction,
+        themeAction, glassAction, fontScaleAction, accentAction, bubbleRadiusAction, wallpaperAction,
+        pickHeaderWallpaperAction, clearHeaderWallpaperAction, cosmicCoverAction, openAction,
+        openContactAction, archiveAction, pinAction, unreadAction, muteAction) {
+        object : NativeChatsScreenView.Listener {
+            override fun onOpenStory(story:TgStory) = storyOpenAction(story)
+            override fun onCloseStory(story:TgStory) = storyCloseAction(story)
+            override fun onReactToStory(story:TgStory) = storyReactionAction(story)
+            override fun onPostStory() = postStoryAction()
+            override fun onPostVideoStory() = postVideoStoryAction()
+            override fun onReplyToStory(story:TgStory,text:String) = storyReplyAction(story,text)
+            override fun onQuery(query:String) = queryAction(query)
+            override fun onContactsQuery(query:String) = contactsQueryAction(query)
+            override fun onSort(newestFirst:Boolean) = sortAction(newestFirst)
+            override fun onCompactChats(compact:Boolean) = compactAction(compact)
+            override fun onSaveMyProfile(firstName:String,lastName:String,bio:String) = saveProfileAction(firstName,lastName,bio)
+            override fun onPickProfilePhoto() = pickProfilePhotoAction()
+            override fun onDismissOperationError() = dismissErrorAction()
+            override fun onPrivacyLastSeen(value:String) = lastSeenAction(value)
+            override fun onPrivacyPhone(value:String) = phonePrivacyAction(value)
+            override fun onPrivacyPhoto(value:String) = photoPrivacyAction(value)
+            override fun onTheme(value:String) = themeAction(value)
+            override fun onGlass(value:Float) = glassAction(value)
+            override fun onFontScale(value:Float) = fontScaleAction(value)
+            override fun onAccent(value:String) = accentAction(value)
+            override fun onBubbleRadius(value:Float) = bubbleRadiusAction(value)
+            override fun onWallpaper(value:String) = wallpaperAction(value)
+            override fun onPickHeaderWallpaper() = pickHeaderWallpaperAction()
+            override fun onClearHeaderWallpaper() = clearHeaderWallpaperAction()
+            override fun onSelectCosmicCover() = cosmicCoverAction()
+            override fun onOpen(chat:TgChat) = openAction(chat)
+            override fun onOpenContact(contact:TgContact) = openContactAction(contact)
+            override fun onArchive(chat:TgChat) = archiveAction(chat)
+            override fun onTogglePinned(chat:TgChat) = pinAction(chat)
+            override fun onToggleUnread(chat:TgChat) = unreadAction(chat)
+            override fun onToggleMute(chat:TgChat) = muteAction(chat)
         }
     }
-    var folder by remember { mutableStateOf("Все") }
-    val storyComposerContext = androidx.compose.ui.platform.LocalContext.current
-    val photoStoryAction = onPostStory
-    val videoStoryAction = onPostVideoStory
-    val storyStripListener = remember(photoStoryAction, videoStoryAction, onOpenStory, storyComposerContext) {
-        object : NativeStoryStripView.Listener {
-            override fun onPostStory() {
-                NativeStoryComposerDialog.show(storyComposerContext,
-                    Runnable { photoStoryAction() }, Runnable { videoStoryAction() })
-            }
-            override fun onOpenStory(story: TgStory) {
-                viewingStory = story.chatId to story.storyId
-                onOpenStory(story)
-            }
-        }
-    }
-    val folderListener = remember {
-        NativeChatFoldersView.Listener { value -> folder = value }
-    }
-    val filtered = remember(chats, query, sortNewest, unreadOnly, folder) {
-        TdChatListFilter.filter(chats, query, sortNewest, unreadOnly, folder)
-    }
-    Column(Modifier.fillMaxSize().background(LocalAppearance.current.background)) {
-        Box(Modifier.fillMaxWidth()) {
-            HeaderWallpaper(uri = if (selectedTab == 0) headerWallpaper else null, modifier = Modifier.matchParentSize())
-            Column(Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars)) {
-                val toolbarChatCount = chats.count { !it.archived }
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth(),
-                    factory = { context ->
-                        NativeChatsHeaderView(context, selectedTab, toolbarChatCount,
-                            unreadOnly, sortNewest, Color.WHITE.toArgb(), chatsHeaderListener)
-                    },
-                    update = { view ->
-                        view.update(selectedTab, toolbarChatCount, unreadOnly, sortNewest,
-                            Color.WHITE.toArgb(), chatsHeaderListener)
-                    }
-                )
-                if (selectedTab == 0) {
-                    val queryAction = onQuery
-                    val searchListener = remember(queryAction) {
-                        NativeChatSearchBarView.Listener { value -> queryAction(value) }
-                    }
-                    AndroidView(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 7.dp)
-                            .height(50.dp),
-                        factory = { context -> NativeChatSearchBarView(context, query, searchListener).also { searchBarRef.value = it } },
-                        update = { view -> searchBarRef.value = view; view.update(query, searchListener) }
-                    )
-                }
-            }
-        }
-        if (selectedTab == 2) {
-            Box(Modifier.weight(1f).fillMaxWidth()) { SettingsPanel(account, onSaveMyProfile, onPickProfilePhoto, operationError, onDismissOperationError, privacyLastSeen, onPrivacyLastSeen, privacyPhone, onPrivacyPhone, privacyPhoto, onPrivacyPhoto, themeName, onTheme, glass, onGlass, fontScale, onFontScale, accentName, onAccent, bubbleRadius, onBubbleRadius, wallpaperName, onWallpaper, compactChats, onCompactChats, headerWallpaper, onPickHeaderWallpaper, onClearHeaderWallpaper, onSelectCosmicCover) }
-        } else if (selectedTab == 1) {
-            Box(Modifier.weight(1f).fillMaxWidth()) {
-                ContactsPanel(contacts.filter { it.name.contains(contactsQuery, true) || it.username.contains(contactsQuery, true) || it.phone.contains(contactsQuery) }, contactsQuery, onContactsQuery, onOpenContact)
-            }
-        } else {
-            if (folder != "Архив") {
-                val appearance = LocalAppearance.current
-                AndroidView(
-                    modifier = Modifier.fillMaxWidth().height(92.dp),
-                    factory = { context ->
-                        NativeStoryStripView(context, stories, chats, appearance.text.toArgb(),
-                            appearance.accent.toArgb(), appearance.panelLight.toArgb(), storyStripListener)
-                    },
-                    update = { view ->
-                        view.update(stories, chats, appearance.text.toArgb(),
-                            appearance.accent.toArgb(), appearance.panelLight.toArgb(), storyStripListener)
-                    }
-                )
-            }
-            val folderAppearance = LocalAppearance.current
-            AndroidView(
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                factory = { context ->
-                    NativeChatFoldersView(context, folder, folderAppearance.text.toArgb(),
-                        folderAppearance.muted.toArgb(), folderAppearance.accent.toArgb(), folderListener)
-                },
-                update = { view ->
-                    view.update(folder, folderAppearance.text.toArgb(),
-                        folderAppearance.muted.toArgb(), folderAppearance.accent.toArgb(), folderListener)
-                }
-            )
-            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (folder == "Все") "Все чаты" else folder, color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Spacer(Modifier.weight(1f))
-                Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = LocalAppearance.current.muted, fontSize = 12.sp)
-            }
-            if (filtered.isEmpty()) {
-                val emptyAppearance = LocalAppearance.current
-                val emptyState = NativeChatEmptyStateView.ListState(
-                    chats.isEmpty(), query.isNotBlank() || unreadOnly || folder != "Все")
-                AndroidView(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    factory = { context ->
-                        NativeChatEmptyStateView(context, emptyState,
-                            emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
-                    },
-                    update = { view ->
-                        view.update(emptyState, emptyAppearance.text.toArgb(),
-                            emptyAppearance.muted.toArgb())
-                    }
-                )
-            } else {
-                val openAction = onOpen
-                val archiveAction = onArchive
-                val pinAction = onTogglePinned
-                val unreadAction = onToggleUnread
-                val muteAction = onToggleMute
-                val chatListListener = remember(openAction, archiveAction, pinAction, unreadAction, muteAction) {
-                    object : NativeChatListView.Listener {
-                        override fun onOpen(chat: TgChat) = openAction(chat)
-                        override fun onArchive(chat: TgChat) = archiveAction(chat)
-                        override fun onTogglePinned(chat: TgChat) = pinAction(chat)
-                        override fun onToggleUnread(chat: TgChat) = unreadAction(chat)
-                        override fun onToggleMute(chat: TgChat) = muteAction(chat)
-                    }
-                }
-                val chatListAppearance = LocalAppearance.current
-                AndroidView(
-                    modifier = Modifier.weight(1f).fillMaxWidth(),
-                    factory = { context ->
-                        NativeChatListView(context, filtered, compactChats,
-                            chatListAppearance.text.toArgb(), chatListAppearance.muted.toArgb(),
-                            chatListAppearance.accent.toArgb(), chatListAppearance.panel.copy(alpha = 1f - chatListAppearance.glass * 0.30f).toArgb(),
-                            chatListListener)
-                    },
-                    update = { view ->
-                        view.update(filtered, compactChats, chatListAppearance.text.toArgb(),
-                            chatListAppearance.muted.toArgb(), chatListAppearance.accent.toArgb(),
-                            chatListAppearance.panel.copy(alpha = 1f - chatListAppearance.glass * 0.30f).toArgb(), chatListListener)
-                    }
-                )
-            }
-        }
-        if (activeStory != null) StoryViewer(
-            story = activeStory,
-            onDismiss = { onCloseStory(activeStory); viewingStory = null },
-            onPrevious = {
-                val previous = orderedStories.getOrNull(activeStoryIndex - 1)
-                if (previous != null) { onCloseStory(activeStory); viewingStory = previous.chatId to previous.storyId; onOpenStory(previous) }
-            },
-            onNext = {
-                val next = orderedStories.getOrNull(activeStoryIndex + 1)
-                if (next != null) { onCloseStory(activeStory); viewingStory = next.chatId to next.storyId; onOpenStory(next) }
-                else { onCloseStory(activeStory); viewingStory = null }
-            },
-            storyPosition = activeStoryIndex + 1,
-            storyCount = orderedStories.size,
-            onReact = { onReactToStory(activeStory) },
-            onReply = { text -> onReplyToStory(activeStory, text) }
-        )
-
-    }
+    AndroidView(
+        modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars)
+            .background(appearance.background),
+        factory = { context -> NativeChatsScreenView(context, screenState, screenListener) },
+        update = { view -> view.update(screenState, screenListener) }
+    )
 }
 
 @Composable
