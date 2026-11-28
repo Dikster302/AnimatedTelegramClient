@@ -397,19 +397,41 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 Spacer(Modifier.weight(1f))
                 Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = LocalAppearance.current.muted, fontSize = 12.sp)
             }
-            if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено", color = LocalAppearance.current.muted) }
-            else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = 8.dp)) {
-                items(filtered, key = { it.id }) { chat ->
-                    ChatRow(
-                        chat,
-                        compact = compactChats,
-                        onArchive = { onArchive(chat) },
-                        onTogglePinned = { onTogglePinned(chat) },
-                        onToggleUnread = { onToggleUnread(chat) },
-                        onToggleMute = { onToggleMute(chat) }
-                    ) { onOpen(chat) }
-                    HorizontalDivider(color = LocalAppearance.current.muted.copy(alpha = 0.16f), thickness = 0.6.dp, modifier = Modifier.padding(start = 82.dp))
+            if (filtered.isEmpty()) {
+                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(if (chats.isEmpty()) "Загружаем чаты…" else "Ничего не найдено",
+                        color = LocalAppearance.current.muted)
                 }
+            } else {
+                val openAction = onOpen
+                val archiveAction = onArchive
+                val pinAction = onTogglePinned
+                val unreadAction = onToggleUnread
+                val muteAction = onToggleMute
+                val chatListListener = remember(openAction, archiveAction, pinAction, unreadAction, muteAction) {
+                    object : NativeChatListView.Listener {
+                        override fun onOpen(chat: TgChat) = openAction(chat)
+                        override fun onArchive(chat: TgChat) = archiveAction(chat)
+                        override fun onTogglePinned(chat: TgChat) = pinAction(chat)
+                        override fun onToggleUnread(chat: TgChat) = unreadAction(chat)
+                        override fun onToggleMute(chat: TgChat) = muteAction(chat)
+                    }
+                }
+                val chatListAppearance = LocalAppearance.current
+                AndroidView(
+                    modifier = Modifier.weight(1f).fillMaxWidth(),
+                    factory = { context ->
+                        NativeChatListView(context, filtered, compactChats,
+                            chatListAppearance.text.toArgb(), chatListAppearance.muted.toArgb(),
+                            chatListAppearance.accent.toArgb(), chatListAppearance.panel.toArgb(),
+                            chatListListener)
+                    },
+                    update = { view ->
+                        view.update(filtered, compactChats, chatListAppearance.text.toArgb(),
+                            chatListAppearance.muted.toArgb(), chatListAppearance.accent.toArgb(),
+                            chatListAppearance.panel.toArgb(), chatListListener)
+                    }
+                )
             }
         }
         if (showStoryComposer) AlertDialog(
