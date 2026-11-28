@@ -2,7 +2,6 @@ package com.dikster.specialgram;
 
 import org.drinkless.tdlib.TdApi;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 /** Registers TDLib chat snapshots and hands off related user, story and avatar requests. */
@@ -35,7 +34,7 @@ public final class TdChatRegistrationController {
             if (chat.getId() != source.id) chats.add(chat);
         }
         chats.add(item);
-        chats.sort(Comparator.comparingInt(TgChat::getLastDate).reversed());
+        TdChatStateController.sortChats(chats);
         listener.setChats(chats);
 
         if (previous == null) listener.enqueueChatStories(source.id);
