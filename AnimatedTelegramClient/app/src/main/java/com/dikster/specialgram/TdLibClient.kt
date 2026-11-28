@@ -108,7 +108,6 @@ class TdLibClient(context:Context) {
  )
  private val profileController = TdProfileController(userActions,profileSession,
   object : TdProfileController.Listener {
-   override fun findChat(chatId:Long):TgChat? = _chats.value.firstOrNull { it.id==chatId }
    override fun profile():TgProfile? = _profile.value
    override fun setProfile(profile:TgProfile?) { _profile.value=profile }
    override fun onPrivateChatUser(userId:Long,chatId:Long) { userToChat[userId]=chatId }
