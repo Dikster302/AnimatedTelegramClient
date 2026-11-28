@@ -1,6 +1,6 @@
 package com.dikster.specialgram;
 
-import kotlin.Pair;
+
 import org.drinkless.tdlib.TdApi;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,15 +26,15 @@ public final class TdFileStateController {
 
     private final Listener listener;
     private final Map<Integer, Long> fileToChat;
-    private final Map<Integer, Pair<Long, Long>> videoFileToMessage;
-    private final Map<Integer, Pair<Long, Long>> mediaFileToMessage;
-    private final Map<Integer, Pair<Long, Integer>> storyFileToKey;
+    private final Map<Integer, TdPair<Long, Long>> videoFileToMessage;
+    private final Map<Integer, TdPair<Long, Long>> mediaFileToMessage;
+    private final Map<Integer, TdPair<Long, Integer>> storyFileToKey;
 
     public TdFileStateController(Listener listener,
                                  Map<Integer, Long> fileToChat,
-                                 Map<Integer, Pair<Long, Long>> videoFileToMessage,
-                                 Map<Integer, Pair<Long, Long>> mediaFileToMessage,
-                                 Map<Integer, Pair<Long, Integer>> storyFileToKey) {
+                                 Map<Integer, TdPair<Long, Long>> videoFileToMessage,
+                                 Map<Integer, TdPair<Long, Long>> mediaFileToMessage,
+                                 Map<Integer, TdPair<Long, Integer>> storyFileToKey) {
         this.listener = listener;
         this.fileToChat = fileToChat;
         this.videoFileToMessage = videoFileToMessage;
@@ -59,17 +59,17 @@ public final class TdFileStateController {
                 listener.setProfile(copyAvatar(profile, file.local.path));
         }
 
-        Pair<Long, Long> videoMessage = videoFileToMessage.remove(file.id);
+        TdPair<Long, Long> videoMessage = videoFileToMessage.remove(file.id);
         if (videoMessage != null && isActive(videoMessage.getFirst())) {
             updateMessage(videoMessage.getSecond(), file, false);
         }
 
-        Pair<Long, Long> mediaMessage = mediaFileToMessage.remove(file.id);
+        TdPair<Long, Long> mediaMessage = mediaFileToMessage.remove(file.id);
         if (mediaMessage != null && isActive(mediaMessage.getFirst())) {
             updateMessage(mediaMessage.getSecond(), file, true);
         }
 
-        Pair<Long, Integer> storyKey = storyFileToKey.remove(file.id);
+        TdPair<Long, Integer> storyKey = storyFileToKey.remove(file.id);
         if (storyKey != null) {
             List<TgStory> stories = new ArrayList<>(listener.stories().size());
             for (TgStory story : listener.stories()) stories.add(
