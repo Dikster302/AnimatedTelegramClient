@@ -1,6 +1,8 @@
 package com.dikster.specialgram;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
@@ -14,6 +16,7 @@ public final class TdRequestDispatcher {
 
     private final Context app;
     private final Client client;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     public TdRequestDispatcher(Context context, Client client) {
         this.app = context.getApplicationContext();
@@ -21,7 +24,9 @@ public final class TdRequestDispatcher {
     }
 
     public void send(TdApi.Function<?> function, Listener listener) {
-        client.send(function, result -> {
+        client.send(function, result -> mainHandler.post(() -> {
+            // TDLib вызывает completion callbacks на собственном потоке.
+            // Все контроллеры, включая те, что уведомляют UI, получают результат на main thread.
             if (result instanceof TdApi.Error) {
                 TdApi.Error error = (TdApi.Error) result;
                 if (!isExpectedTerminalError(function, error)) {
@@ -32,8 +37,6 @@ public final class TdRequestDispatcher {
                     FirebaseCrashlytics.getInstance().setCustomKey(
                             "tdlib_function", function.getClass().getSimpleName());
                     FirebaseCrashlytics.getInstance().setCustomKey("tdlib_error_code", error.code);
-                    // Flood-control responses are recoverable and are handled by request queues.
-                    // Keep them in the local journal, but don't pollute Crashlytics as exceptions.
                     if (error.code != 429) {
                         FirebaseCrashlytics.getInstance().recordException(new IllegalStateException(
                                 "TDLib request failed: " + function.getClass().getSimpleName()
@@ -42,12 +45,9 @@ public final class TdRequestDispatcher {
                 }
             }
             if (listener == null) return;
-            if (result instanceof TdApi.Error) {
-                listener.onError((TdApi.Error) result);
-            } else {
-                listener.onResult(result);
-            }
-        });
+            if (result instanceof TdApi.Error) listener.onError((TdApi.Error) result);
+            else listener.onResult(result);
+        }));
     }
 
     /**
