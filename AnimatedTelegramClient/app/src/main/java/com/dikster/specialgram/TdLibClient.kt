@@ -17,6 +17,9 @@ class TdLibClient(context:Context) {
  private val _privacyLastSeen=MutableStateFlow("Загружаем…"); val privacyLastSeen=_privacyLastSeen.asStateFlow()
  private val _privacyPhone=MutableStateFlow("Загружаем…"); val privacyPhone=_privacyPhone.asStateFlow()
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
+ private val updateLock=Any()
+ private val pendingUpdates=java.util.ArrayDeque<TdApi.Object>()
+ private var updateStateReady=false
  private val chatSession = TdChatSessionController()
  private val animatedMessageController = TdAnimatedMessageController(
   TdAnimatedMessageController.Requester { function, callback -> send(function, handler={ callback?.onResult(it) }, reportErrorToUi=true) }
@@ -323,6 +326,15 @@ class TdLibClient(context:Context) {
   override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
  },authorizationStateRouter,chatRegistrationController,storyStateController,chatSession,userUpdateRouter)
  private fun onUpdate(o:TdApi.Object) {
+  synchronized(updateLock) {
+   if(!updateStateReady) {
+    pendingUpdates.addLast(o)
+    return
+   }
+   dispatchUpdate(o)
+  }
+ }
+ private fun dispatchUpdate(o:TdApi.Object) {
   if(messageStateController.handle(o) || fileStateController.handle(o)) return
   updateStateController.route(o)
  }
@@ -407,6 +419,13 @@ class TdLibClient(context:Context) {
   userActions,chatRegistrationController,privacyController,storyActions,storyStateController,
   chatConversationController,accountActions,messageActions,animatedMessageSendController,
   operationErrorController)
+
+ init {
+  synchronized(updateLock) {
+   updateStateReady=true
+   while(!pendingUpdates.isEmpty()) dispatchUpdate(pendingUpdates.removeFirst())
+  }
+ }
 
  
 }
