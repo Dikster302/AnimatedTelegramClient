@@ -44,10 +44,10 @@ public final class NativeChatsHeaderView extends LinearLayout {
         selectedEmoji=context.getSharedPreferences("appearance",Context.MODE_PRIVATE)
                 .getString("chatTitleEmoji","⭐");
 
-        title=text(context,"Specialgram",Color.WHITE,20,true);
+        title=text(context,"Specialgram",textColor,20,true);
         addView(title,new LayoutParams(LayoutParams.WRAP_CONTENT,LayoutParams.WRAP_CONTENT));
 
-        premiumEmoji=text(context,selectedEmoji,Color.WHITE,18,true);
+        premiumEmoji=text(context,selectedEmoji,textColor,18,true);
         premiumEmoji.setGravity(Gravity.CENTER);
         GradientDrawable emojiBg=new GradientDrawable();
         emojiBg.setColor(0x332AABEE);emojiBg.setCornerRadius(dp(12));
@@ -60,7 +60,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
 
         View spacer=new View(context);
         addView(spacer,new LayoutParams(0,1,1f));
-        moreButton=text(context,"⋮",Color.WHITE,27,true);
+        moreButton=text(context,"⋮",textColor,27,true);
         moreButton.setGravity(Gravity.CENTER);
         addView(moreButton,new LayoutParams(dp(42),dp(42)));
         moreButton.setOnClickListener(this::showMenu);
@@ -73,6 +73,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         themeName=theme==null?"Telegram":theme;
         listener=callback;
         title.setText(tab==0?"Specialgram":tab==1?"Контакты":tab==2?"Настройки":tab==3?"Профиль":"Звонки");
+        title.setTextColor(textColor);moreButton.setTextColor(textColor);premiumEmoji.setTextColor(textColor);
         premiumEmoji.setVisibility(tab==0?VISIBLE:GONE);
     }
 
