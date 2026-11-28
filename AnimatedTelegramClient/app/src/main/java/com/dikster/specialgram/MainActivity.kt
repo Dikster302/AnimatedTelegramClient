@@ -209,6 +209,7 @@ private fun TelegramApp(td: TdLibClient) {
 
     BackHandler(enabled = selectedChat != null) {
         td.closeProfile()
+        td.closeChat()
         selectedChat = null
     }
 
@@ -267,7 +268,7 @@ private fun TelegramApp(td: TdLibClient) {
                             profile = profile,
                             onOpenProfile = { td.openProfile(selectedChat!!.id) },
                             onCloseProfile = { td.closeProfile() },
-                            onBack = { selectedChat = null },
+                            onBack = { td.closeProfile(); td.closeChat(); selectedChat = null },
                             onSend = { text, animated, replyToMessageId ->
                                 if (animated) td.sendAnimated(selectedChat!!.id, text, replyToMessageId)
                                 else td.sendPlain(selectedChat!!.id, text, replyToMessageId)

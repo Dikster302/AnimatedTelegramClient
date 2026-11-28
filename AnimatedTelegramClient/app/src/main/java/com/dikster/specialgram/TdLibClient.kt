@@ -55,6 +55,7 @@ class TdLibClient(context:Context) {
  private val _privacyPhoto=MutableStateFlow("Загружаем…"); val privacyPhoto=_privacyPhoto.asStateFlow()
  private var activeChat:Long?=null
  private var chatSearchGeneration=0
+ private var chatSessionGeneration=0
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val animatedMessageController = TdAnimatedMessageController(
@@ -444,6 +445,7 @@ class TdLibClient(context:Context) {
 
  fun openChat(id:Long) {
   activeChat=id
+  val session=++chatSessionGeneration
   chatSearchGeneration++
   _searchResults.value=emptyList()
   historyLoadingChats.remove(id)
@@ -453,14 +455,14 @@ class TdLibClient(context:Context) {
    override fun onResult(result:TdApi.Object) {
     if(result is TdApi.Chat) {
      _chats.value=_chats.value.map { if(it.id==id) it.copy(lastReadOutboxMessageId=result.lastReadOutboxMessageId,unreadCount=result.unreadCount) else it }
-     if(activeChat==id) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
+     if(activeChat==id && chatSessionGeneration==session) _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
     }
    }
    override fun onError(error:TdApi.Error) { }
   })
   chatHistoryController.loadInitial(id, object : TdChatHistoryController.Callback {
    override fun onResult(r:TdApi.Object) {
-   if(r is TdApi.Messages && activeChat==id) {
+   if(r is TdApi.Messages && activeChat==id && chatSessionGeneration==session) {
     val loaded=r.messages
     if(loaded.size<50) historyExhaustedChats.add(id)
     val readMarker=_chats.value.firstOrNull{it.id==id}?.lastReadOutboxMessageId ?: 0L
@@ -473,6 +475,14 @@ class TdLibClient(context:Context) {
    }
    override fun onError(error:TdApi.Error) { }
   })
+ }
+ fun closeChat() {
+  val previous=activeChat
+  activeChat=null
+  chatSessionGeneration++
+  chatSearchGeneration++
+  _searchResults.value=emptyList()
+  if(previous!=null) historyLoadingChats.remove(previous)
  }
  fun searchChatMessages(chatId:Long,query:String) {
   val value=query.trim()
@@ -497,11 +507,12 @@ class TdLibClient(context:Context) {
  fun loadOlderMessages(chatId:Long) {
   if(activeChat!=chatId || chatId in historyLoadingChats || chatId in historyExhaustedChats) return
   val oldest=_messages.value.minByOrNull { it.id } ?: return
+  val session=chatSessionGeneration
   historyLoadingChats.add(chatId)
   chatHistoryController.loadOlder(chatId,oldest.id,object : TdChatHistoryController.Callback {
    override fun onResult(result:TdApi.Object) {
    historyLoadingChats.remove(chatId)
-   if(activeChat!=chatId || result !is TdApi.Messages) return
+   if(activeChat!=chatId || chatSessionGeneration!=session || result !is TdApi.Messages) return
    val loaded=result.messages
    if(loaded.isEmpty()) {
     historyExhaustedChats.add(chatId)
