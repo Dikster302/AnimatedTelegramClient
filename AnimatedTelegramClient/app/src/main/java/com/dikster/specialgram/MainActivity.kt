@@ -804,8 +804,9 @@ private fun ConversationScreen(
 
 @Composable
 private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () -> Unit, onNext: () -> Unit, storyPosition: Int, storyCount: Int, onReact: () -> Unit, onReply: (String) -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val listener = remember(onDismiss, onPrevious, onNext, onReact, onReply) {
-        object : NativeStoryViewerView.Listener {
+        object : NativeStoryViewerDialogHost.Listener {
             override fun onDismiss() = onDismiss()
             override fun onPrevious() = onPrevious()
             override fun onNext() = onNext()
@@ -813,16 +814,13 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
             override fun onReply(text: String) = onReply(text)
         }
     }
-    Dialog(onDismissRequest = onDismiss) {
-        AndroidView(
-            modifier = Modifier.fillMaxWidth().height(620.dp),
-            factory = { context ->
-                NativeStoryViewerView(context, story, storyPosition, storyCount, listener)
-            },
-            update = { view -> view.update(story, storyPosition, storyCount, listener) }
-        )
-    }
+    AndroidView(
+        modifier = Modifier.size(1.dp),
+        factory = { NativeStoryViewerDialogHost(context, story, storyPosition, storyCount, listener) },
+        update = { view -> view.update(story, storyPosition, storyCount, listener) }
+    )
 }
+
 @Composable
 private fun AuthScreen(
     title: String, subtitle: String, value: String, onValue: (String) -> Unit,
