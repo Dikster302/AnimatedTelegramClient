@@ -41,6 +41,7 @@ public final class TdContactsController {
             Executors.newSingleThreadScheduledExecutor();
     private final ArrayDeque<Long> pending = new ArrayDeque<>();
     private final Set<Long> queued = new HashSet<>();
+    private final Set<Long> completedUsers = new HashSet<>();
     private final Map<Long, Integer> retries = new HashMap<>();
     private boolean loading;
     private boolean inFlight;
@@ -70,7 +71,7 @@ public final class TdContactsController {
     public void enqueueUser(long userId) {
         boolean shouldSchedule;
         synchronized (this) {
-            if (closed || !queued.add(userId)) return;
+            if (closed || completedUsers.contains(userId) || !queued.add(userId)) return;
             pending.addLast(userId);
             loading = true;
             shouldSchedule = !inFlight;
@@ -109,7 +110,10 @@ public final class TdContactsController {
         requester.send(new TdApi.GetUser(userId), new Callback() {
             @Override public void onResult(TdApi.Object result) {
                 retries.remove(userId);
-                if (result instanceof TdApi.User) listener.onUser((TdApi.User) result);
+                if (result instanceof TdApi.User) {
+                    synchronized (TdContactsController.this) { completedUsers.add(userId); }
+                    listener.onUser((TdApi.User) result);
+                }
                 completeOne(REQUEST_GAP_MS);
             }
 
@@ -169,6 +173,7 @@ public final class TdContactsController {
         inFlight = false;
         pending.clear();
         queued.clear();
+        completedUsers.clear();
         retries.clear();
         scheduler.shutdownNow();
     }
