@@ -120,8 +120,8 @@ public final class NativeChatsScreenView extends FrameLayout {
         bottomNavigation.setOrientation(LinearLayout.HORIZONTAL);
         bottomNavigation.setGravity(Gravity.CENTER);
         LinearLayout.LayoutParams navParams=new LinearLayout.LayoutParams(
-                LayoutParams.MATCH_PARENT,dp(56));
-        navParams.setMargins(0,0,0,0);
+                LayoutParams.MATCH_PARENT,dp(64));
+        navParams.setMargins(dp(12),dp(6),dp(12),dp(8));
         root.addView(bottomNavigation,navParams);
         update(state,listener);
     }
@@ -173,15 +173,13 @@ public final class NativeChatsScreenView extends FrameLayout {
                 headerColumn.addView(toolbar,new LinearLayout.LayoutParams(
                         LayoutParams.MATCH_PARENT,dp(56)));
             }
-            if(searchExpanded){
-                if(chatSearch.getParent()!=headerColumn){
-                    headerColumn.addView(chatSearch,new LinearLayout.LayoutParams(
-                            LayoutParams.MATCH_PARENT,dp(46)));
-                    chatSearch.setAlpha(0f);
-                    chatSearch.animate().alpha(1f).setDuration(150L).start();
-                }
-            }else if(chatSearch.getParent()==headerColumn){
-                headerColumn.removeView(chatSearch);
+            if(chatSearch.getParent()!=headerColumn){
+                LinearLayout.LayoutParams searchParams=new LinearLayout.LayoutParams(
+                        LayoutParams.MATCH_PARENT,dp(46));
+                searchParams.setMargins(dp(16),dp(2),dp(16),dp(8));
+                headerColumn.addView(chatSearch,searchParams);
+                chatSearch.setAlpha(0f);
+                chatSearch.animate().alpha(1f).setDuration(150L).start();
             }
         }else{
             searchExpanded=false;
@@ -501,7 +499,8 @@ public final class NativeChatsScreenView extends FrameLayout {
             bottomNavigation.addView(item,new LinearLayout.LayoutParams(0,LayoutParams.MATCH_PARENT,1f));
         }
         GradientDrawable bg=new GradientDrawable();bg.setColor(state.panel);
-        bg.setCornerRadius(dp(20));bottomNavigation.setBackground(bg);
+        bg.setCornerRadius(dp(28));bottomNavigation.setBackground(bg);
+        bottomNavigation.setClipToOutline(true);
         bottomNavigation.setElevation(dp(8));
     }
 
