@@ -18,8 +18,9 @@ jobs:
           java-version: "17"
       - name: Install Android compile SDK
         run: |
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          SDKMANAGER="/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0"
       - name: Checkout pinned TDLib source
         run: |
           git clone https://github.com/tdlib/td.git tdlib-src
