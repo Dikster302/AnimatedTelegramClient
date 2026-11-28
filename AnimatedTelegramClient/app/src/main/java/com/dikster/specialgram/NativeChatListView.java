@@ -3,6 +3,9 @@ package com.dikster.specialgram;
 import android.content.Context;
 import android.graphics.Color;
 import android.view.View;
+import android.view.MotionEvent;
+import android.view.ViewConfiguration;
+import android.view.HapticFeedbackConstants;
 import android.widget.BaseAdapter;
 import android.widget.LinearLayout;
 import android.widget.ListView;
@@ -83,8 +86,12 @@ public final class NativeChatListView extends LinearLayout {
     private final class ChatItemView extends LinearLayout {
         private final NativeChatRowView row;
         private final View divider;
+        private float swipeStartX,swipeStartY;
+        private boolean swipeActive;
+        private final int touchSlop;
         ChatItemView(Context context,TgChat initial){
             super(context);setOrientation(VERTICAL);
+            touchSlop=ViewConfiguration.get(context).getScaledTouchSlop();
             row=new NativeChatRowView(context,initial,compact,textColor,mutedColor,accentColor,panelColor,
                     null,null,null,null,null);
             addView(row,new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.WRAP_CONTENT));
@@ -93,7 +100,46 @@ public final class NativeChatListView extends LinearLayout {
             dividerParams.leftMargin=dp(82);
             addView(divider,dividerParams);
         }
+        @Override public boolean onInterceptTouchEvent(MotionEvent event){
+            if(event.getActionMasked()==MotionEvent.ACTION_DOWN){
+                swipeStartX=event.getX();swipeStartY=event.getY();swipeActive=false;
+                return false;
+            }
+            if(event.getActionMasked()==MotionEvent.ACTION_MOVE){
+                float dx=event.getX()-swipeStartX,dy=event.getY()-swipeStartY;
+                if(Math.abs(dx)>touchSlop*2&&Math.abs(dx)>Math.abs(dy)*1.25f){
+                    swipeActive=true;return true;
+                }
+            }
+            return false;
+        }
+        @Override public boolean onTouchEvent(MotionEvent event){
+            if(event.getActionMasked()==MotionEvent.ACTION_MOVE&&swipeActive){
+                float dx=event.getX()-swipeStartX;
+                setTranslationX(Math.max(-dp(92),Math.min(dp(92),dx)));
+                return true;
+            }
+            if(event.getActionMasked()==MotionEvent.ACTION_UP&&swipeActive){
+                float dx=event.getX()-swipeStartX;
+                setTranslationX(0f);
+                if(Math.abs(dx)>=dp(72)&&listener!=null){
+                    performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
+                    TgChat current=(TgChat)getTag();
+                    if(current!=null){
+                        if(dx<0)listener.onArchive(current);
+                        else listener.onToggleUnread(current);
+                    }
+                }
+                swipeActive=false;return true;
+            }
+            if(event.getActionMasked()==MotionEvent.ACTION_CANCEL){
+                animate().translationX(0f).setDuration(120).start();
+                swipeActive=false;return true;
+            }
+            return swipeActive||super.onTouchEvent(event);
+        }
         void update(TgChat chat){
+            setTag(chat);
             row.update(chat,compact,textColor,mutedColor,accentColor,panelColor,
                     ()->{if(listener!=null)listener.onOpen(chat);},
                     ()->{if(listener!=null)listener.onArchive(chat);},
