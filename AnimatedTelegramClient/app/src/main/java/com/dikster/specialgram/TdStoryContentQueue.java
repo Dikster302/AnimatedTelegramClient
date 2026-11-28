@@ -73,6 +73,11 @@ public final class TdStoryContentQueue implements AutoCloseable {
         final Item item;
         synchronized (this) {
             if (closed) { inFlight = false; return; }
+            long waitMs = TdStoryRateLimit.remainingDelayMs();
+            if (waitMs > 0L) {
+                scheduler.schedule(this::requestNext, waitMs, TimeUnit.MILLISECONDS);
+                return;
+            }
             item = pending.pollFirst();
             if (item == null) { inFlight = false; return; }
         }
@@ -92,8 +97,10 @@ public final class TdStoryContentQueue implements AutoCloseable {
                     synchronized (TdStoryContentQueue.this) {
                         if (closed) { inFlight = false; return; }
                         if (error != null && error.code == 429 && ++item.retries <= MAX_RETRIES) {
+                            TdStoryRateLimit.blockFromError(error.message);
                             pending.addFirst(item);
-                            delay = retryDelay(error.message, item.retries);
+                            delay = Math.max(retryDelay(error.message, item.retries),
+                                    TdStoryRateLimit.remainingDelayMs());
                         } else {
                             queued.remove(item.key());
                         }
