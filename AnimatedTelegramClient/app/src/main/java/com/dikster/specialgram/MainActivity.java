@@ -76,8 +76,12 @@ public final class MainActivity extends Activity {
         root.setBackgroundColor(BG);
         ViewCompat.setOnApplyWindowInsetsListener(root,(view,insets)->{
             int top=insets.getInsets(WindowInsetsCompat.Type.statusBars()).top;
-            int bottom=insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
-            view.setPadding(0,top,0,Math.max(0,bottom/3));
+            int navigationBottom=insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom;
+            int imeBottom=insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+            // При открытой клавиатуре поднимаем весь экран чата вместе с composer.
+            // Учитываем нижнюю системную панель, когда клавиатура закрыта.
+            int bottom=Math.max(navigationBottom,imeBottom);
+            view.setPadding(0,top,bottom>0?0:0,bottom);
             return insets;
         });
         setContentView(root);
