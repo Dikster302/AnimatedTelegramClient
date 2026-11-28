@@ -423,13 +423,13 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                     factory = { context ->
                         NativeChatListView(context, filtered, compactChats,
                             chatListAppearance.text.toArgb(), chatListAppearance.muted.toArgb(),
-                            chatListAppearance.accent.toArgb(), chatListAppearance.panel.toArgb(),
+                            chatListAppearance.accent.toArgb(), chatListAppearance.panel.copy(alpha = 1f - chatListAppearance.glass * 0.30f).toArgb(),
                             chatListListener)
                     },
                     update = { view ->
                         view.update(filtered, compactChats, chatListAppearance.text.toArgb(),
                             chatListAppearance.muted.toArgb(), chatListAppearance.accent.toArgb(),
-                            chatListAppearance.panel.toArgb(), chatListListener)
+                            chatListAppearance.panel.copy(alpha = 1f - chatListAppearance.glass * 0.30f).toArgb(), chatListListener)
                     }
                 )
             }
