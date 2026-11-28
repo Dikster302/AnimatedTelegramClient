@@ -57,23 +57,25 @@ public final class TdChatStateController {
         boolean archived = position.list instanceof TdApi.ChatListArchive;
         List<TgChat> result = new ArrayList<>(source.size());
         for (TgChat chat : source) result.add(chat.getId() == chatId
-                ? copyChatWithPosition(chat, archived, position.isPinned)
+                ? copyChatWithPosition(chat, archived, position.isPinned, position.order)
                 : chat);
         sortChats(result);
         return result;
     }
 
-    /** Keep pinned chats above regular chats; date orders chats within each group. */
+    /** TDLib order is descending: preserve its exact order among pinned chats. */
     static void sortChats(List<TgChat> chats) {
         chats.sort(Comparator.comparing(TgChat::isPinned).reversed()
+                .thenComparing(Comparator.comparingLong(TgChat::getPinnedOrder).reversed())
                 .thenComparing(Comparator.comparingInt(TgChat::getLastDate).reversed()));
     }
 
-    private static TgChat copyChatWithPosition(TgChat c, boolean archived, boolean pinned) {
+    private static TgChat copyChatWithPosition(TgChat c, boolean archived, boolean pinned, long order) {
         return new TgChat(c.getId(), c.getTitle(), c.getPreview(), c.getLastDate(),
                 c.getUnreadCount(), c.getAvatarPath(), c.getKind(), archived, c.getStatus(),
                 c.isOnline(), c.isPremium(), c.getLastReadOutboxMessageId(), c.getHasStory(),
-                c.getHasUnviewedStory(), pinned, c.isMarkedAsUnread(), c.isMuted());
+                c.getHasUnviewedStory(), pinned, c.isMarkedAsUnread(), c.isMuted(),
+                pinned ? order : 0L);
     }
 
     public static List<TgChat> updateMarkedUnread(List<TgChat> source, long chatId, boolean unread) {
@@ -120,7 +122,7 @@ public final class TdChatStateController {
                                    boolean markedUnread, boolean muted) {
         return new TgChat(c.getId(), title, preview, lastDate, unreadCount, c.getAvatarPath(),
                 c.getKind(), c.getArchived(), c.getStatus(), c.isOnline(), c.isPremium(), readId,
-                c.getHasStory(), c.getHasUnviewedStory(), pinned, markedUnread, muted);
+                c.getHasStory(), c.getHasUnviewedStory(), pinned, markedUnread, muted,c.getPinnedOrder());
     }
 
     private static TgMessage copyRead(TgMessage m, boolean read) {
