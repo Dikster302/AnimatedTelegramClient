@@ -39,7 +39,8 @@ public final class TdUserMapper {
                 previous.getAvatarPath(), username, statusText(user.status),
                 user.status instanceof TdApi.UserStatusOnline, user.isPremium,
                 user.verificationStatus != null && user.verificationStatus.isVerified,
-                previous.getCommonGroups());
+                previous.getCommonGroups(),previous.getBirthdate(),previous.getGiftCount(),
+                previous.canBeCalled(),previous.supportsVideoCalls(),previous.getGifts());
     }
 
     private static String username(TdApi.User user) {
