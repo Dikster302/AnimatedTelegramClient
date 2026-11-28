@@ -92,6 +92,22 @@ class TdLibClient(context:Context) {
  private val userToChat=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val confirmedIds=java.util.concurrent.ConcurrentHashMap<Long,Long>()
  private val _operationError=MutableStateFlow<String?>(null); val operationError=_operationError.asStateFlow()
+ private val userUpdateRouter = TdUserUpdateRouter(object : TdUserUpdateRouter.Listener {
+  override fun onUserStatus(userId:Long, status:TdApi.UserStatus) { refreshUserStatus(userId,status) }
+  override fun onPrivacyRules(setting:TdApi.UserPrivacySetting, rules:TdApi.UserPrivacySettingRules) {
+   when(setting) {
+    is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=TdPrivacyController.label(rules)
+    is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=TdPrivacyController.label(rules)
+    is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=TdPrivacyController.label(rules)
+   }
+  }
+  override fun onUser(user:TdApi.User) {
+   updateUserProfile(user)
+   updateChatUser(user)
+   updateContact(user)
+   if(myUserId==user.id) updateAccount(user)
+  }
+ })
  private val operationErrorController = TdOperationErrorController(object : TdOperationErrorController.Listener {
   override fun onOperationError(message:String) { _operationError.value=message }
   override fun onClearOperationError() { _operationError.value=null }
@@ -261,13 +277,6 @@ class TdLibClient(context:Context) {
    val remaining=_stories.value.filter { it.chatId==o.storyPosterChatId }
    _chats.value=_chats.value.map { if(it.id==o.storyPosterChatId) it.copy(hasStory=remaining.isNotEmpty(),hasUnviewedStory=remaining.any { story -> !story.isViewed }) else it }
   }
-  is TdApi.UpdateUserStatus -> refreshUserStatus(o.userId,o.status)
-  is TdApi.UpdateUserPrivacySettingRules -> when(o.setting) {
-   is TdApi.UserPrivacySettingShowStatus -> _privacyLastSeen.value=TdPrivacyController.label(o.rules)
-   is TdApi.UserPrivacySettingShowPhoneNumber -> _privacyPhone.value=TdPrivacyController.label(o.rules)
-   is TdApi.UserPrivacySettingShowProfilePhoto -> _privacyPhoto.value=TdPrivacyController.label(o.rules)
-  }
-  is TdApi.UpdateUser -> { updateUserProfile(o.user); updateChatUser(o.user); updateContact(o.user); if(myUserId==o.user.id) updateAccount(o.user) }
   is TdApi.UpdateChatLastMessage -> updateChatPreview(o.chatId,o.lastMessage)
   is TdApi.UpdateChatReadOutbox -> updateOutboxRead(o.chatId,o.lastReadOutboxMessageId)
   is TdApi.UpdateDeleteMessages -> if(o.chatId==activeChat) _messages.value=_messages.value.filterNot { it.id in o.messageIds.toSet() }
@@ -286,6 +295,7 @@ class TdLibClient(context:Context) {
   is TdApi.UpdateMessageIsPinned -> if(o.chatId==activeChat) _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(isPinned=o.isPinned) else it }
   is TdApi.UpdateMessageInteractionInfo -> { if(o.chatId==activeChat) { val reactions=toTgReactions(o.interactionInfo); _messages.value=_messages.value.map { if(it.id==o.messageId) it.copy(reactions=reactions) else it } } }
   is TdApi.UpdateMessageSendSucceeded -> { val oldId=o.oldMessageId; val newId=o.message.id; confirmedIds[oldId]=newId; pendingEdits.remove(oldId)?.let { animatedMessageController.schedule(o.message.chatId,newId,it) } }
+  else -> userUpdateRouter.route(o)
  } }
  private val authorizationStateRouter = TdAuthorizationStateRouter(
   app, BuildConfig.TELEGRAM_API_ID, BuildConfig.TELEGRAM_API_HASH,
