@@ -63,7 +63,7 @@ public final class NativeMessageComposerView extends LinearLayout {
         row.addView(attachment,new LayoutParams(dp(40),dp(48)));
         attachment.setOnClickListener(this::showAttachments);
 
-        input=new EditText(context);input.setTextSize(15);input.setTextColor(text);
+        input=new EditText(context);input.setTextSize(16);input.setTextColor(text);
         input.setHintTextColor(muted);input.setHint("Сообщение");
         input.setPadding(dp(14),dp(9),dp(14),dp(9));
         input.setMinHeight(dp(46));input.setMaxLines(4);
