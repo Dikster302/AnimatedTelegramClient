@@ -90,6 +90,12 @@ class TdLibClient(context:Context) {
    }
   }
  )
+ private val chatActions = TdChatActions(
+  TdChatActions.Requester { function, callback ->
+   send(function, handler={ callback.onResult(it) }, onError={ callback.onError(it) })
+  },
+  TdChatActions.Listener { loadChats() }
+ )
  private val chatListLoader = TdChatListLoader(
   TdChatListLoader.Requester { function, callback ->
    send(function,
@@ -162,27 +168,10 @@ class TdLibClient(context:Context) {
   chatListLoader.load(TdApi.ChatListMain(),false)
   chatListLoader.load(TdApi.ChatListArchive(),true)
  }
- fun archiveChat(id:Long,archived:Boolean) {
-  if(archived) send(TdApi.AddChatToList(id,TdApi.ChatListArchive())) { loadChats() }
-  else send(TdApi.AddChatToList(id,TdApi.ChatListMain())) { loadChats() }
- }
- fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) {
-  val list:TdApi.ChatList=if(archived) TdApi.ChatListArchive() else TdApi.ChatListMain()
-  send(TdApi.ToggleChatIsPinned(list,id,isPinned)) { loadChats() }
- }
- fun toggleChatUnread(id:Long,isUnread:Boolean) {
-  send(TdApi.ToggleChatIsMarkedAsUnread(id,isUnread))
- }
- fun toggleChatMuted(id:Long,isMuted:Boolean) {
-  send(TdApi.GetChat(id)) { result ->
-   if(result is TdApi.Chat) {
-    val settings=result.notificationSettings
-    settings.useDefaultMuteFor=false
-    settings.muteFor=if(isMuted) 366*24*60*60 else 0
-    send(TdApi.SetChatNotificationSettings(id,settings))
-   }
-  }
- }
+ fun archiveChat(id:Long,archived:Boolean) { chatActions.archive(id,archived) }
+ fun toggleChatPinned(id:Long,isPinned:Boolean,archived:Boolean) { chatActions.togglePinned(id,isPinned,archived) }
+ fun toggleChatUnread(id:Long,isUnread:Boolean) { chatActions.toggleUnread(id,isUnread) }
+ fun toggleChatMuted(id:Long,isMuted:Boolean) { chatActions.toggleMuted(id,isMuted) }
  fun openProfile(chatId:Long) {
   activeProfileUserId=null
   send(TdApi.GetChat(chatId)) { result ->
