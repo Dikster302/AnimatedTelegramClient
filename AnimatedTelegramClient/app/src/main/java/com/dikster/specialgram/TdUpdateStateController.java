@@ -10,6 +10,7 @@ public final class TdUpdateStateController {
         void setChats(List<TgChat> chats);
         List<TgMessage> messages();
         void setMessages(List<TgMessage> messages);
+        void markCachedMessagesRead(long chatId, long lastReadMessageId);
     }
 
     private final State state;
@@ -53,6 +54,7 @@ public final class TdUpdateStateController {
                         chatId, lastReadMessageId);
                 state.setChats(updated.chats);
                 state.setMessages(updated.messages);
+                state.markCachedMessagesRead(chatId, lastReadMessageId);
             }
             @Override public void onChatReadInbox(long chatId, int unreadCount) {
                 state.setChats(TdChatStateController.updateUnreadCount(state.chats(), chatId, unreadCount));
