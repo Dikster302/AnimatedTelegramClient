@@ -167,6 +167,18 @@ class TdLibClient(context:Context) {
     reportErrorToUi=false)
   }
  )
+ private val chatConversationController = TdChatConversationController(chatSession,chatHistoryController,
+  object : TdChatConversationController.Listener {
+   override fun chats():List<TgChat> = _chats.value
+   override fun setChats(chats:List<TgChat>) { _chats.value=chats }
+   override fun messages():List<TgMessage> = _messages.value
+   override fun setMessages(messages:List<TgMessage>) { _messages.value=messages }
+   override fun setSearchResults(messages:List<TgMessage>) { _searchResults.value=messages }
+   override fun mapMessage(message:TdApi.Message,readMarker:Long):TgMessage = toTgMessage(message,readMarker)
+   override fun enqueueViewedMessages(chatId:Long,messageIds:LongArray) {
+    messageViewQueue.enqueue(chatId,messageIds)
+   }
+  })
  private val storyContentQueue = TdStoryContentQueue(
   TdStoryContentQueue.Requester { function, callback ->
    send(function,
@@ -411,87 +423,10 @@ class TdLibClient(context:Context) {
      fileDownloadQueue.enqueue(file.id)
     })
 
- fun openChat(id:Long) {
-  val session=chatSession.open(id)
-  _searchResults.value=emptyList()
-  _messages.value=emptyList()
-  chatHistoryController.loadChat(id, object : TdChatHistoryController.Callback {
-   override fun onResult(result:TdApi.Object) {
-    if(result is TdApi.Chat && chatSession.activeChat==id && chatSession.sessionGeneration==session) {
-     _chats.value=_chats.value.map { if(it.id==id) it.copy(lastReadOutboxMessageId=result.lastReadOutboxMessageId,unreadCount=result.unreadCount) else it }
-     _messages.value=_messages.value.map { m -> if(m.outgoing) m.copy(isRead=m.id<=result.lastReadOutboxMessageId) else m }
-    }
-   }
-   override fun onError(error:TdApi.Error) { }
-  })
-  chatHistoryController.loadInitial(id, object : TdChatHistoryController.Callback {
-   override fun onResult(r:TdApi.Object) {
-   if(r is TdApi.Messages && chatSession.activeChat==id && chatSession.sessionGeneration==session) {
-    val loaded=r.messages
-    if(loaded.size<50) chatSession.markExhausted(id)
-    val readMarker=_chats.value.firstOrNull{it.id==id}?.lastReadOutboxMessageId ?: 0L
-    val mapped=loaded.map{toTgMessage(it,readMarker)}
-    val byId=mapped.associateBy{it.id}
-    _messages.value=mapped.map { item -> if(item.replyToMessageId!=0L) item.copy(replyToText=byId[item.replyToMessageId]?.text ?: item.replyToText) else item }.sortedBy{it.date}
-    val incomingIds=loaded.filter{!it.isOutgoing}.map{it.id}.toLongArray()
-    if(incomingIds.isNotEmpty()) messageViewQueue.enqueue(id,incomingIds)
-   }
-   }
-   override fun onError(error:TdApi.Error) { }
-  })
- }
- fun closeChat() {
-  chatSession.close()
-  _searchResults.value=emptyList()
- }
- fun searchChatMessages(chatId:Long,query:String) {
-  val value=query.trim()
-  val generation=chatSession.nextSearchGeneration()
-  if(value.isBlank()) {
-   _searchResults.value=emptyList()
-   return
-  }
-  if(chatSession.activeChat!=chatId) return
-  _searchResults.value=emptyList()
-  chatHistoryController.search(chatId,value,object : TdChatHistoryController.Callback {
-   override fun onResult(result:TdApi.Object) {
-   if(generation!=chatSession.searchGeneration || chatSession.activeChat!=chatId) return
-   if(result is TdApi.FoundChatMessages) {
-    val readMarker=_chats.value.firstOrNull { it.id==chatId }?.lastReadOutboxMessageId ?: 0L
-    _searchResults.value=result.messages.map { toTgMessage(it,readMarker) }.sortedBy { it.date }
-   }
-   }
-   override fun onError(error:TdApi.Error) { }
-  })
- }
- fun loadOlderMessages(chatId:Long) {
-  if(chatSession.activeChat!=chatId || chatSession.isLoading(chatId) || chatSession.isExhausted(chatId)) return
-  val oldest=_messages.value.minByOrNull { it.id } ?: return
-  val session=chatSession.sessionGeneration
-  chatSession.markLoading(chatId)
-  chatHistoryController.loadOlder(chatId,oldest.id,object : TdChatHistoryController.Callback {
-   override fun onResult(result:TdApi.Object) {
-   if(chatSession.sessionGeneration!=session) return
-   chatSession.clearLoading(chatId)
-   if(chatSession.activeChat!=chatId || result !is TdApi.Messages) return
-   val loaded=result.messages
-   if(loaded.isEmpty()) {
-    chatSession.markExhausted(chatId)
-    return
-   }
-   val previous=_messages.value
-   val readMarker=_chats.value.firstOrNull{it.id==chatId}?.lastReadOutboxMessageId ?: 0L
-   val older=loaded.map { toTgMessage(it,readMarker) }
-   val combined=(older+previous).distinctBy { it.id }.sortedBy { it.date }
-   val byId=combined.associateBy { it.id }
-   _messages.value=combined.map { item ->
-    if(item.replyToMessageId!=0L && item.replyToText.isBlank()) item.copy(replyToText=byId[item.replyToMessageId]?.text ?: item.replyToText) else item
-   }
-   if(loaded.size<50 || _messages.value.size==previous.size) chatSession.markExhausted(chatId)
-   }
-   override fun onError(error:TdApi.Error) { if(chatSession.sessionGeneration==session) chatSession.clearLoading(chatId) }
-  })
- }
+ fun openChat(id:Long) { chatConversationController.openChat(id) }
+ fun closeChat() { chatConversationController.closeChat() }
+ fun searchChatMessages(chatId:Long,query:String) { chatConversationController.searchChatMessages(chatId,query) }
+ fun loadOlderMessages(chatId:Long) { chatConversationController.loadOlderMessages(chatId) }
  fun clearOperationError() { operationErrorController.clear() }
   fun updateMyProfile(firstName:String,lastName:String,bio:String) {
   accountActions.updateProfile(firstName,lastName,bio,myUserId ?: 0L)
