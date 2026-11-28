@@ -36,13 +36,17 @@ class TdLibClient(context:Context) {
  private var chatSearchGeneration=0
  private val historyLoadingChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
  private val historyExhaustedChats=java.util.concurrent.ConcurrentHashMap.newKeySet<Long>()
- private val storyQueue = ChatStoryRequestQueue(ChatStoryRequestQueue.Requester { chatId, callback ->
-  send(TdApi.GetChatActiveStories(chatId),
-   handler={ callback.onResult(it) },
-   onError={ callback.onError(it) },
-   reportErrorToUi=false)
- })
- private val storyScheduler=java.util.concurrent.Executors.newSingleThreadScheduledExecutor { task -> Thread(task,"specialgram-story-queue").apply { isDaemon=true } }
+ private val storyQueue = ChatStoryRequestQueue(
+  ChatStoryRequestQueue.Requester { chatId, callback ->
+   send(TdApi.GetChatActiveStories(chatId),
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  ChatStoryRequestQueue.ResultListener { result ->
+   if(result is TdApi.ChatActiveStories) updateChatStories(result)
+  }
+ )
  private var registeredPushToken:String?=null
  private val pushRegistrationInFlight=AtomicBoolean(false)
  private var myUserId:Long?=null

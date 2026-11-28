@@ -20,6 +20,9 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
     public interface Requester {
         void request(long chatId, Callback callback);
     }
+    public interface ResultListener {
+        void onResult(TdApi.Object result);
+    }
 
     private static final Pattern RETRY_AFTER =
             Pattern.compile("retry after\\s+(\\d+)", Pattern.CASE_INSENSITIVE);
@@ -28,6 +31,7 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
     private static final long MAX_BACKOFF_MS = 900_000L;
 
     private final Requester requester;
+    private final ResultListener resultListener;
     private final ConcurrentLinkedQueue<Long> queue = new ConcurrentLinkedQueue<>();
     private final java.util.Set<Long> pending = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean scheduled = new AtomicBoolean(false);
@@ -39,8 +43,9 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
         return thread;
     });
 
-    public ChatStoryRequestQueue(Requester requester) {
+    public ChatStoryRequestQueue(Requester requester, ResultListener resultListener) {
         this.requester = requester;
+        this.resultListener = resultListener;
     }
 
     public void enqueue(long chatId) {
@@ -80,7 +85,8 @@ public final class ChatStoryRequestQueue implements AutoCloseable {
             requester.request(chatId, new Callback() {
                 @Override public void onResult(TdApi.Object result) {
                     pending.remove(chatId);
-                    finish(NORMAL_DELAY_MS);
+                    try { resultListener.onResult(result); }
+                    finally { finish(NORMAL_DELAY_MS); }
                 }
                 @Override public void onError(TdApi.Error error) {
                     if (error != null && error.code == 429) {
