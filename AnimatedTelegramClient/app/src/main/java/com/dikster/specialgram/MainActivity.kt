@@ -295,7 +295,6 @@ private fun TelegramApp(td: TdLibClient) {
 
 @Composable
 private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories: List<TgStory>, onOpenStory: (TgStory) -> Unit, onCloseStory: (TgStory) -> Unit, onReactToStory: (TgStory) -> Unit, onPostStory: () -> Unit, onPostVideoStory: () -> Unit, onReplyToStory: (TgStory, String) -> Unit, query: String, onQuery: (String) -> Unit, contactsQuery: String, onContactsQuery: (String) -> Unit, sortNewest: Boolean, onSort: (Boolean) -> Unit, compactChats: Boolean, onCompactChats: (Boolean) -> Unit, account: TgAccount?, onSaveMyProfile: (String,String,String) -> Unit, onPickProfilePhoto: () -> Unit, operationError: String?, onDismissOperationError: () -> Unit, privacyLastSeen: String, onPrivacyLastSeen: (String) -> Unit, privacyPhone: String, onPrivacyPhone: (String) -> Unit, privacyPhoto: String, onPrivacyPhoto: (String) -> Unit, themeName: String, onTheme: (String) -> Unit, glass: Float, onGlass: (Float) -> Unit, fontScale: Float, onFontScale: (Float) -> Unit, accentName: String, onAccent: (String) -> Unit, bubbleRadius: Float, onBubbleRadius: (Float) -> Unit, wallpaperName: String, onWallpaper: (String) -> Unit, headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit, onOpen: (TgChat) -> Unit, onOpenContact: (TgContact) -> Unit, onArchive: (TgChat) -> Unit, onTogglePinned: (TgChat) -> Unit, onToggleUnread: (TgChat) -> Unit, onToggleMute: (TgChat) -> Unit) {
-    var showStoryComposer by remember { mutableStateOf(false) }
     var viewingStory by remember { mutableStateOf<Pair<Long,Int>?>(null) }
     val orderedStories = remember(stories) { TdStoryListFilter.ordered(stories) }
     val activeStoryIndex = orderedStories.indexOfFirst { viewingStory == (it.chatId to it.storyId) }
@@ -314,9 +313,15 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
         }
     }
     var folder by remember { mutableStateOf("Все") }
-    val storyStripListener = remember(onPostStory, onOpenStory) {
+    val storyComposerContext = androidx.compose.ui.platform.LocalContext.current
+    val photoStoryAction = onPostStory
+    val videoStoryAction = onPostVideoStory
+    val storyStripListener = remember(photoStoryAction, videoStoryAction, onOpenStory, storyComposerContext) {
         object : NativeStoryStripView.Listener {
-            override fun onPostStory() = onPostStory()
+            override fun onPostStory() {
+                NativeStoryComposerDialog.show(storyComposerContext,
+                    Runnable { photoStoryAction() }, Runnable { videoStoryAction() })
+            }
             override fun onOpenStory(story: TgStory) {
                 viewingStory = story.chatId to story.storyId
                 onOpenStory(story)
@@ -434,18 +439,6 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 )
             }
         }
-        if (showStoryComposer) AlertDialog(
-            onDismissRequest = { showStoryComposer = false },
-            title = { Text("Добавить историю", color = LocalAppearance.current.text) },
-            text = { Text("Выбери фото или видео из галереи.", color = LocalAppearance.current.muted) },
-            confirmButton = {
-                Row {
-                    TextButton(onClick = { showStoryComposer = false; onPostStory() }) { Text("Фото") }
-                    TextButton(onClick = { showStoryComposer = false; onPostVideoStory() }) { Text("Видео") }
-                }
-            },
-            dismissButton = { TextButton(onClick = { showStoryComposer = false }) { Text("Отмена") } }
-        )
         if (activeStory != null) StoryViewer(
             story = activeStory,
             onDismiss = { onCloseStory(activeStory); viewingStory = null },
