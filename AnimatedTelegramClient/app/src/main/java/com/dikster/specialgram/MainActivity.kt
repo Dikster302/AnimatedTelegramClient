@@ -1157,10 +1157,15 @@ private fun StoryViewer(story: TgStory, onDismiss: () -> Unit, onPrevious: () ->
 
 @Composable
 private fun ProfileInfoLine(label: String, value: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = LocalAppearance.current.muted, fontSize = 12.sp)
-        Text(value, color = LocalAppearance.current.text, fontSize = 12.sp)
-    }
+    val appearance = LocalAppearance.current
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            NativeTextRows.profileInfo(context, label, value,
+                appearance.muted.toArgb(), appearance.text.toArgb())
+        },
+        update = { }
+    )
 }
 
 private fun isSameMessageDay(first: Int, second: Int): Boolean {
@@ -1173,22 +1178,12 @@ private fun isSameMessageDay(first: Int, second: Int): Boolean {
 
 @Composable
 private fun MessageDateDivider(timestamp: Int) {
-    val label = remember(timestamp) {
-        val date = Date(timestamp.toLong() * 1000L)
-        val today = Calendar.getInstance()
-        val target = Calendar.getInstance().apply { time = date }
-        val yesterday = Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
-        when {
-            today.get(Calendar.YEAR) == target.get(Calendar.YEAR) && today.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR) -> "Сегодня"
-            yesterday.get(Calendar.YEAR) == target.get(Calendar.YEAR) && yesterday.get(Calendar.DAY_OF_YEAR) == target.get(Calendar.DAY_OF_YEAR) -> "Вчера"
-            else -> SimpleDateFormat("d MMMM yyyy", Locale("ru")).format(date)
-        }
-    }
-    Box(Modifier.fillMaxWidth().padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
-        Surface(color = LocalAppearance.current.panel.copy(alpha = 0.88f), shape = RoundedCornerShape(20.dp)) {
-            Text(label, color = LocalAppearance.current.muted, fontSize = 11.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp))
-        }
-    }
+    val panelColor = LocalAppearance.current.panel.toArgb()
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context -> NativeTextRows.messageDateDivider(context, timestamp, panelColor) },
+        update = { }
+    )
 }
 
 @Composable
