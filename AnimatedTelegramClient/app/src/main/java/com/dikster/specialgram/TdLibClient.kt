@@ -11,14 +11,36 @@ import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-data class TgChat(val id:Long,val title:String,val preview:String="",val lastDate:Int=0,val unreadCount:Int=0,val avatarPath:String="",val kind:String="Личный чат",val archived:Boolean=false,val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false,val lastReadOutboxMessageId:Long=0,val hasStory:Boolean=false,val hasUnviewedStory:Boolean=false,val isPinned:Boolean=false,val isMarkedAsUnread:Boolean=false,val isMuted:Boolean=false)
-data class TgStory(val chatId:Long,val storyId:Int,val ownerName:String,val date:Int,val caption:String="",val isVideo:Boolean=false,val path:String="",val isViewed:Boolean=false)
-data class TgReaction(val emoji:String,val count:Int,val chosen:Boolean)
-data class TgMessage(val id:Long,val text:String,val outgoing:Boolean,val date:Int,val isRead:Boolean=false,val videoShape:String="circle",val videoPath:String="",val replyToMessageId:Long=0L,val replyToText:String="",val reactions:List<TgReaction> = emptyList(),val photoPath:String="",val mediaKind:String="",val mediaPath:String="",val mediaName:String="",val mediaMimeType:String="",val mediaDuration:Int=0,val mediaSize:Long=0L,val isPinned:Boolean=false)
-data class TgContact(val id:Long,val name:String,val username:String="",val phone:String="",val status:String="",val isOnline:Boolean=false,val isPremium:Boolean=false)
-data class TgProfile(val chatId:Long,val name:String,val kind:String,val phone:String="",val bio:String="",val avatarPath:String="",val username:String="",val status:String="Статус неизвестен",val isOnline:Boolean=false,val isPremium:Boolean=false,val isVerified:Boolean=false,val commonGroups:Int=0)
-data class TgAccount(val name:String,val username:String="",val phone:String="",val isPremium:Boolean=false,val isVerified:Boolean=false,val bio:String="",val avatarPath:String="",val firstName:String="",val lastName:String="")
 sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
+private fun TgStory.copy(path:String=this.path,isViewed:Boolean=this.isViewed):TgStory =
+ TgStory(chatId,storyId,ownerName,date,caption,isVideo,path,isViewed)
+private fun TgContact.copy(status:String=this.status,isOnline:Boolean=this.isOnline):TgContact =
+ TgContact(id,name,username,phone,status,isOnline,isPremium)
+private fun TgProfile.copy(
+ bio:String=this.bio,avatarPath:String=this.avatarPath,status:String=this.status,
+ isOnline:Boolean=this.isOnline,commonGroups:Int=this.commonGroups
+):TgProfile = TgProfile(chatId,name,kind,phone,bio,avatarPath,username,status,isOnline,isPremium,isVerified,commonGroups)
+private fun TgAccount.copy(bio:String=this.bio,avatarPath:String=this.avatarPath):TgAccount =
+ TgAccount(name,username,phone,isPremium,isVerified,bio,avatarPath,firstName,lastName)
+private fun TgChat.copy(
+ title:String=this.title,preview:String=this.preview,lastDate:Int=this.lastDate,unreadCount:Int=this.unreadCount,
+ avatarPath:String=this.avatarPath,kind:String=this.kind,archived:Boolean=this.archived,status:String=this.status,
+ isOnline:Boolean=this.isOnline,isPremium:Boolean=this.isPremium,
+ lastReadOutboxMessageId:Long=this.lastReadOutboxMessageId,hasStory:Boolean=this.hasStory,
+ hasUnviewedStory:Boolean=this.hasUnviewedStory,isPinned:Boolean=this.isPinned,
+ isMarkedAsUnread:Boolean=this.isMarkedAsUnread,isMuted:Boolean=this.isMuted
+):TgChat = TgChat(id,title,preview,lastDate,unreadCount,avatarPath,kind,archived,status,isOnline,isPremium,
+ lastReadOutboxMessageId,hasStory,hasUnviewedStory,isPinned,isMarkedAsUnread,isMuted)
+private fun TgMessage.copy(
+ text:String=this.text,outgoing:Boolean=this.outgoing,date:Int=this.date,isRead:Boolean=this.isRead,
+ videoShape:String=this.videoShape,videoPath:String=this.videoPath,replyToMessageId:Long=this.replyToMessageId,
+ replyToText:String=this.replyToText,reactions:List<TgReaction> = this.reactions,photoPath:String=this.photoPath,
+ mediaKind:String=this.mediaKind,mediaPath:String=this.mediaPath,mediaName:String=this.mediaName,
+ mediaMimeType:String=this.mediaMimeType,mediaDuration:Int=this.mediaDuration,mediaSize:Long=this.mediaSize,
+ isPinned:Boolean=this.isPinned
+):TgMessage = TgMessage(id,text,outgoing,date,isRead,videoShape,videoPath,replyToMessageId,replyToText,
+ reactions,photoPath,mediaKind,mediaPath,mediaName,mediaMimeType,mediaDuration,mediaSize,isPinned)
+
 class TdLibClient(context:Context) {
  private val app=context.applicationContext
  private val _auth=MutableStateFlow<Auth>(Auth.Loading); val auth=_auth.asStateFlow()
