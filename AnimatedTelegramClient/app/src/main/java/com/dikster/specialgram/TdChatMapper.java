@@ -36,6 +36,15 @@ public final class TdChatMapper {
                 chat.notificationSettings != null && chat.notificationSettings.muteFor > 0);
     }
 
+    public static String profileKind(TdApi.ChatType type) {
+        if (type instanceof TdApi.ChatTypePrivate) return "Личный чат";
+        if (type instanceof TdApi.ChatTypeBasicGroup) return "Группа";
+        if (type instanceof TdApi.ChatTypeSupergroup)
+            return ((TdApi.ChatTypeSupergroup) type).isChannel ? "Канал" : "Группа";
+        if (type instanceof TdApi.ChatTypeSecret) return "Секретный чат";
+        return "Чат";
+    }
+
     public static int photoFileId(TdApi.Chat chat) {
         return chat.photo == null || chat.photo.small == null ? 0 : chat.photo.small.id;
     }
