@@ -96,6 +96,17 @@ class TdLibClient(context:Context) {
   },
   TdChatActions.Listener { loadChats() }
  )
+ private val contactsController = TdContactsController(
+  TdContactsController.Requester { function, callback ->
+   send(function,
+    handler={ callback.onResult(it) },
+    onError={ callback.onError(it) },
+    reportErrorToUi=false)
+  },
+  TdContactsController.Listener { user ->
+   if(user is TdApi.User) updateContact(user)
+  }
+ )
  private val chatListLoader = TdChatListLoader(
   TdChatListLoader.Requester { function, callback ->
    send(function,
@@ -219,9 +230,7 @@ class TdLibClient(context:Context) {
   val item=TgContact(user.id,name,user.usernames?.activeUsernames?.firstOrNull() ?: "",user.phoneNumber,userStatusText(user.status),user.status is TdApi.UserStatusOnline,user.isPremium)
   _contacts.value=(_contacts.value.filterNot{it.id==user.id}+item).sortedBy{it.name.lowercase(java.util.Locale.getDefault())}
  }
- fun loadContacts() {
-  send(TdApi.GetContacts()) { result -> if(result is TdApi.Users) result.userIds.forEach { id -> send(TdApi.GetUser(id)) { u -> if(u is TdApi.User) updateContact(u) } } }
- }
+ fun loadContacts() { contactsController.load() }
  fun openContact(userId:Long,onReady:(TgChat)->Unit) {
   send(TdApi.CreatePrivateChat(userId,false)) { result -> if(result is TdApi.Chat) { putChat(result); onReady(_chats.value.firstOrNull{it.id==result.id} ?: TgChat(result.id,result.title,kind="Личный чат")) } }
  }
@@ -633,6 +642,6 @@ fun reportOperationError(text:String) {
    } else handler?.invoke(r)
   })
  }
- fun close(){chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
+ fun close(){contactsController.close();chatListLoader.close();storyQueue.close();client.send(TdApi.Close(),null)}
  
 }
