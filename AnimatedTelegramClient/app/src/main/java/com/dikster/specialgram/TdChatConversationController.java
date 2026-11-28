@@ -217,7 +217,7 @@ public final class TdChatConversationController {
         return new TgChat(chat.getId(), chat.getTitle(), chat.getPreview(), chat.getLastDate(),
                 unreadCount, chat.getAvatarPath(), chat.getKind(), chat.getArchived(), chat.getStatus(),
                 chat.isOnline(), chat.isPremium(), readMarker, chat.getHasStory(), chat.getHasUnviewedStory(),
-                chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted());
+                chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder());
     }
 
     private static TgMessage copyMessage(TgMessage message, boolean read, String replyText) {
