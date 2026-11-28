@@ -314,6 +314,17 @@ public final class NativeSettingsPanelView extends LinearLayout {
                     .putExtra(Intent.EXTRA_TEXT,value);
             getContext().startActivity(Intent.createChooser(intent,"Экспортировать журнал"));
         }),match());
+        body.addView(button("Сбросить диагностику",()->{
+            new AlertDialog.Builder(getContext())
+                    .setTitle("Сбросить журнал диагностики?")
+                    .setMessage("Все сохранённые записи TDLib будут удалены. Новые ошибки, если появятся, начнут записываться заново.")
+                    .setNegativeButton("Отмена",null)
+                    .setPositiveButton("Сбросить",(dialog,which)->{
+                        DiagnosticsJournal.clear(getContext());
+                        render();
+                        toast("Журнал диагностики очищен");
+                    }).show();
+        }),match());
         paragraph("Журнал хранится только в памяти приложения. Перед отправкой можешь просмотреть его содержимое.");
     }
 
