@@ -37,6 +37,7 @@ public final class TdLibClient implements AutoCloseable {
     private final Map<Integer, TdPair<Long, Long>> videoFileToMessage = new ConcurrentHashMap<>();
     private final Map<Integer, TdPair<Long, Long>> mediaFileToMessage = new ConcurrentHashMap<>();
     private final Map<Integer, TdPair<Long, Integer>> storyFileToKey = new ConcurrentHashMap<>();
+    private final Map<Integer,TdPair<Long,Integer>> profilePhotoFileToIndex = new ConcurrentHashMap<>();
     private final Map<Long, Long> userToChat = new ConcurrentHashMap<>();
     private final Map<Long, Long> confirmedIds = new ConcurrentHashMap<>();
 
@@ -188,6 +189,33 @@ public final class TdLibClient implements AutoCloseable {
                         int photoId = user.profilePhoto == null || user.profilePhoto.small == null
                                 ? 0 : user.profilePhoto.small.id;
                         if (photoId > 0) { fileToChat.put(photoId, chatId); fileDownloadQueue.enqueue(photoId); }
+                    }
+
+                    @Override public void onProfilePhotos(long userId,TdApi.ChatPhotos photos) {
+                        TgProfile current=profile.getValue();
+                        if(current==null||current.getUserId()!=userId)return;
+                        List<String> paths=new ArrayList<>();
+                        if(photos!=null&&photos.photos!=null)for(TdApi.ChatPhoto photo:photos.photos){
+                            if(photo==null||photo.sizes==null||photo.sizes.length==0)continue;
+                            TdApi.File best=null;long bestArea=-1L;
+                            for(TdApi.PhotoSize size:photo.sizes){
+                                if(size==null||size.photo==null)continue;
+                                long area=(long)Math.max(1,size.width)*Math.max(1,size.height);
+                                if(area>bestArea){bestArea=area;best=size.photo;}
+                            }
+                            if(best==null){paths.add("");continue;}
+                            int index=paths.size();paths.add(best.local!=null&&best.local.isDownloadingCompleted
+                                    ?PersistentAvatarStore.persist(app,best.id,best.local.path):"");
+                            if(best.local==null||!best.local.isDownloadingCompleted){
+                                profilePhotoFileToIndex.put(best.id,new TdPair<>(userId,index));
+                                fileDownloadQueue.enqueue(best.id);
+                            }
+                        }
+                        TgProfile latest=profile.getValue();
+                        if(latest!=null&&latest.getUserId()==userId){
+                            if(paths.isEmpty()&&!latest.getAvatarPath().isEmpty())paths.add(latest.getAvatarPath());
+                            profile.setValue(latest.withPhotoPaths(paths));
+                        }
                     }
                 });
 
@@ -363,7 +391,11 @@ public final class TdLibClient implements AutoCloseable {
             @Override public String persistAvatar(int fileId, String sourcePath) {
                 return PersistentAvatarStore.persist(app, fileId, sourcePath);
             }
-        }, fileToChat, videoFileToMessage, mediaFileToMessage, storyFileToKey);
+            @Override public void onProfilePhotoDownloaded(long userId,int photoIndex,String path){
+                TgProfile current=profile.getValue();
+                if(current!=null&&current.getUserId()==userId)profile.setValue(current.withPhotoPath(photoIndex,path));
+            }
+        }, fileToChat, videoFileToMessage, mediaFileToMessage, storyFileToKey,profilePhotoFileToIndex);
 
         pushRegistrationController = new TdPushRegistrationController(app, (function, callback) ->
                 send(function, callback::onResult, callback::onError, false));
