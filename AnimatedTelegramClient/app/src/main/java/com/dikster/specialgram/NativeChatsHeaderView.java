@@ -52,6 +52,7 @@ public final class NativeChatsHeaderView extends LinearLayout {
         GradientDrawable emojiBg=new GradientDrawable();
         emojiBg.setColor(0x332AABEE);emojiBg.setCornerRadius(dp(12));
         premiumEmoji.setBackground(emojiBg);
+        premiumEmoji.setShadowLayer(dp(7),0f,0f,0xFF2AABEE);
         LayoutParams ep=new LayoutParams(dp(34),dp(32));
         ep.leftMargin=dp(8);
         addView(premiumEmoji,ep);
