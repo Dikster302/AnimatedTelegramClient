@@ -11,7 +11,6 @@ import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
-sealed class Auth { object Loading:Auth(); object Phone:Auth(); object Code:Auth(); object Password:Auth(); object Ready:Auth(); data class Error(val text:String):Auth() }
 private fun TgStory.copy(path:String=this.path,isViewed:Boolean=this.isViewed):TgStory =
  TgStory(chatId,storyId,ownerName,date,caption,isVideo,path,isViewed)
 private fun TgContact.copy(status:String=this.status,isOnline:Boolean=this.isOnline):TgContact =
