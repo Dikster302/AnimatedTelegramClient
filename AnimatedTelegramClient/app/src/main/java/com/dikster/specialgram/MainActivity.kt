@@ -1062,58 +1062,47 @@ private fun ConversationScreen(
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(LocalAppearance.current.panel.copy(alpha = 1f - LocalAppearance.current.glass * 0.30f)).padding(horizontal = 10.dp, vertical = 7.dp)) {
-            if (replyingTo != null) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(LocalAppearance.current.panelLight).padding(start = 10.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(if (replyingTo!!.outgoing) "Ответ на ваше сообщение" else "Ответ на сообщение ${chat.title}", color = LocalAppearance.current.accent, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        Text(replyingTo!!.text, color = LocalAppearance.current.text, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                    TextButton(onClick = { replyingTo = null }) { Text("✕", color = LocalAppearance.current.muted) }
+        val sendAction = onSend
+        val photoAction = onSendPhoto
+        val documentAction = onSendDocument
+        val recordAction = onRecordVideo
+        val composerListener = remember(animatedMode, replyingTo, chat.title,
+            sendAction, photoAction, documentAction, recordAction) {
+            object : NativeMessageComposerView.Listener {
+                override fun onDraftChanged(value: String) { draft = value }
+                override fun onSend(value: String) {
+                    val replyId = replyingTo?.id
+                    draft = ""
+                    replyingTo = null
+                    sendAction(value, animatedMode, replyId)
                 }
-                Spacer(Modifier.height(5.dp))
-            }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Box {
-                    IconButton(onClick = { attachmentMenuOpen = true }) { Text("＋", color = LocalAppearance.current.accent, fontSize = 27.sp) }
-                    DropdownMenu(expanded = attachmentMenuOpen, onDismissRequest = { attachmentMenuOpen = false }) {
-                        DropdownMenuItem(text = { Text("Фото или изображение") }, onClick = { attachmentMenuOpen = false; onSendPhoto() })
-                        DropdownMenuItem(text = { Text("Файл или документ") }, onClick = { attachmentMenuOpen = false; onSendDocument() })
-                    }
-                }
-                OutlinedTextField(
-                    value = draft, onValueChange = { draft = it }, modifier = Modifier.weight(1f),
-                    placeholder = { Text("Сообщение", color = LocalAppearance.current.muted) }, maxLines = 4,
-                    shape = RoundedCornerShape(23.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Default),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), unfocusedContainerColor = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f),
-                        focusedBorderColor = LocalAppearance.current.accent, unfocusedBorderColor = Color.Transparent,
-                        focusedTextColor = LocalAppearance.current.text, unfocusedTextColor = LocalAppearance.current.text, cursorColor = LocalAppearance.current.accent
-                    )
-                )
-                Spacer(Modifier.width(5.dp))
-                Surface(
-                    modifier = Modifier.size(49.dp).clip(CircleShape).combinedClickable(onClick = onRecordVideo, onLongClick = { showVideoShapePicker = true }),
-                    color = LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f), shape = CircleShape
-                ) { Box(contentAlignment = Alignment.Center) { Text("◎", color = LocalAppearance.current.accent, fontSize = 25.sp) } }
-                Spacer(Modifier.width(5.dp))
-                val sendScale by animateFloatAsState(if (draft.isBlank()) 0.92f else 1f, label = "send-button")
-                Surface(
-                    modifier = Modifier.size(49.dp).clip(CircleShape).clickable(enabled = draft.isNotBlank()) {
-                        val value = draft.trim()
-                        draft = ""
-                        val replyId = replyingTo?.id
-                        replyingTo = null
-                        onSend(value, animatedMode, replyId)
-                    },
-                    color = if (draft.isBlank()) LocalAppearance.current.panelLight.copy(alpha = 1f - LocalAppearance.current.glass * 0.38f) else LocalAppearance.current.accent,
-                    shape = CircleShape
-                ) {
-                    Box(contentAlignment = Alignment.Center) { Text("➤", color = Color.White, fontSize = (21f * sendScale).sp) }
-                }
+                override fun onSendPhoto() = photoAction()
+                override fun onSendDocument() = documentAction()
+                override fun onRecordVideo() = recordAction()
+                override fun onChooseVideoShape() { showVideoShapePicker = true }
+                override fun onClearReply() { replyingTo = null }
             }
         }
+        val composerAppearance = LocalAppearance.current
+        AndroidView(
+            modifier = Modifier.fillMaxWidth()
+                .background(composerAppearance.panel.copy(alpha = 1f - composerAppearance.glass * 0.30f)),
+            factory = { context ->
+                NativeMessageComposerView(context, draft, replyingTo, chat.title,
+                    composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
+                    composerAppearance.accent.toArgb(), composerAppearance.panel.toArgb(),
+                    composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
+                    composerListener)
+            },
+            update = { view ->
+                view.update(draft, replyingTo, chat.title,
+                    composerAppearance.text.toArgb(), composerAppearance.muted.toArgb(),
+                    composerAppearance.accent.toArgb(), composerAppearance.panel.toArgb(),
+                    composerAppearance.panelLight.copy(alpha = 1f - composerAppearance.glass * 0.38f).toArgb(),
+                    composerListener)
+            }
+        )
+
     }
 }
 
