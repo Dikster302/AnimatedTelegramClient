@@ -122,6 +122,8 @@ public final class NativeContactsPanel extends LinearLayout {
     }
 
     private View createContactRow(TgContact contact) {
+        LinearLayout container = new LinearLayout(getContext());
+        container.setOrientation(VERTICAL);
         LinearLayout row = new LinearLayout(getContext());
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(16), dp(9), dp(16), dp(9));
@@ -147,12 +149,13 @@ public final class NativeContactsPanel extends LinearLayout {
                 !empty(contact.getUsername()) ? "@" + contact.getUsername() : contact.getPhone();
         details.addView(text(subtitle, contact.isOnline() ? 0xFF35C759 : mutedColor, 12, false));
         row.setOnClickListener(v -> { if (listener != null) listener.onOpen(contact); });
+        container.addView(row);
         View divider = new View(getContext());
         divider.setBackgroundColor(0x99253341);
-        LayoutParams dp = new LayoutParams(LayoutParams.MATCH_PARENT, dp(1));
-        dp.leftMargin=dp(76);
-        row.addView(divider, dp);
-        return row;
+        LayoutParams dividerParams = new LayoutParams(LayoutParams.MATCH_PARENT, dp(1));
+        dividerParams.leftMargin=dp(76);
+        container.addView(divider, dividerParams);
+        return container;
     }
 
     private TextView text(String value,int color,int size,boolean bold) {
