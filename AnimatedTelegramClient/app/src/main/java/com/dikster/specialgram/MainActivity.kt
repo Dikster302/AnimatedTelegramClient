@@ -1190,116 +1190,29 @@ private fun MessageBubble(
     groupedWithPrevious: Boolean = false,
     groupedWithNext: Boolean = false
 ) {
-    val time = remember(message.date) {
-        try { SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(message.date.toLong() * 1000L)) }
-        catch (_: Exception) { "" }
-    }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (message.outgoing) Arrangement.End else Arrangement.Start) {
-        Column(
-            Modifier.widthIn(max = 310.dp).combinedClickable(onClick = {}, onLongClick = onLongPress).clip(
-                RoundedCornerShape(
-                    topStart = if (!message.outgoing && groupedWithPrevious) 4.dp else LocalAppearance.current.bubbleRadius.dp,
-                    topEnd = if (message.outgoing && groupedWithPrevious) 4.dp else LocalAppearance.current.bubbleRadius.dp,
-                    bottomStart = if (!message.outgoing && groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp,
-                    bottomEnd = if (message.outgoing && groupedWithNext) 4.dp else LocalAppearance.current.bubbleRadius.dp
-                )
-            ).background(if (message.outgoing) LocalAppearance.current.outgoing else LocalAppearance.current.incoming).padding(horizontal = 11.dp, vertical = 7.dp)
-        ) {
-            if (message.replyToMessageId != 0L) {
-                Text("↪ ${message.replyToText.ifBlank { "Сообщение" }}", color = LocalAppearance.current.accent, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            val photoBitmap = remember(message.photoPath) {
-                if (message.photoPath.isNotBlank()) runCatching { BitmapFactory.decodeFile(message.photoPath)?.asImageBitmap() }.getOrNull() else null
-            }
-            val context = androidx.compose.ui.platform.LocalContext.current
-            if (photoBitmap != null) {
-                Image(bitmap = photoBitmap, contentDescription = "Фото", modifier = Modifier.width(240.dp).heightIn(max = 300.dp).clip(RoundedCornerShape(12.dp)).clickable { openDownloadedMedia(context, message.mediaPath.ifBlank { message.photoPath }, "image/*") }, contentScale = ContentScale.Crop)
-                if (message.text.isNotBlank() && message.text != "📷 Фото") {
-                    Spacer(Modifier.height(4.dp))
-                    Text(message.text, color = LocalAppearance.current.text, fontSize = 15.sp, lineHeight = 20.sp)
-                }
-            } else if (message.mediaKind == "sticker" && message.mediaPath.isNotBlank()) {
-                val stickerBitmap = remember(message.mediaPath) { runCatching { BitmapFactory.decodeFile(message.mediaPath)?.asImageBitmap() }.getOrNull() }
-                if (stickerBitmap != null) Image(stickerBitmap, contentDescription = "Стикер", modifier = Modifier.size(156.dp), contentScale = ContentScale.Fit)
-                else Text("Стикер загружается…", color = LocalAppearance.current.muted, fontSize = 13.sp)
-            } else if (message.mediaKind == "document") {
-                Row(Modifier.widthIn(min = 190.dp, max = 270.dp).clip(RoundedCornerShape(10.dp)).clickable { openDownloadedMedia(context, message.mediaPath, message.mediaMimeType) }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("📎", fontSize = 27.sp); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(message.mediaName.ifBlank { "Файл" }, color = LocalAppearance.current.text, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                        Text("${MediaPreparation.formatFileSize(message.mediaSize)} · ${if (message.mediaPath.isBlank()) "Загрузка…" else "Открыть файл"}", color = LocalAppearance.current.muted, fontSize = 11.sp)
-                    }
-                }
-                if (message.text.isNotBlank() && !message.text.startsWith("📎")) Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
-            } else if (message.mediaKind == "audio" || message.mediaKind == "voice") {
-                AudioMessagePlayer(message.mediaPath, message.mediaName.ifBlank { message.text }, message.mediaDuration)
-            } else if (message.mediaKind == "animation" && message.mediaPath.isNotBlank()) {
-                AndroidView(factory = { viewContext -> VideoView(viewContext).apply { setVideoPath(message.mediaPath); setOnPreparedListener { player -> player.isLooping = true; start() } } }, modifier = Modifier.width(230.dp).height(230.dp).clip(RoundedCornerShape(12.dp)))
-                if (message.text.isNotBlank() && message.text != "GIF") Text(message.text, color = LocalAppearance.current.text, fontSize = 14.sp)
-            } else if (message.videoPath.isNotBlank()) {
-                AndroidView(
-                    factory = { viewContext -> VideoView(viewContext).apply {
-                        setVideoPath(message.videoPath)
-                        setOnPreparedListener { player -> player.isLooping = true; start() }
-                    } },
-                    modifier = Modifier.width(224.dp).height(224.dp).clip(messageVideoShape(message.videoShape))
-                )
-                Text(message.text, color = LocalAppearance.current.text, fontSize = 12.sp, lineHeight = 16.sp)
-            } else Text(message.text, color = LocalAppearance.current.text, fontSize = 16.sp, lineHeight = 21.sp)
-            Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                if (message.isPinned) Text("📌 ", color = LocalAppearance.current.muted, fontSize = 10.sp)
-                Text(time, color = LocalAppearance.current.muted.copy(alpha = 0.88f), fontSize = 11.sp)
-                if (message.outgoing) Text(if (message.isRead) "  ✓✓" else "  ✓", color = if (message.isRead) LocalAppearance.current.accent else LocalAppearance.current.muted, fontSize = 11.sp)
-            }
-            if (message.reactions.isNotEmpty()) {
-                Spacer(Modifier.height(5.dp))
-                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    message.reactions.forEach { reaction ->
-                        Row(
-                            Modifier.clip(RoundedCornerShape(50)).background(if (reaction.chosen) LocalAppearance.current.accent.copy(alpha = 0.28f) else LocalAppearance.current.panelLight.copy(alpha = 0.8f)).clickable { onReaction(reaction.emoji) }.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(reaction.emoji, fontSize = 14.sp)
-                            Spacer(Modifier.width(4.dp))
-                            Text(reaction.count.toString(), color = if (reaction.chosen) LocalAppearance.current.accent else LocalAppearance.current.text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                }
-            }
+    val appearance = LocalAppearance.current
+    val listener = remember(onLongPress, onReaction) {
+        object : NativeMessageBubbleView.Listener {
+            override fun onLongPress() = onLongPress()
+            override fun onReaction(emoji: String) = onReaction(emoji)
         }
     }
-}
-
-private fun messageVideoShape(name:String): Shape = when(name) {
-    "circle" -> CircleShape
-    "square" -> RectangleShape
-    "rounded" -> RoundedCornerShape(22.dp)
-    else -> object : Shape {
-        override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
-            val w=size.width; val h=size.height; val path=Path()
-            when(name) {
-                "heart" -> {
-                    path.moveTo(w*0.5f,h*0.92f)
-                    path.cubicTo(w*0.08f,h*0.62f,-w*0.04f,h*0.30f,w*0.22f,h*0.16f)
-                    path.cubicTo(w*0.38f,h*0.06f,w*0.5f,h*0.22f,w*0.5f,h*0.29f)
-                    path.cubicTo(w*0.5f,h*0.22f,w*0.62f,h*0.06f,w*0.78f,h*0.16f)
-                    path.cubicTo(w*1.04f,h*0.30f,w*0.92f,h*0.62f,w*0.5f,h*0.92f)
-                }
-                "star" -> for(i in 0 until 10) {
-                    val radius=if(i%2==0) minOf(w,h)*0.49f else minOf(w,h)*0.22f
-                    val angle=(-Math.PI/2.0)+(Math.PI/5.0*i)
-                    val x=w/2f+(kotlin.math.cos(angle)*radius).toFloat(); val y=h/2f+(kotlin.math.sin(angle)*radius).toFloat()
-                    if(i==0) path.moveTo(x,y) else path.lineTo(x,y)
-                }
-                else -> for(i in 0 until 6) {
-                    val angle=(-Math.PI/2.0)+(Math.PI/3.0*i); val radius=minOf(w,h)*0.49f
-                    val x=w/2f+(kotlin.math.cos(angle)*radius).toFloat(); val y=h/2f+(kotlin.math.sin(angle)*radius).toFloat()
-                    if(i==0) path.moveTo(x,y) else path.lineTo(x,y)
-                }
-            }
-            path.close(); return Outline.Generic(path)
+    AndroidView(
+        modifier = Modifier.fillMaxWidth(),
+        factory = { context ->
+            NativeMessageBubbleView(context, message, appearance.text.toArgb(),
+                appearance.muted.toArgb(), appearance.accent.toArgb(),
+                appearance.incoming.toArgb(), appearance.outgoing.toArgb(),
+                appearance.panelLight.toArgb(), appearance.bubbleRadius,
+                groupedWithPrevious, groupedWithNext, listener)
+        },
+        update = { view ->
+            view.update(message, appearance.text.toArgb(), appearance.muted.toArgb(),
+                appearance.accent.toArgb(), appearance.incoming.toArgb(),
+                appearance.outgoing.toArgb(), appearance.panelLight.toArgb(),
+                appearance.bubbleRadius, groupedWithPrevious, groupedWithNext, listener)
         }
-    }
+    )
 }
 
 @Composable
