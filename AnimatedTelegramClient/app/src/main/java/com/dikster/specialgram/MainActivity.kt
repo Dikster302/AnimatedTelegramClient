@@ -716,13 +716,18 @@ private fun ConversationScreen(
             )
         }
         if (visibleMessages.isEmpty()) {
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "⌕" else "✉", color = LocalAppearance.current.muted, fontSize = 34.sp)
-                    Text(if (messageSearchOpen && messageSearchQuery.isNotBlank()) "Ничего не найдено" else "Пока нет сообщений", color = LocalAppearance.current.muted, fontSize = 14.sp)
-                    Text(if (messageSearchOpen) if (chat.kind == "Секретный чат") "Поиск по загруженным сообщениям" else "Поиск по истории Telegram" else "Отправьте первое сообщение", color = LocalAppearance.current.muted.copy(alpha = 0.72f), fontSize = 12.sp)
+            val emptyAppearance = LocalAppearance.current
+            AndroidView(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                factory = { context ->
+                    NativeEmptyMessagesView(context, messageSearchOpen, messageSearchQuery,
+                        chat.kind, emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
+                },
+                update = { view ->
+                    view.update(messageSearchOpen, messageSearchQuery, chat.kind,
+                        emptyAppearance.text.toArgb(), emptyAppearance.muted.toArgb())
                 }
-            }
+            )
         } else {
             val listAppearance = LocalAppearance.current
             val loadOlderAction = onLoadOlderMessages
