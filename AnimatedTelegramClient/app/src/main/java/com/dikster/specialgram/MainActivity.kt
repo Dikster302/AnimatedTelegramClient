@@ -255,8 +255,11 @@ private fun TelegramApp(td: TdLibClient) {
                             onToggleMute = { chat -> td.toggleChatMuted(chat.id, !chat.isMuted) }
                         )
                     } else {
+                        val activeChat = selectedChat?.let { selected ->
+                            chats.firstOrNull { it.id == selected.id } ?: selected
+                        }
                         ConversationScreen(
-                            chat = selectedChat!!,
+                            chat = activeChat ?: selectedChat!!,
                             chats = chats,
                             messages = messages,
                             searchResults = searchResults,
