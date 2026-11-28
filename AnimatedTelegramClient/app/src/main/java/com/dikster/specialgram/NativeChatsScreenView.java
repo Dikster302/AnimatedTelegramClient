@@ -489,10 +489,10 @@ public final class NativeChatsScreenView extends FrameLayout {
 
     private void renderBottomNavigation(){
         bottomNavigation.removeAllViews();
-        String[] labels={"Чаты","Контакты","Настройки","Профиль"};
-        String[] icons={"▣","♙","⚙","●"};
+        String[] labels={"Чаты","Контакты","Звонки","Настройки"};
+        int[] tabs={0,1,4,2};
         for(int i=0;i<labels.length;i++){
-            final int tab=i;boolean active=selectedTab==i;
+            final int tab=tabs[i];boolean active=selectedTab==tab;
             LinearLayout item=new LinearLayout(getContext());item.setOrientation(LinearLayout.VERTICAL);
             item.setGravity(Gravity.CENTER);item.setPadding(0,dp(5),0,dp(4));
             NavIconView icon=new NavIconView(getContext(),i,active?state.accent:state.muted);
@@ -536,6 +536,14 @@ public final class NativeChatsScreenView extends FrameLayout {
                     android.graphics.RectF side=new android.graphics.RectF(cx-d*.64f,cy+d*.10f,cx-d*.18f,cy+d*.58f);
                     canvas.drawArc(side,205,135,false,paint);
                 }
+            }else if(kind==4){
+                android.graphics.Path receiver=new android.graphics.Path();
+                receiver.moveTo(cx-d*.30f,cy-d*.38f);
+                receiver.cubicTo(cx-d*.42f,cy-d*.30f,cx-d*.25f,cy+d*.18f,cx+d*.24f,cy+d*.34f);
+                receiver.cubicTo(cx+d*.38f,cy+d*.39f,cx+d*.45f,cy+d*.22f,cx+d*.33f,cy+d*.12f);
+                canvas.drawPath(receiver,paint);
+                canvas.drawLine(cx-d*.28f,cy-d*.35f,cx-d*.12f,cy-d*.18f,paint);
+                canvas.drawLine(cx+d*.12f,cy+d*.18f,cx+d*.30f,cy+d*.30f,paint);
             }else{
                 canvas.drawCircle(cx,cy,d*.38f,paint);
                 canvas.drawCircle(cx,cy,d*.15f,paint);
