@@ -15,13 +15,13 @@ public final class TgModelStateController {
         return new TgChat(chat.getId(), chat.getTitle(), chat.getPreview(), chat.getLastDate(),
                 chat.getUnreadCount(), chat.getAvatarPath(), chat.getKind(), chat.getArchived(),
                 chat.getStatus(), chat.isOnline(), chat.isPremium(), chat.getLastReadOutboxMessageId(),
-                hasStory, hasUnviewedStory, chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted());
+                hasStory, hasUnviewedStory, chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder());
     }
 
     public static TgChat clearHistoryPreview(TgChat chat) {
         return new TgChat(chat.getId(), chat.getTitle(), "", 0, 0, chat.getAvatarPath(),
                 chat.getKind(), chat.getArchived(), chat.getStatus(), chat.isOnline(),
                 chat.isPremium(), chat.getLastReadOutboxMessageId(), chat.getHasStory(),
-                chat.getHasUnviewedStory(), chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted());
+                chat.getHasUnviewedStory(), chat.isPinned(), chat.isMarkedAsUnread(), chat.isMuted(), chat.getPinnedOrder());
     }
 }
