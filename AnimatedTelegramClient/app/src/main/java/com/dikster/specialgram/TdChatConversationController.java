@@ -116,6 +116,25 @@ public final class TdChatConversationController {
         });
     }
 
+    public interface ProfileSectionCallback { void onResult(List<TgMessage> messages); }
+
+    public void searchProfileSection(long chatId,String tab,ProfileSectionCallback callback) {
+        if(!isActive(chatId)||callback==null)return;
+        final int generation=session.getSessionGeneration();
+        history.searchProfileSection(chatId,tab,new TdChatHistoryController.Callback(){
+            @Override public void onResult(TdApi.Object result){
+                if(!isCurrent(chatId,generation)||!(result instanceof TdApi.FoundChatMessages))return;
+                TdApi.Message[] found=((TdApi.FoundChatMessages)result).messages;
+                long marker=readMarker(chatId);
+                List<TgMessage> mapped=new ArrayList<>(found.length);
+                for(TdApi.Message message:found)mapped.add(listener.mapMessage(message,marker));
+                mapped.sort((a,b)->Integer.compare(b.getDate(),a.getDate()));
+                callback.onResult(mapped);
+            }
+            @Override public void onError(TdApi.Error error){if(isCurrent(chatId,generation))callback.onResult(new ArrayList<>());}
+        });
+    }
+
     public void loadOlderMessages(long chatId) {
         if (!isActive(chatId) || session.isLoading(chatId) || session.isExhausted(chatId)) return;
         List<TgMessage> previous = listener.messages();
