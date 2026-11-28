@@ -398,7 +398,7 @@ private fun ChatsScreen(chats: List<TgChat>, contacts: List<TgContact>, stories:
                 }
             )
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Все чаты", color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(if (folder == "Все") "Все чаты" else folder, color = LocalAppearance.current.accent, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Spacer(Modifier.weight(1f))
                 Text(if (unreadOnly) "Непрочитанные" else if (sortNewest) "По активности" else "А — Я", color = LocalAppearance.current.muted, fontSize = 12.sp)
             }
