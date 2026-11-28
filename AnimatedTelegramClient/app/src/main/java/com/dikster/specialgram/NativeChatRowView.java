@@ -168,7 +168,7 @@ public final class NativeChatRowView extends LinearLayout {
         menu.getMenu().add(0, ACTION_MUTE, 2,
                 chat.isMuted() ? "Включить уведомления" : "Отключить уведомления");
         menu.getMenu().add(0, ACTION_ARCHIVE, 3,
-                chat.isArchived() ? "Вернуть из архива" : "В архив");
+                chat.getArchived() ? "Вернуть из архива" : "В архив");
         menu.setOnMenuItemClickListener(item -> {
             switch (item.getItemId()) {
                 case ACTION_PIN: if (pinAction != null) pinAction.run(); return true;
