@@ -488,8 +488,8 @@ private fun SettingsPanel(
     headerWallpaper: String?, onPickHeaderWallpaper: () -> Unit, onClearHeaderWallpaper: () -> Unit, onSelectCosmicCover: () -> Unit
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val tdlibMediaBytes = remember { File(context.filesDir, "tdlib-files").let { root -> if (root.exists()) root.walkTopDown().filter { it.isFile }.sumOf { it.length() } else 0L } }
-    val cacheBytes = remember { context.cacheDir.let { root -> if (root.exists()) root.walkTopDown().filter { it.isFile }.sumOf { it.length() } else 0L } }
+    val tdlibMediaBytes = remember { MediaPreparation.directoryBytes(File(context.filesDir, "tdlib-files")) }
+    val cacheBytes = remember { MediaPreparation.directoryBytes(context.cacheDir) }
     var page by remember { mutableStateOf("main") }
     BackHandler(enabled = page != "main") {
         page = when (page) { "cover" -> "appearance"; else -> "main" }

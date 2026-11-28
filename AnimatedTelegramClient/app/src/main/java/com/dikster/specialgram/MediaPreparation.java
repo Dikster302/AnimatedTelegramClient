@@ -205,6 +205,31 @@ public final class MediaPreparation {
         return target;
     }
 
+    public static long directoryBytes(File root) {
+        if (root == null || !root.exists()) return 0L;
+        java.util.ArrayDeque<File> pending = new java.util.ArrayDeque<>();
+        java.util.HashSet<String> visited = new java.util.HashSet<>();
+        pending.add(root);
+        long total = 0L;
+        while (!pending.isEmpty()) {
+            File current = pending.removeLast();
+            try {
+                String canonical = current.getCanonicalPath();
+                if (!visited.add(canonical)) continue;
+            } catch (java.io.IOException ignored) { continue; }
+            if (current.isFile()) {
+                long length = current.length();
+                total = Long.MAX_VALUE - total < length ? Long.MAX_VALUE : total + length;
+            } else if (current.isDirectory()) {
+                File[] children;
+                try { children = current.listFiles(); }
+                catch (SecurityException denied) { children = null; }
+                if (children != null) for (File child : children) pending.addLast(child);
+            }
+        }
+        return total;
+    }
+
     public static String formatDuration(int seconds) {
         int safe = Math.max(0, seconds);
         return String.format(Locale.getDefault(), "%d:%02d", safe / 60, safe % 60);
